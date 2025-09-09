@@ -81,40 +81,38 @@ rtk_api_ret_t dal_rtl8373_mdc_en(rtk_uint32 enable)
 
 rtk_api_ret_t dal_rtl8373_phy_write(rtk_uint32 phy_mask, rtk_uint32 dev_addr, rtk_uint32 reg_addr, rtk_uint32 indata)
 {
-       rtk_api_ret_t retVal;
-       rtk_uint32 tmp;
-       rtk_uint32 tmp_cmd,tmp_res;
-       rtk_uint32 pollcnt = 0;
+    rtk_api_ret_t retVal;
+    rtk_uint32 tmp;
+    rtk_uint32 tmp_cmd,tmp_res;
+    rtk_uint32 pollcnt = 0;
 
-       if ((retVal = rtl8373_setAsicReg(RTL8373_SMI_ACCESS_PHY_CTRL_0_ADDR, phy_mask)) != RT_ERR_OK)
-                   return retVal;
+    if ((retVal = rtl8373_setAsicReg(RTL8373_SMI_ACCESS_PHY_CTRL_0_ADDR, phy_mask)) != RT_ERR_OK)
+        return retVal;
 
-       if ((retVal = rtl8373_setAsicRegBits(RTL8373_SMI_ACCESS_PHY_CTRL_3_ADDR, RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK, indata)) != RT_ERR_OK)
-                   return retVal;
+    if ((retVal = rtl8373_setAsicRegBits(RTL8373_SMI_ACCESS_PHY_CTRL_3_ADDR, RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK, indata)) != RT_ERR_OK)
+        return retVal;
 
-       tmp = (dev_addr << 19) | (reg_addr << 3) | 0x7;
+    tmp = (dev_addr << 19) | (reg_addr << 3) | (1 << 2) | (1 << 1) | 0x1;
 
-       if ((retVal = rtl8373_setAsicReg(RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp)) != RT_ERR_OK)
-                   return retVal;
+    if ((retVal = rtl8373_setAsicReg(RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp)) != RT_ERR_OK)
+        return retVal;
 
-       for(pollcnt = 0; pollcnt < RTL8373_MAX_POLLCNT; pollcnt++)
-       {
-              if ((retVal = rtl8373_getAsicRegBit(RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_OFFSET, &tmp_cmd)) != RT_ERR_OK)
-                          return retVal;
+    for(pollcnt = 0; pollcnt < RTL8373_MAX_POLLCNT; pollcnt++)
+    {
+        if ((retVal = rtl8373_getAsicRegBit(RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_OFFSET, &tmp_cmd)) != RT_ERR_OK)
+            return retVal;
 
-              if ((retVal = rtl8373_getAsicRegBits(RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, RTL8373_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK, &tmp_res)) != RT_ERR_OK)
-                          return retVal;
+        if ((retVal = rtl8373_getAsicRegBits(RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, RTL8373_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK, &tmp_res)) != RT_ERR_OK)
+            return retVal;
 
-              if((tmp_cmd == 0) && (tmp_res == 0))
-                     break;
-       }
+        if((tmp_cmd == 0) && (tmp_res == 0))
+            break;
+    }
 
-         if(pollcnt == RTL8373_MAX_POLLCNT)
-            {
-               return RT_ERR_BUSYWAIT_TIMEOUT;
-            }
+    if(pollcnt == RTL8373_MAX_POLLCNT)
+    return RT_ERR_BUSYWAIT_TIMEOUT;
 
-        return RT_ERR_OK;
+    return RT_ERR_OK;
 }
 
 
@@ -141,40 +139,38 @@ rtk_api_ret_t dal_rtl8373_phy_write(rtk_uint32 phy_mask, rtk_uint32 dev_addr, rt
 
 rtk_api_ret_t dal_rtl8373_phy_read(rtk_uint32 phy_id, rtk_uint32 dev_addr, rtk_uint32 reg_addr, rtk_uint32 *pdata)
 {
-       rtk_api_ret_t retVal;
-       rtk_uint32 tmp=0;
-       rtk_uint32 tmp_cmd,tmp_res;
-       rtk_uint32 pollcnt = 0;
+    rtk_api_ret_t retVal;
+    rtk_uint32 tmp=0;
+    rtk_uint32 tmp_cmd,tmp_res;
+    rtk_uint32 pollcnt = 0;
 
-       if ((retVal = rtl8373_setAsicRegBits(RTL8373_SMI_ACCESS_PHY_CTRL_3_ADDR, RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK, phy_id)) != RT_ERR_OK)
-                   return retVal;
+    if ((retVal = rtl8373_setAsicRegBits(RTL8373_SMI_ACCESS_PHY_CTRL_3_ADDR, RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK, phy_id)) != RT_ERR_OK)
+        return retVal;
 
-       tmp = (dev_addr << 19) | (reg_addr << 3) | (0 << 2) | 0x3;
+    tmp = (dev_addr << 19) | (reg_addr << 3) | (0 << 2) | (1 << 1) | 0x1;
 
-       if ((retVal = rtl8373_setAsicReg(RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp)) != RT_ERR_OK)
-                   return retVal;
+    if ((retVal = rtl8373_setAsicReg(RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp)) != RT_ERR_OK)
+        return retVal;
 
-       for(pollcnt = 0; pollcnt < RTL8373_MAX_POLLCNT; pollcnt++)
-       {
-              if ((retVal = rtl8373_getAsicRegBit(RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_OFFSET, &tmp_cmd)) != RT_ERR_OK)
-                          return retVal;
+    for(pollcnt = 0; pollcnt < RTL8373_MAX_POLLCNT; pollcnt++)
+    {
+        if ((retVal = rtl8373_getAsicRegBit(RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_OFFSET, &tmp_cmd)) != RT_ERR_OK)
+            return retVal;
 
-              if ((retVal = rtl8373_getAsicRegBits(RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, RTL8373_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK, &tmp_res)) != RT_ERR_OK)
-                          return retVal;
+        if ((retVal = rtl8373_getAsicRegBits(RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, RTL8373_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK, &tmp_res)) != RT_ERR_OK)
+            return retVal;
 
-              if((tmp_cmd == 0) && (tmp_res == 0))
-                     break;
-       }
+        if((tmp_cmd == 0) && (tmp_res == 0))
+                break;
+    }
 
-        if(pollcnt == RTL8373_MAX_POLLCNT)
-            {
-               return RT_ERR_BUSYWAIT_TIMEOUT;
-            }
+    if(pollcnt == RTL8373_MAX_POLLCNT)
+        return RT_ERR_BUSYWAIT_TIMEOUT;
 
-        if ((retVal = rtl8373_getAsicRegBits(RTL8373_SMI_ACCESS_PHY_CTRL_2_ADDR, RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK, pdata)) != RT_ERR_OK)
-                          return retVal;
+    if ((retVal = rtl8373_getAsicRegBits(RTL8373_SMI_ACCESS_PHY_CTRL_2_ADDR, RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK, pdata)) != RT_ERR_OK)
+        return retVal;
 
-        return RT_ERR_OK;
+    return RT_ERR_OK;
 }
 
 /* Function Name:

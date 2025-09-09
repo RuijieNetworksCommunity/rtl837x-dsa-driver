@@ -1,0 +1,279 @@
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/init.h>
+#include <linux/device.h>
+#include <linux/delay.h>
+#include <linux/of.h>
+#include <linux/gpio/consumer.h>
+#include <linux/mutex.h>
+
+#include "./rtl837x.h"
+
+static int rtl837x_mdio_write(void *ctx, u32 reg, u32 val)
+{
+	struct rtl837x_priv *priv = ctx;
+	struct mii_bus *bus = priv->bus;
+	int ret;
+
+	mutex_lock(&bus->mdio_lock);
+
+	// check busy
+	ret = bus->read(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG);
+    if (ret & 0x4) {
+		ret = RT_ERR_BUSYWAIT_TIMEOUT;
+		goto out_unlock;
+    }
+
+	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_ADDR_REG, reg);
+	if (ret)
+		goto out_unlock;
+
+	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_DATA_LOW, (val & 0xFFFF));
+	if (ret)
+		goto out_unlock;
+
+	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_DATA_HIGH, ((val >> 16) & 0xFFFF));
+	if (ret)
+		goto out_unlock;
+
+	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG, MDC_MDIO_WRITE_CMD);
+	if (ret)
+		goto out_unlock;
+
+	// check busy
+	ret = bus->read(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG);
+    if (ret & 0x4) {
+		ret = RT_ERR_BUSYWAIT_TIMEOUT;
+		goto out_unlock;
+    }
+	ret = 0;
+out_unlock:
+	mutex_unlock(&bus->mdio_lock);
+	// printk("rtl837x_mdio_write ret:%d\n", ret);
+	return ret;
+}
+
+static int rtl837x_mdio_read(void *ctx, u32 reg, u32 *val)
+{
+	struct rtl837x_priv *priv = ctx;
+	struct mii_bus *bus = priv->bus;
+	int ret, val_l, val_h;
+
+	mutex_lock(&bus->mdio_lock);
+
+	// check busy
+	ret = bus->read(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG);
+    if (ret & 0x4) {
+		ret = RT_ERR_BUSYWAIT_TIMEOUT;
+		goto out_unlock;
+    }
+
+	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_ADDR_REG, reg);
+	if (ret)
+		goto out_unlock;
+
+	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG, MDC_MDIO_READ_CMD);
+	if (ret)
+		goto out_unlock;
+
+	// check busy
+	ret = bus->read(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG);
+    if (ret & 0x4) {
+		ret = RT_ERR_BUSYWAIT_TIMEOUT;
+		goto out_unlock;
+    }
+
+
+	val_l = bus->read(bus, priv->mdio_addr, MDC_MDIO_DATA_LOW);
+	val_h = bus->read(bus, priv->mdio_addr, MDC_MDIO_DATA_HIGH);
+
+    *val = val_l & 0xffff;
+    *val |= (val_h & 0xffff) << 16;
+	ret = 0;
+
+out_unlock:
+	mutex_unlock(&bus->mdio_lock);
+	// printk("rtl837x_mdio_read ret:%d\n", ret);
+	return ret;
+}
+
+static void rtl837x_mdio_lock(void *ctx)
+{
+	struct rtl837x_priv *priv = ctx;
+
+	mutex_lock(&priv->map_lock);
+}
+
+static void rtl837x_mdio_unlock(void *ctx)
+{
+	struct rtl837x_priv *priv = ctx;
+
+	mutex_unlock(&priv->map_lock);
+}
+
+static const struct regmap_config rtl837x_mdio_regmap_config = {
+	.reg_bits = 16,
+	.val_bits = 32,
+	.reg_stride = 1,
+
+	.max_register = 0xffff,
+	.reg_format_endian = REGMAP_ENDIAN_BIG,
+	.reg_read = rtl837x_mdio_read,
+	.reg_write = rtl837x_mdio_write,
+	.cache_type = REGCACHE_NONE,
+	.lock = rtl837x_mdio_lock,
+	.unlock = rtl837x_mdio_unlock,
+};
+
+static const struct regmap_config rtl837x_mdio_nolock_regmap_config = {
+	.reg_bits = 16,
+	.val_bits = 32,
+	.reg_stride = 4,
+
+	.max_register = 0xffff,
+	.reg_format_endian = REGMAP_ENDIAN_BIG,
+	.reg_read = rtl837x_mdio_read,
+	.reg_write = rtl837x_mdio_write,
+	.cache_type = REGCACHE_NONE,
+	.disable_locking = true,
+};
+
+static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
+{
+	struct rtl837x_priv *priv;
+	struct device *dev = &mdiodev->dev;
+	const struct rtl837x_variant *var;
+	struct regmap_config rc;
+	struct device_node *np;
+	int ret;
+
+	var = of_device_get_match_data(dev);
+	if (!var)
+		return -EINVAL;
+	
+	priv = devm_kzalloc(&mdiodev->dev,
+				size_add(sizeof(*priv), var->chip_data_sz),
+				GFP_KERNEL);
+	if (!priv)
+		return -ENOMEM;
+
+	mutex_init(&priv->map_lock);
+	
+	rc = rtl837x_mdio_regmap_config;
+	rc.lock_arg = priv;
+	priv->map = devm_regmap_init(dev, NULL, priv, &rc);
+	if (IS_ERR(priv->map)) {
+		ret = PTR_ERR(priv->map);
+		dev_err(dev, "regmap init failed: %d\n", ret);
+		return ret;
+	}
+
+	rc = rtl837x_mdio_nolock_regmap_config;
+	priv->map_nolock = devm_regmap_init(dev, NULL, priv, &rc);
+	if (IS_ERR(priv->map_nolock)) {
+		ret = PTR_ERR(priv->map_nolock);
+		dev_err(dev, "regmap init failed: %d\n", ret);
+		return ret;
+	}
+
+	priv->mdio_addr = mdiodev->addr;
+	priv->bus = mdiodev->bus;
+	priv->dev = &mdiodev->dev;
+	priv->chip_data = (void *)priv + sizeof(*priv);
+
+	priv->ops = var->ops;
+
+	priv->write_reg_noack = rtl837x_mdio_write;
+
+	np = dev->of_node;
+
+	dev_set_drvdata(dev, priv);
+
+	priv->reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(priv->reset)) {
+		dev_err(dev, "failed to get RESET GPIO\n");
+		return PTR_ERR(priv->reset);
+	}
+
+	if (priv->reset) {
+		gpiod_set_value(priv->reset, 1);
+		dev_info(dev, "asserted RESET\n");
+		msleep(50);
+		gpiod_set_value(priv->reset, 0);
+		msleep(50);
+		gpiod_set_value(priv->reset, 1);
+		mdelay(50);
+		dev_info(dev, "deasserted RESET\n");
+	}
+
+	ret = priv->ops->detect(priv);
+	if (ret) {
+		dev_err(dev, "unable to detect switch\n");
+		return ret;
+	}
+
+	priv->ds = devm_kzalloc(dev, sizeof(*priv->ds), GFP_KERNEL);
+	if (!priv->ds)
+		return -ENOMEM;
+
+	priv->ds->dev = dev;
+	priv->ds->num_ports = priv->num_ports;
+	priv->ds->priv = priv;
+	priv->ds->ops = var->ds_ops_mdio;
+	
+	ret = dsa_register_switch(priv->ds);
+	if (ret) {
+		dev_err(priv->dev, "unable to register switch ret = %d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static void rtl837x_mdio_remove(struct mdio_device *mdiodev)
+{
+	struct rtl837x_priv *priv = dev_get_drvdata(&mdiodev->dev);
+
+	if (!priv)
+		return;
+
+	dsa_unregister_switch(priv->ds);
+
+	/* leave the device reset asserted */
+	if (priv->reset)
+		gpiod_set_value(priv->reset, 1);
+}
+
+static void rtl837x_mdio_shutdown(struct mdio_device *mdiodev)
+{
+	struct rtl837x_priv *priv = dev_get_drvdata(&mdiodev->dev);
+
+	if (!priv)
+		return;
+
+	dsa_switch_shutdown(priv->ds);
+
+	dev_set_drvdata(&mdiodev->dev, NULL);
+}
+
+static const struct of_device_id rtk_mdio_match[] = {
+	{ .compatible = "realtek,rtl8372n", .data = &rtl8372n_variant},
+	{},
+};
+MODULE_DEVICE_TABLE(of, rtk_gsw_match);
+
+static struct mdio_driver rtl837x_mdio_driver = {
+	.mdiodrv.driver = {
+		.name = "rtl837x-mdio",
+		.of_match_table = rtk_mdio_match,
+	},
+	.probe  = rtl837x_mdio_probe,
+	.remove = rtl837x_mdio_remove,
+	.shutdown = rtl837x_mdio_shutdown,
+};
+
+mdio_module_driver(rtl837x_mdio_driver);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("air jinkela <air_jinkela@163.com>");
+MODULE_DESCRIPTION("rtl8372n switch driver for MT7988");

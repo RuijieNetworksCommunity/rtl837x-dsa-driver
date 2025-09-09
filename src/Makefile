@@ -3,9 +3,9 @@ ccflags-y += -I$(src)/rtk-api -I$(src)/rtk-api/dal/rtl8373 -Iinclude/linux/
 
 obj-$(CONFIG_RTL8372N_DSA) += rtl8372n_dsa.o
 
-rtl8372n_dsa-objs := rtl8372n_mdio.o
-rtl8372n_dsa-objs := rtl8372n_mdio.o
-rtl8372n_dsa-objs += rtl8372n_dbg.o
+rtl8372n_dsa-objs := rtl8372n.o
+rtl8372n_dsa-objs += rtl837x_mdio.o
+rtl8372n_dsa-objs += rtl837x_common.o
 
 rtl8372n_dsa-objs += rtk-api/dal/dal_mgmt.o
 rtl8372n_dsa-objs += rtk-api/dal/rtl8373/dal_rtl8373_acl.o
