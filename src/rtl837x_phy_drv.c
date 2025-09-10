@@ -9,7 +9,7 @@
 
 #include "rtl837x.h"
 
-int rtl837x_read_mmd(struct phy_device *dev, int devnum, u16 regnum)
+int rtl837x_read_mmd(struct phy_device *phydev, int devnum, u16 regnum)
 {
     struct mii_bus *bus = phydev->mdio.bus;
     struct rtl837x_priv *priv;
@@ -24,7 +24,7 @@ int rtl837x_read_mmd(struct phy_device *dev, int devnum, u16 regnum)
     return 0;
 }
 
-int rtl837x_write_mmd(struct phy_device *dev, int devnum, u16 regnum, u16 val)
+int rtl837x_write_mmd(struct phy_device *phydev, int devnum, u16 regnum, u16 val)
 {
     struct mii_bus *bus = phydev->mdio.bus;
     struct rtl837x_priv *priv;
@@ -41,11 +41,22 @@ int rtl837x_write_mmd(struct phy_device *dev, int devnum, u16 regnum, u16 val)
 
 static struct phy_driver rtl837x_phy_drvs[] = {
     {
-		PHY_ID_MATCH_EXACT(0x001cc912),
+		.phy_id		= 0x1CCAD0,
+		.phy_id_mask	= 0xFFFFFFF0,
 		.name		= "RTL8372N Gigabit PHY",
 		.read_mmd	= &rtl837x_read_mmd,
 		.write_mmd	= &rtl837x_write_mmd,
 	},
+};
+
+int rtl837x_phy_module_init(struct module *owner, const void *driver_data)
+{
+    rtl837x_phy_drvs[0].driver_data = driver_data;
+	return phy_drivers_register(rtl837x_phy_drvs, ARRAY_SIZE(rtl837x_phy_drvs), owner);
 }
 
-module_phy_driver(rtl837x_phy_drvs);
+void rtl837x_phy_module_exit(void)
+{
+    printk("awa\n");
+	phy_drivers_unregister(rtl837x_phy_drvs, ARRAY_SIZE(rtl837x_phy_drvs));
+}

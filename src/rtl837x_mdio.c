@@ -148,14 +148,18 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	int ret;
 
 	var = of_device_get_match_data(dev);
-	if (!var)
-		return -EINVAL;
+	if (!var){
+		ret = -EINVAL;
+		goto err;
+	}
 	
 	priv = devm_kzalloc(&mdiodev->dev,
 				size_add(sizeof(*priv), var->chip_data_sz),
 				GFP_KERNEL);
-	if (!priv)
-		return -ENOMEM;
+	if (!priv){
+		ret = -ENOMEM;
+		goto err;
+	}
 
 	mutex_init(&priv->map_lock);
 	
@@ -165,7 +169,7 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	if (IS_ERR(priv->map)) {
 		ret = PTR_ERR(priv->map);
 		dev_err(dev, "regmap init failed: %d\n", ret);
-		return ret;
+		goto err;
 	}
 
 	rc = rtl837x_mdio_nolock_regmap_config;
@@ -173,7 +177,7 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	if (IS_ERR(priv->map_nolock)) {
 		ret = PTR_ERR(priv->map_nolock);
 		dev_err(dev, "regmap init failed: %d\n", ret);
-		return ret;
+		goto err;
 	}
 
 	priv->mdio_addr = mdiodev->addr;
@@ -192,7 +196,8 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	priv->reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(priv->reset)) {
 		dev_err(dev, "failed to get RESET GPIO\n");
-		return PTR_ERR(priv->reset);
+		ret = PTR_ERR(priv->reset);
+		goto err;
 	}
 
 	if (priv->reset) {
@@ -209,12 +214,16 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	ret = priv->ops->detect(priv);
 	if (ret) {
 		dev_err(dev, "unable to detect switch\n");
-		return ret;
+		goto err;
 	}
 
+	// rtl837x_phy_module_init(THIS_MODULE, (void*)priv);
+
 	priv->ds = devm_kzalloc(dev, sizeof(*priv->ds), GFP_KERNEL);
-	if (!priv->ds)
-		return -ENOMEM;
+	if (!priv->ds){
+		ret =  -ENOMEM;
+		goto err;
+	}
 
 	priv->ds->dev = dev;
 	priv->ds->num_ports = priv->num_ports;
@@ -224,10 +233,12 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	ret = dsa_register_switch(priv->ds);
 	if (ret) {
 		dev_err(priv->dev, "unable to register switch ret = %d\n", ret);
-		return ret;
+		goto err;
 	}
 
 	return 0;
+err:
+	return ret;
 }
 
 static void rtl837x_mdio_remove(struct mdio_device *mdiodev)

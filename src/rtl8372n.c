@@ -166,46 +166,46 @@ static int rtl8372n_enable_vlan(struct rtl837x_priv *priv, bool enable)
     return 0;
 }
 
-static int rtl8372n_phy_read(struct rtl837x_priv *priv, int phy, int regnum)
-{
-    rtl_gbl_priv = priv;
-    rtk_uint32 data;
-    // if((regnum & 0x40000000) == 0)
-    //     return -EPERM;
-    rtk_uint32 mmd = 1;
-    // rtk_uint32 mmd = (regnum >> 16) & 0x1F;
-    rtk_uint32 reg = regnum & 0xFFFF;
+// static int rtl8372n_phy_read(struct rtl837x_priv *priv, int phy, int regnum)
+// {
+//     rtl_gbl_priv = priv;
+//     rtk_uint32 data;
+//     // if((regnum & 0x40000000) == 0)
+//     //     return -EPERM;
+//     // rtk_uint32 mmd = 1;
+//     rtk_uint32 mmd = (regnum >> 16) & 0x1F;
+//     rtk_uint32 reg = regnum & 0xFFFF;
 
-    int ret = rtk_port_phyReg_get(phy, mmd, reg, &data);
-    if (ret != RT_ERR_OK)
-    {
-        dev_info(priv->dev,"ERROR:rtk_port_phyReg_get ret: %d\n", ret);
-        return -EIO;
-    }
+//     int ret = rtk_port_phyReg_get(phy, mmd, reg, &data);
+//     if (ret != RT_ERR_OK)
+//     {
+//         dev_info(priv->dev,"ERROR:rtk_port_phyReg_get ret: %d\n", ret);
+//         return -EIO;
+//     }
 
-	dev_info(priv->dev, "rtl8372n_phy_read: phy (%d) reg(0x%x) data(0x%x)\n", phy, regnum, data);
-    return data;
-}
+// 	dev_info(priv->dev, "rtl8372n_phy_read: phy (%d) reg(0x%x) data(0x%x)\n", phy, regnum, data);
+//     return data;
+// }
 
-static int rtl8372n_phy_write(struct rtl837x_priv *priv, int phy, int regnum, u16 val)
-{
-    rtl_gbl_priv = priv;
+// static int rtl8372n_phy_write(struct rtl837x_priv *priv, int phy, int regnum, u16 val)
+// {
+//     rtl_gbl_priv = priv;
 
-    // if((regnum & 0x40000000) == 0)
-    //     return -EPERM;
-    rtk_uint32 mmd = 1;
-    // rtk_uint32 mmd = (regnum >> 16) & 0x1F;
-    rtk_uint32 reg = regnum & 0xFFFF;
+//     // if((regnum & 0x40000000) == 0)
+//     //     return -EPERM;
+//     // rtk_uint32 mmd = 1;
+//     rtk_uint32 mmd = (regnum >> 16) & 0x1F;
+//     rtk_uint32 reg = regnum & 0xFFFF;
 
-    int ret = rtk_port_phyReg_set(1 << phy, mmd, reg, val);
-        if (ret != RT_ERR_OK)
-    {
-        dev_info(priv->dev,"ERROR:rtk_port_phyReg_set ret: %d\n", ret);
-        return -EIO;
-    }
-	dev_info(priv->dev, "rtl8372n_phy_write: phy (%d) reg(0x%x) val(0x%x)\n", phy, regnum, val);
-    return 0;
-}
+//     int ret = rtk_port_phyReg_set(1 << phy, mmd, reg, val);
+//         if (ret != RT_ERR_OK)
+//     {
+//         dev_info(priv->dev,"ERROR:rtk_port_phyReg_set ret: %d\n", ret);
+//         return -EIO;
+//     }
+// 	dev_info(priv->dev, "rtl8372n_phy_write: phy (%d) reg(0x%x) val(0x%x)\n", phy, regnum, val);
+//     return 0;
+// }
 
 static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
                                                         int port,
@@ -218,19 +218,111 @@ static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
 	return DSA_TAG_PROTO_MTK;
 }
 
+static int rtl8372n_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum)
+{
+    rtl_gbl_priv = priv;
+    rtk_uint32 data;
+
+    int ret = rtk_port_phyReg_get(priv->port_map[phy], devad, regnum, &data);
+    if (ret != RT_ERR_OK)
+    {
+        dev_info(priv->dev,"ERROR:rtk_port_phyReg_get ret: %d\n", ret);
+        return -EIO;
+    }
+
+	// dev_info(priv->dev, "rtl8372n_phy_read: phy (%d) reg(0x%x) data(0x%x)\n", phy, regnum, data);
+    return data;
+}
+
+static int rtl8372n_phy_write_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 val)
+{
+    rtl_gbl_priv = priv;
+
+    int ret = rtk_port_phyReg_set(1 << priv->port_map[phy], devad, regnum, val);
+        if (ret != RT_ERR_OK)
+    {
+        dev_info(priv->dev,"ERROR:rtk_port_phyReg_set ret: %d\n", ret);
+        return -EIO;
+    }
+	// dev_info(priv->dev, "rtl8372n_phy_write: phy (%d) reg(0x%x) val(0x%x)\n", phy, regnum, val);
+    return 0;
+}
+
+static int rtl8372n_mdio_phy_read_c45(struct mii_bus *bus, int port, int devad, int regnum)
+{
+	struct rtl837x_priv *priv = bus->priv;
+
+	return priv->ops->phy_read_c45(priv, port, devad, regnum);
+}
+
+static int rtl8372n_mdio_phy_write_c45(struct mii_bus *bus, int port, int devad, int regnum, u16 val)
+{
+	struct rtl837x_priv *priv = bus->priv;
+
+	return priv->ops->phy_write_c45(priv, port, devad, regnum, val);
+}
+
+static int rtl8372n_setup_mdio(struct rtl837x_priv *priv)
+{
+	struct device_node *np = priv->dev->of_node;
+    struct device_node *mnp;
+	struct dsa_switch *ds = priv->ds;
+	struct device *dev = priv->dev;
+	struct mii_bus *bus;
+	static int idx;
+	int ret = 0;
+
+    mnp = of_get_child_by_name(np, "mdio");
+
+	if (mnp && !of_device_is_available(mnp))
+		goto out;
+
+	bus = devm_mdiobus_alloc(dev);
+	if (!bus) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+    if (!mnp)
+		ds->slave_mii_bus = bus;
+
+    bus->priv = priv;
+	bus->name = KBUILD_MODNAME "-mii";
+	snprintf(bus->id, MII_BUS_ID_SIZE, KBUILD_MODNAME "-%d", idx++);
+	// bus->read = rtl8372n_phy_read_c22;
+	// bus->write = rtl8372n_phy_write_c22;
+	bus->read_c45 = rtl8372n_mdio_phy_read_c45;
+	bus->write_c45 = rtl8372n_mdio_phy_write_c45;
+	bus->parent = dev;
+	bus->phy_mask = ~ds->phys_mii_mask;
+
+	ret = devm_of_mdiobus_register(dev, bus, mnp);
+	if (ret) {
+		dev_err(dev, "failed to register MDIO bus: %d\n", ret);
+	}
+out:
+	of_node_put(mnp);
+	return ret;
+}
 
 static int rtl8372n_setup(struct dsa_switch *ds)
 {
     struct rtl837x_priv *priv = ds->priv;
     rtl_gbl_priv = priv;
-
     int ret;
+
     dev_info(priv->dev,"Start init RTL8372N Switch");
 
     ret = rtk_switch_init();
 	if(ret){
 		dev_err(priv->dev, "rtk_switch_init Fail, erron:%d\n", ret);
 		return -1;
+	}
+
+    ret = rtl8372n_setup_mdio(priv);
+	if(ret){
+		dev_err(priv->dev, "rtl8372n_setup_mdio Fail, erron:%d\n", ret);
+		return ret;
 	}
 
 	ret = rtk_vlan_reset();
@@ -307,20 +399,20 @@ static int rtl8372n_setup(struct dsa_switch *ds)
     return 0;
 }
 
-static int rtl8372n_dsa_phy_read(struct dsa_switch *ds, int phy, int regnum)
-{
-    struct rtl837x_priv *priv = ds->priv;
-    rtl_gbl_priv = priv;
-	return rtl8372n_phy_read(priv, priv->port_map[phy], regnum);
-}
+// static int rtl8372n_dsa_phy_read(struct dsa_switch *ds, int phy, int regnum)
+// {
+//     struct rtl837x_priv *priv = ds->priv;
+//     rtl_gbl_priv = priv;
+// 	return rtl8372n_phy_read(priv, priv->port_map[phy], regnum);
+// }
 
-static int rtl8372n_dsa_phy_write(struct dsa_switch *ds, int phy, int regnum,
-                    u16 val)
-{
-    struct rtl837x_priv *priv = ds->priv;
-    rtl_gbl_priv = priv;
-	return rtl8372n_phy_write(priv, priv->port_map[phy], regnum, val);
-}
+// static int rtl8372n_dsa_phy_write(struct dsa_switch *ds, int phy, int regnum,
+//                     u16 val)
+// {
+//     struct rtl837x_priv *priv = ds->priv;
+//     rtl_gbl_priv = priv;
+// 	return rtl8372n_phy_write(priv, priv->port_map[phy], regnum, val);
+// }
 
 static void rtl8372n_phylink_get_caps(struct dsa_switch *ds, int port,
 				       struct phylink_config *config)
@@ -337,25 +429,25 @@ static void rtl8372n_phylink_get_caps(struct dsa_switch *ds, int port,
 		config->mac_capabilities = MAC_10000FD | MAC_5000FD | MAC_2500FD | MAC_1000 | MAC_100 | MAC_10 |
                                     MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
 	} else {
-        // __set_bit(PHY_INTERFACE_MODE_GMII, config->supported_interfaces);
-		__set_bit(PHY_INTERFACE_MODE_NA, config->supported_interfaces);
-		// config->mac_capabilities = MAC_2500FD | MAC_1000 | MAC_100 | MAC_10 |
-        //                             MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
+		__set_bit(PHY_INTERFACE_MODE_INTERNAL, config->supported_interfaces);
+		config->mac_capabilities = MAC_2500FD | MAC_1000 | MAC_100 | MAC_10 |
+                                    MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
+        
 	}
 
-// 	dev_info(priv->dev, "debug print reg start\n", port);
-// 	dev_info(priv->dev, "debug print reg start\n", port);
-// 	dev_info(priv->dev, "debug print reg start\n", port);
-//     int ret;
-//     for(int mmd = 0;mmd<5;mmd++){
-//         for(int reg = 0;reg<10;reg++){
-//             rtk_port_phyReg_get(4, mmd, reg, &ret);
-//             dev_info(priv->dev, "rtk_port_phyReg_get: phy (%d) mmd(%x) reg(0x%x) data(0x%x)\n", 4, mmd, reg, ret);
-//         }
-//     }
-// 	dev_info(priv->dev, "debug print reg end\n", port);
-// 	dev_info(priv->dev, "debug print reg end\n", port);
-// 	dev_info(priv->dev, "debug print reg end\n", port);
+	// dev_info(priv->dev, "debug print reg start\n", port);
+	// dev_info(priv->dev, "debug print reg start\n", port);
+	// dev_info(priv->dev, "debug print reg start\n", port);
+    // int ret;
+    // for(int mmd = 0;mmd<8;mmd++){
+    //     for(int reg = 0;reg<10;reg++){
+    //         rtk_port_phyReg_get(4, mmd, reg, &ret);
+    //         dev_info(priv->dev, "rtk_port_phyReg_get: phy (%d) mmd(%x) reg(0x%x) data(0x%x)\n", 4, mmd, reg, ret);
+    //     }
+    // }
+	// dev_info(priv->dev, "debug print reg end\n", port);
+	// dev_info(priv->dev, "debug print reg end\n", port);
+	// dev_info(priv->dev, "debug print reg end\n", port);
 }
 
 static void rtl8372n_mac_link_up(struct dsa_switch *ds, int port, unsigned int mode,
@@ -572,8 +664,8 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.get_tag_protocol = rtl8372n_get_tag_protocol,
 	.setup = rtl8372n_setup,
-	.phy_read = rtl8372n_dsa_phy_read,
-	.phy_write = rtl8372n_dsa_phy_write,
+	// .phy_read = rtl8372n_dsa_phy_read,
+	// .phy_write = rtl8372n_dsa_phy_write,
 	.phylink_get_caps = rtl8372n_phylink_get_caps,
 	.phylink_mac_link_up = rtl8372n_mac_link_up,
 	.phylink_mac_link_down = rtl8372n_mac_link_down,
@@ -593,8 +685,10 @@ static const struct rtl837x_ops rtl8372n_ops = {
 	.set_vlan_4k	= rtl8372n_set_vlan_4k,
 	.get_mib_counter = rtl8372n_get_mib_counter,
 	.enable_vlan	= rtl8372n_enable_vlan,
-	.phy_read	= rtl8372n_phy_read,
-	.phy_write	= rtl8372n_phy_write,
+	// .phy_read	= rtl8372n_phy_read,
+	// .phy_write	= rtl8372n_phy_write,
+    .phy_read_c45   = rtl8372n_phy_read_c45,
+    .phy_write_c45  = rtl8372n_phy_write_c45,
 };
 
 const struct rtl837x_variant rtl8372n_variant = {
