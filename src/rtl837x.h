@@ -8,6 +8,7 @@
 #include <linux/platform_device.h>
 #include <net/dsa.h>
 
+#include <rtl8373_asicdrv.h>
 #include "./rtk-api/dal/rtl8373/rtl8373_smi.h"
 #include "./rtk-api/dal/rtl8373/dal_rtl8373_drv.h"
 #include "./rtk-api/rtk_error.h"
@@ -97,10 +98,6 @@ struct rtl837x_ops {
 			       const struct rtl837x_vlan_4k *vlan4k);
 	bool	(*is_vlan_valid)(struct rtl837x_priv *priv, unsigned int vlan);
 	int	(*enable_vlan)(struct rtl837x_priv *priv, bool enable);
-
-	int	(*phy_read)(struct rtl837x_priv *priv, int phy, int regnum);
-	int	(*phy_write)(struct rtl837x_priv *priv, int phy, int regnum,
-				u16 val);
 	
 	int	(*phy_read_c45)(struct rtl837x_priv *priv, int phy, int devad, int regnum);
 	int	(*phy_write_c45)(struct rtl837x_priv *priv, int phy, int devad, int regnum,

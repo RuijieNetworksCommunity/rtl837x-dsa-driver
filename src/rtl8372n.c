@@ -7,11 +7,10 @@
 #include <linux/regmap.h>
 
 #include "rtl837x.h"
-#include <rtl8373_asicdrv.h>
 
 #define RTL8372N_PORT_NUM_CPU 0
 #define RTL8372N_NUM_VLANS 4096
-#define RTL8372N_NUM_PORTS 6
+#define RTL8372N_NUM_PORTS 8
 #define RTL8372N_VLAN_UNTAG_MASK 0x3FF
 #define RTL8372N_VLAN_MEMBER_MASK 0x3FF
 #define RTL8372N_VLAN_FID_MASK 0xF
@@ -62,10 +61,10 @@ struct rtl8372n {
 	bool pvid_enabled[RTL8372N_NUM_PORTS];
 };
 
-const uint8_t rtl8372_port_map[16] = {
-    3, 4, 5, 6, 7, 8, // 物理端口3-8
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0 // 填充
-};
+// const uint8_t rtl8372_port_map[16] = {
+//     3, 4, 5, 6, 7, 8, // 物理端口3-8
+//     0, 0, 0, 0, 0, 0, 0, 0, 0, 0 // 填充
+// };
 
 static int rtl8372n_detect(struct rtl837x_priv *priv)
 {
@@ -84,7 +83,7 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
             dev_info(dev, "found an %s switch\n", chipid_to_chip_name(sw_chip));
             priv->cpu_port = RTL8372N_PORT_NUM_CPU;
             priv->num_ports = RTL8372N_NUM_PORTS;
-            priv->port_map = rtl8372_port_map;
+            // priv->port_map = rtl8372_port_map;
             priv->mib_counters = rtl8372n_mib_counters;
             priv->num_mib_counters = ARRAY_SIZE(rtl8372n_mib_counters);
             break;
@@ -111,7 +110,6 @@ static int rtl8372n_get_vlan_4k(struct rtl837x_priv *priv, u32 vid,
 {
 
 	int ret;
-    rtl_gbl_priv = priv;
 
 	memset(vlan4k, '\0', sizeof(struct rtl837x_vlan_4k));
     rtk_vlan_entry_t vlanCfg;
@@ -129,7 +127,6 @@ static int rtl8372n_set_vlan_4k(struct rtl837x_priv *priv,
 			       const struct rtl837x_vlan_4k *vlan4k)
 {
 	int ret;
-    rtl_gbl_priv = priv;
 
     rtk_vlan_entry_t vlanCfg;
 	memset(&vlanCfg, '\0', sizeof(rtk_vlan_entry_t));
@@ -152,7 +149,6 @@ static int rtl8372n_get_mib_counter(struct rtl837x_priv *priv,
                 u64 *mibvalue)
 {
     int ret;
-    rtl_gbl_priv = priv;
     rtk_stat_counter_t counter;
     ret = rtk_stat_port_get(port, mib->base, &counter);
     if(ret) return ret;
@@ -162,7 +158,6 @@ static int rtl8372n_get_mib_counter(struct rtl837x_priv *priv,
 }
 static int rtl8372n_enable_vlan(struct rtl837x_priv *priv, bool enable)
 {
-    rtl_gbl_priv = priv;
     return 0;
 }
 
@@ -174,8 +169,6 @@ static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
 	struct device *dev = priv->dev;
     dev_info(dev, "get_DSA_PROTO\n");
 
-	// return DSA_TAG_PROTO_NONE;
-	// return DSA_TAG_PROTO_RTL4_A;
     if (dsa_is_cpu_port(ds, port)) {
         // 配置 CPU 端口标签设置
 		return DSA_TAG_PROTO_RTL8_4T;
@@ -187,31 +180,28 @@ static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
 
 static int rtl8372n_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum)
 {
-    rtl_gbl_priv = priv;
     rtk_uint32 data;
 
-    int ret = rtk_port_phyReg_get(priv->port_map[phy], devad, regnum, &data);
+    int ret = rtk_port_phyReg_get(phy, devad, regnum, &data);
     if (ret != RT_ERR_OK)
     {
         dev_info(priv->dev,"ERROR:rtk_port_phyReg_get ret: %d\n", ret);
         return -EIO;
     }
 
-	// dev_info(priv->dev, "rtl8372n_phy_read: phy:(%d) devad:(0x%x) reg:(0x%x) data:(0x%x)\n", phy, devad, regnum, data);
     return data;
 }
 
 static int rtl8372n_phy_write_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 val)
 {
-    rtl_gbl_priv = priv;
 
-    int ret = rtk_port_phyReg_set(1 << priv->port_map[phy], devad, regnum, val);
-        if (ret != RT_ERR_OK)
+    int ret = rtk_port_phyReg_set(1 << phy, devad, regnum, val);
+    if (ret != RT_ERR_OK)
     {
         dev_info(priv->dev,"ERROR:rtk_port_phyReg_set ret: %d\n", ret);
         return -EIO;
     }
-	// dev_info(priv->dev, "rtl8372n_phy_write: phy (%d) reg(0x%x) val(0x%x)\n", phy, regnum, val);
+
     return 0;
 }
 
@@ -344,14 +334,14 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	};
 
 	for(int port = 0;port < priv->num_ports;port++){
-		ret = rtk_eee_portTxRxEn_set(priv->port_map[port], 0, 0);
+		ret = rtk_eee_portTxRxEn_set(port, 0, 0);
 		if (ret)
 		{
 			dev_err(priv->dev, "rtk_eee_portTxRxEn_set failed, error %d\n",ret);
 			return -EIO;
 		}
 
-		rtk_port_backpressureEnable_set(priv->port_map[port], 1);
+		rtk_port_backpressureEnable_set(port, 1);
 		if (ret)
 		{
 			dev_err(priv->dev, "rtk_port_backpressureEnable_set failed, error %d\n",ret);
@@ -361,7 +351,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		//跳过CPU端口和serdes端口
 		if(port == 0 || port == priv->cpu_port || port == 5) continue;
 
-		ret = rtk_phy_autoNegoAbility_set(priv->port_map[port], &ana); 
+		ret = rtk_phy_autoNegoAbility_set(port, &ana); 
 		if (ret) {
 			dev_err(priv->dev, "port: %d autoNegoAbility configure failed, error: %d", port, ret);
 			return EIO;
@@ -397,26 +387,10 @@ static int rtl8372n_setup(struct dsa_switch *ds)
     return 0;
 }
 
-// static int rtl8372n_dsa_phy_read(struct dsa_switch *ds, int phy, int regnum)
-// {
-//     struct rtl837x_priv *priv = ds->priv;
-//     rtl_gbl_priv = priv;
-// 	return rtl8372n_phy_read(priv, priv->port_map[phy], regnum);
-// }
-
-// static int rtl8372n_dsa_phy_write(struct dsa_switch *ds, int phy, int regnum,
-//                     u16 val)
-// {
-//     struct rtl837x_priv *priv = ds->priv;
-//     rtl_gbl_priv = priv;
-// 	return rtl8372n_phy_write(priv, priv->port_map[phy], regnum, val);
-// }
-
 static void rtl8372n_phylink_get_caps(struct dsa_switch *ds, int port,
 				       struct phylink_config *config)
 {
 	struct rtl837x_priv *priv = ds->priv;
-    rtl_gbl_priv = priv;
 
 	if (port == priv->cpu_port) {
 		__set_bit(PHY_INTERFACE_MODE_10GKR, config->supported_interfaces);
@@ -439,7 +413,6 @@ static void rtl8372n_mac_link_up(struct dsa_switch *ds, int port, unsigned int m
                 int speed, int duplex, bool tx_pause, bool rx_pause)
 {
 	struct rtl837x_priv *priv = ds->priv;
-    rtl_gbl_priv = priv;
 	int ret;
 
     if (dsa_is_cpu_port(ds, port)) {
@@ -477,7 +450,6 @@ static void rtl8372n_mac_link_down(struct dsa_switch *ds, int port, unsigned int
 			phy_interface_t interface)
 {
 	struct rtl837x_priv *priv = ds->priv;
-    rtl_gbl_priv = priv;
 	int ret;
 
 	switch (port)
@@ -510,7 +482,6 @@ static void rtl8372n_get_strings(struct dsa_switch *ds, int port, u32 stringset,
 			 uint8_t *data)
 {
 	struct rtl837x_priv *priv = ds->priv;
-    rtl_gbl_priv = priv;
 	struct rtl837x_mib_counter *mib;
 	int i;
 
@@ -527,7 +498,6 @@ static void rtl8372n_get_strings(struct dsa_switch *ds, int port, u32 stringset,
 static void rtl8372n_get_ethtool_stats(struct dsa_switch *ds, int port, uint64_t *data)
 {
 	struct rtl837x_priv *priv = ds->priv;
-    rtl_gbl_priv = priv;
 	int i;
 	int ret;
 
@@ -539,7 +509,7 @@ static void rtl8372n_get_ethtool_stats(struct dsa_switch *ds, int port, uint64_t
 		u64 mibvalue = 0;
 
 		mib = &priv->mib_counters[i];
-		ret = priv->ops->get_mib_counter(priv, priv->port_map[port], mib, &mibvalue);
+		ret = priv->ops->get_mib_counter(priv, port, mib, &mibvalue);
 		if (ret) {
 			dev_err(priv->dev, "error reading MIB counter %s\n",
 				mib->name);
@@ -551,7 +521,6 @@ static void rtl8372n_get_ethtool_stats(struct dsa_switch *ds, int port, uint64_t
 static int rtl8372n_get_sset_count(struct dsa_switch *ds, int port, int sset)
 {
 	struct rtl837x_priv *priv = ds->priv;
-    rtl_gbl_priv = priv;
 
 	/* We only support SS_STATS */
 	if (sset != ETH_SS_STATS)
@@ -566,7 +535,6 @@ static int rtl8372n_vlan_filtering(struct dsa_switch *ds, int port,
                                         bool vlan_filtering, struct netlink_ext_ack *extack)
 {
     struct rtl837x_priv *priv = ds->priv;
-    rtl_gbl_priv = priv;
     rtk_api_ret_t ret;
     
     // 设置全局出口过滤
@@ -588,11 +556,9 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
                             struct netlink_ext_ack *extack)
 {
     struct rtl837x_priv *priv = ds->priv;
-    rtl_gbl_priv = priv;
     rtk_api_ret_t ret;
     rtk_vlan_entry_t entry;
     u16 vid = vlan->vid;
-    port = priv->port_map[port];
 
     if (vid <= 0 || vid >= 4095)
     {
@@ -641,7 +607,6 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
                                  const struct switchdev_obj_port_vlan *vlan)
 {
     struct rtl837x_priv *priv = ds->priv;
-    rtl_gbl_priv = priv;
 
     rtk_api_ret_t ret;
     rtk_vlan_entry_t entry;
@@ -680,8 +645,7 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.get_tag_protocol = rtl8372n_get_tag_protocol,
 	.setup = rtl8372n_setup,
-	// .phy_read = rtl8372n_dsa_phy_read,
-	// .phy_write = rtl8372n_dsa_phy_write,
+
 	.phylink_get_caps = rtl8372n_phylink_get_caps,
 	.phylink_mac_link_up = rtl8372n_mac_link_up,
 	.phylink_mac_link_down = rtl8372n_mac_link_down,
@@ -701,8 +665,7 @@ static const struct rtl837x_ops rtl8372n_ops = {
 	.set_vlan_4k	= rtl8372n_set_vlan_4k,
 	.get_mib_counter = rtl8372n_get_mib_counter,
 	.enable_vlan	= rtl8372n_enable_vlan,
-	// .phy_read	= rtl8372n_phy_read,
-	// .phy_write	= rtl8372n_phy_write,
+
     .phy_read_c45   = rtl8372n_phy_read_c45,
     .phy_write_c45  = rtl8372n_phy_write_c45,
 };
