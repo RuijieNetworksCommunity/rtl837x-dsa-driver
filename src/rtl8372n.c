@@ -166,47 +166,6 @@ static int rtl8372n_enable_vlan(struct rtl837x_priv *priv, bool enable)
     return 0;
 }
 
-// static int rtl8372n_phy_read(struct rtl837x_priv *priv, int phy, int regnum)
-// {
-//     rtl_gbl_priv = priv;
-//     rtk_uint32 data;
-//     // if((regnum & 0x40000000) == 0)
-//     //     return -EPERM;
-//     // rtk_uint32 mmd = 1;
-//     rtk_uint32 mmd = (regnum >> 16) & 0x1F;
-//     rtk_uint32 reg = regnum & 0xFFFF;
-
-//     int ret = rtk_port_phyReg_get(phy, mmd, reg, &data);
-//     if (ret != RT_ERR_OK)
-//     {
-//         dev_info(priv->dev,"ERROR:rtk_port_phyReg_get ret: %d\n", ret);
-//         return -EIO;
-//     }
-
-// 	dev_info(priv->dev, "rtl8372n_phy_read: phy (%d) reg(0x%x) data(0x%x)\n", phy, regnum, data);
-//     return data;
-// }
-
-// static int rtl8372n_phy_write(struct rtl837x_priv *priv, int phy, int regnum, u16 val)
-// {
-//     rtl_gbl_priv = priv;
-
-//     // if((regnum & 0x40000000) == 0)
-//     //     return -EPERM;
-//     // rtk_uint32 mmd = 1;
-//     rtk_uint32 mmd = (regnum >> 16) & 0x1F;
-//     rtk_uint32 reg = regnum & 0xFFFF;
-
-//     int ret = rtk_port_phyReg_set(1 << phy, mmd, reg, val);
-//         if (ret != RT_ERR_OK)
-//     {
-//         dev_info(priv->dev,"ERROR:rtk_port_phyReg_set ret: %d\n", ret);
-//         return -EIO;
-//     }
-// 	dev_info(priv->dev, "rtl8372n_phy_write: phy (%d) reg(0x%x) val(0x%x)\n", phy, regnum, val);
-//     return 0;
-// }
-
 static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
                                                         int port,
                                                         enum dsa_tag_protocol mp)
@@ -215,7 +174,15 @@ static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
 	struct device *dev = priv->dev;
     dev_info(dev, "get_DSA_PROTO\n");
 
-	return DSA_TAG_PROTO_MTK;
+	// return DSA_TAG_PROTO_NONE;
+	// return DSA_TAG_PROTO_RTL4_A;
+    if (dsa_is_cpu_port(ds, port)) {
+        // 配置 CPU 端口标签设置
+		return DSA_TAG_PROTO_RTL8_4T;
+
+    }
+	
+	return DSA_TAG_PROTO_NONE;
 }
 
 static int rtl8372n_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum)
@@ -230,7 +197,7 @@ static int rtl8372n_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, 
         return -EIO;
     }
 
-	// dev_info(priv->dev, "rtl8372n_phy_read: phy (%d) reg(0x%x) data(0x%x)\n", phy, regnum, data);
+	// dev_info(priv->dev, "rtl8372n_phy_read: phy:(%d) devad:(0x%x) reg:(0x%x) data:(0x%x)\n", phy, devad, regnum, data);
     return data;
 }
 
@@ -355,15 +322,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		return -1;
 	}
 
-	for(int port = 0;port < priv->num_ports;port++){
-		ret = rtk_eee_portTxRxEn_set(priv->port_map[port], 0u, 0u);
-		if (ret)
-		{
-			dev_err(priv->dev, "rtk_eee_portTxRxEn_set failed, errno %d\n",ret);
-			return -1;
-		}
-	}
-
 	ret = rtk_cpu_externalCpuPort_set(priv->cpu_port);
 	if (ret)
 	{
@@ -371,31 +329,71 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		return -1;
 	}
 
-    for (int port = 0; port < priv->num_ports; port++) {
-        // 跳过CPU端口和特定端口
-        if (port != 0 && port != priv->cpu_port && port != 5) {
-            rtk_port_phy_ability_t ana = {
-                .Half_10 = 1,
-                .Full_10 = 1,
-                .Half_100 = 1,
-                .Full_100 = 1,
-                .Half_1000 = 0,
-                .Full_1000 = 1,
-                .adv_2_5G = 1,
-                .adv_5G = 0,
-                .adv_10GBase_T = 0,
-                .FC = 1,
-                .AsyFC = 1,
-            };
+	rtk_port_phy_ability_t ana = {
+		.Half_10 = 1,
+		.Full_10 = 1,
+		.Half_100 = 1,
+		.Full_100 = 1,
+		.Half_1000 = 0,
+		.Full_1000 = 1,
+		.adv_2_5G = 1,
+		.adv_5G = 0,
+		.adv_10GBase_T = 0,
+		.FC = 1,
+		.AsyFC = 1,
+	};
 
-            // 设置端口自动协商能力
-            ret = rtk_phy_autoNegoAbility_set(priv->port_map[port], &ana);
-            if (ret) {
-                dev_err(priv->dev, "端口 %d 流控配置失败: %d", port, ret);
-                return ret;
-            }
-        }
-    }
+	for(int port = 0;port < priv->num_ports;port++){
+		ret = rtk_eee_portTxRxEn_set(priv->port_map[port], 0, 0);
+		if (ret)
+		{
+			dev_err(priv->dev, "rtk_eee_portTxRxEn_set failed, error %d\n",ret);
+			return -EIO;
+		}
+
+		rtk_port_backpressureEnable_set(priv->port_map[port], 1);
+		if (ret)
+		{
+			dev_err(priv->dev, "rtk_port_backpressureEnable_set failed, error %d\n",ret);
+			return -EIO;
+		}
+
+		//跳过CPU端口和serdes端口
+		if(port == 0 || port == priv->cpu_port || port == 5) continue;
+
+		ret = rtk_phy_autoNegoAbility_set(priv->port_map[port], &ana); 
+		if (ret) {
+			dev_err(priv->dev, "port: %d autoNegoAbility configure failed, error: %d", port, ret);
+			return EIO;
+		}
+	}
+
+	// 设置 CPU 标签 TPID
+    rtk_cpuTag_tpid_set(0x8899);
+
+    // 启用内部 CPU 标签功能
+    rtk_cpuTag_enable_set(EXTERNAL_CPU, ENABLED);
+
+    // 设置标签插入模式为所有帧
+    rtk_cpuTag_insertMode_set(EXTERNAL_CPU, CPU_INSERT_TO_ALL);
+
+    // 设置所有端口为 CPU 感知端口
+    rtk_portmask_t portmask;
+	portmask.bits[0] = 0x1f;
+    rtk_cpuTag_awarePort_set(&portmask);
+
+    // // 设置优先级映射
+    // for (int i = 0; i < 8; i++) {
+    //     rtk_cpuTag_priRemap_set(EXTERNAL_CPU, i, i);
+    // }
+
+	// rtk_vlan_entry_t vlan_cfg = {
+	// 	.ivl_svl = 1,
+	// 	.fid_msti = 0,
+	// 	.mbr = 0x1ff,
+	// 	.untag = 0x1ff
+	// };
+	// rtk_vlan_set(1,&vlan_cfg);
     return 0;
 }
 
@@ -434,20 +432,6 @@ static void rtl8372n_phylink_get_caps(struct dsa_switch *ds, int port,
                                     MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
         
 	}
-
-	// dev_info(priv->dev, "debug print reg start\n", port);
-	// dev_info(priv->dev, "debug print reg start\n", port);
-	// dev_info(priv->dev, "debug print reg start\n", port);
-    // int ret;
-    // for(int mmd = 0;mmd<8;mmd++){
-    //     for(int reg = 0;reg<10;reg++){
-    //         rtk_port_phyReg_get(4, mmd, reg, &ret);
-    //         dev_info(priv->dev, "rtk_port_phyReg_get: phy (%d) mmd(%x) reg(0x%x) data(0x%x)\n", 4, mmd, reg, ret);
-    //     }
-    // }
-	// dev_info(priv->dev, "debug print reg end\n", port);
-	// dev_info(priv->dev, "debug print reg end\n", port);
-	// dev_info(priv->dev, "debug print reg end\n", port);
 }
 
 static void rtl8372n_mac_link_up(struct dsa_switch *ds, int port, unsigned int mode,
@@ -457,15 +441,34 @@ static void rtl8372n_mac_link_up(struct dsa_switch *ds, int port, unsigned int m
 	struct rtl837x_priv *priv = ds->priv;
     rtl_gbl_priv = priv;
 	int ret;
-	dev_info(priv->dev, "MAC link up on CPU port (%d)\n", port);
 
-	if (port != priv->cpu_port)
-		return;
+    if (dsa_is_cpu_port(ds, port)) {
+        // 配置 CPU 端口标签设置
+        rtk_cpuTag_insertMode_set(EXTERNAL_CPU, CPU_INSERT_TO_ALL);
+    }
 
-
-	ret = rtk_sdsMode_set(0, SERDES_10GR);
+	switch (port)
+	{
+	case 1:
+	case 2:
+	case 3:
+	case 4:
+		dev_info(priv->dev, "MAC link up on phy port (%d)\n", port);
+		ret = 0;
+		/* code */
+		break;
+	case 0:
+		dev_info(priv->dev, "MAC link up on serdes port (%d)\n", 0);
+		ret = rtk_sdsMode_set(0, SERDES_10GR);
+		break;
+	case 5:
+		dev_info(priv->dev, "MAC link up on serdes port (%d)\n", 1);
+		ret = rtk_sdsMode_set(1, SERDES_10GR);
+		break;
+	}
+	
 	if (ret) {
-		dev_err(priv->dev, "failed to enable the CPU port\n");
+		dev_err(priv->dev, "failed to enable the port(%d)\n", port);
 		return;
 	}
 }
@@ -477,15 +480,28 @@ static void rtl8372n_mac_link_down(struct dsa_switch *ds, int port, unsigned int
     rtl_gbl_priv = priv;
 	int ret;
 
-	dev_info(priv->dev, "MAC link down on CPU port (%d)\n", port);
-
-	if (port != priv->cpu_port)
-		return;
-
-
-	ret = rtk_sdsMode_set(0, SERDES_OFF);
+	switch (port)
+	{
+	case 1:
+	case 2:
+	case 3:
+	case 4:
+		dev_info(priv->dev, "MAC link down on phy port (%d)\n", port);
+		ret = 0;
+		/* code */
+		break;
+	case 0:
+		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 0);
+		ret = rtk_sdsMode_set(0, SERDES_OFF);
+		break;
+	case 5:
+		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 1);
+		ret = rtk_sdsMode_set(1, SERDES_OFF);
+		break;
+	}
+	
 	if (ret) {
-		dev_err(priv->dev, "failed to disable the CPU port\n");
+		dev_err(priv->dev, "failed to disable the port(%d)\n", port);
 		return;
 	}
 }
