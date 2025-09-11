@@ -8,7 +8,7 @@
 
 #include "rtl837x.h"
 
-#define RTL8372N_PORT_NUM_CPU 0
+#define RTL8372N_PORT_NUM_CPU 3
 #define RTL8372N_NUM_VLANS 4096
 #define RTL8372N_NUM_PORTS 8
 #define RTL8372N_VLAN_UNTAG_MASK 0x3FF
@@ -349,7 +349,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		}
 
 		//跳过CPU端口和serdes端口
-		if(port == 0 || port == priv->cpu_port || port == 5) continue;
+		if(port == 3 || port == 8 || port == priv->cpu_port) continue;
 
 		ret = rtk_phy_autoNegoAbility_set(port, &ana); 
 		if (ret) {
@@ -422,19 +422,19 @@ static void rtl8372n_mac_link_up(struct dsa_switch *ds, int port, unsigned int m
 
 	switch (port)
 	{
-	case 1:
-	case 2:
-	case 3:
 	case 4:
+	case 5:
+	case 6:
+	case 7:
 		dev_info(priv->dev, "MAC link up on phy port (%d)\n", port);
 		ret = 0;
 		/* code */
 		break;
-	case 0:
+	case 3:
 		dev_info(priv->dev, "MAC link up on serdes port (%d)\n", 0);
 		ret = rtk_sdsMode_set(0, SERDES_10GR);
 		break;
-	case 5:
+	case 8:
 		dev_info(priv->dev, "MAC link up on serdes port (%d)\n", 1);
 		ret = rtk_sdsMode_set(1, SERDES_10GR);
 		break;
@@ -454,19 +454,19 @@ static void rtl8372n_mac_link_down(struct dsa_switch *ds, int port, unsigned int
 
 	switch (port)
 	{
-	case 1:
-	case 2:
-	case 3:
 	case 4:
+	case 5:
+	case 6:
+	case 7:
 		dev_info(priv->dev, "MAC link down on phy port (%d)\n", port);
 		ret = 0;
 		/* code */
 		break;
-	case 0:
+	case 3:
 		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 0);
 		ret = rtk_sdsMode_set(0, SERDES_OFF);
 		break;
-	case 5:
+	case 8:
 		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 1);
 		ret = rtk_sdsMode_set(1, SERDES_OFF);
 		break;
@@ -537,6 +537,7 @@ static int rtl8372n_vlan_filtering(struct dsa_switch *ds, int port,
     struct rtl837x_priv *priv = ds->priv;
     rtk_api_ret_t ret;
     
+	dev_info(priv->dev, "rtl8372n_vlan_filtering port (%d)\n", port);
     // 设置全局出口过滤
     ret = rtk_vlan_egrFilterEnable_set(vlan_filtering ? ENABLED : DISABLED);
     if (ret != RT_ERR_OK)
@@ -559,6 +560,8 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
     rtk_api_ret_t ret;
     rtk_vlan_entry_t entry;
     u16 vid = vlan->vid;
+
+	dev_info(priv->dev, "rtl8372n_vlan_add vid (%d)\n", vid);
 
     if (vid <= 0 || vid >= 4095)
     {
@@ -611,6 +614,8 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
     rtk_api_ret_t ret;
     rtk_vlan_entry_t entry;
     u16 vid = vlan->vid;
+
+	dev_info(priv->dev, "rtl8372n_vlan_del vid (%d)\n", vid);
     
     if (vid <= 0 || vid >= 4095)
         return 0;
