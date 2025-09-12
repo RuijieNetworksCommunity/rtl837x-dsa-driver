@@ -169,13 +169,12 @@ static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
 	struct device *dev = priv->dev;
     dev_info(dev, "get_DSA_PROTO\n");
 
-    if (dsa_is_cpu_port(ds, port)) {
+    // if (dsa_is_cpu_port(ds, port)) {
         // 配置 CPU 端口标签设置
-		return DSA_TAG_PROTO_RTL8_4T;
-
-    }
+		return DSA_TAG_PROTO_RTL8_4;
+    // }
 	
-	return DSA_TAG_PROTO_NONE;
+	// return DSA_TAG_PROTO_NONE;
 }
 
 static int rtl8372n_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum)
@@ -312,13 +311,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		return -1;
 	}
 
-	ret = rtk_cpu_externalCpuPort_set(priv->cpu_port);
-	if (ret)
-	{
-		dev_err(priv->dev, "rtk_cpu_externalCpuPort_set failed, errno %d\n",ret);
-		return -1;
-	}
-
 	rtk_port_phy_ability_t ana = {
 		.Half_10 = 1,
 		.Full_10 = 1,
@@ -333,7 +325,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		.AsyFC = 1,
 	};
 
-	for(int port = 0;port < priv->num_ports;port++){
+	for(int port = 3;port < priv->num_ports;port++){
 		ret = rtk_eee_portTxRxEn_set(port, 0, 0);
 		if (ret)
 		{
@@ -358,22 +350,29 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		}
 	}
 
+	ret = rtk_cpu_externalCpuPort_set(priv->cpu_port);
+	if (ret)
+	{
+		dev_err(priv->dev, "rtk_cpu_externalCpuPort_set failed, errno %d\n",ret);
+		
+		return -1;
+	}
 	// 设置 CPU 标签 TPID
     rtk_cpuTag_tpid_set(0x8899);
-
-    // 启用内部 CPU 标签功能
-    rtk_cpuTag_enable_set(EXTERNAL_CPU, ENABLED);
 
     // 设置标签插入模式为所有帧
     rtk_cpuTag_insertMode_set(EXTERNAL_CPU, CPU_INSERT_TO_ALL);
 
-    // 设置所有端口为 CPU 感知端口
-    rtk_portmask_t portmask;
-	portmask.bits[0] = 0x1f;
-    rtk_cpuTag_awarePort_set(&portmask);
+	// 启用内部 CPU 标签功能
+    rtk_cpuTag_enable_set(EXTERNAL_CPU, ENABLED);
+
+    // // 设置所有端口为 CPU 感知端口
+    // rtk_portmask_t portmask;
+	// portmask.bits[0] = 0x1f;
+    // rtk_cpuTag_awarePort_set(&portmask);
 
     // // 设置优先级映射
-    // for (int i = 0; i < 8; i++) {
+    // for (int i = 4; i < 8; i++) {
     //     rtk_cpuTag_priRemap_set(EXTERNAL_CPU, i, i);
     // }
 
@@ -415,10 +414,10 @@ static void rtl8372n_mac_link_up(struct dsa_switch *ds, int port, unsigned int m
 	struct rtl837x_priv *priv = ds->priv;
 	int ret;
 
-    if (dsa_is_cpu_port(ds, port)) {
-        // 配置 CPU 端口标签设置
-        rtk_cpuTag_insertMode_set(EXTERNAL_CPU, CPU_INSERT_TO_ALL);
-    }
+    // if (dsa_is_cpu_port(ds, port)) {
+    //     // 配置 CPU 端口标签设置
+    //     rtk_cpuTag_insertMode_set(EXTERNAL_CPU, CPU_INSERT_TO_ALL);
+    // }
 
 	switch (port)
 	{
