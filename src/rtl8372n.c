@@ -272,7 +272,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
     ret = rtk_switch_init();
 	if(ret){
 		dev_err(priv->dev, "rtk_switch_init Fail, erron:%d\n", ret);
-		return -1;
+		return -EIO;
 	}
 
     ret = rtl8372n_setup_mdio(priv);
@@ -285,14 +285,14 @@ static int rtl8372n_setup(struct dsa_switch *ds)
     if (ret)
     {
 		dev_err(priv->dev, "rtk_vlan_reset failed, errno:%d\n", ret);
-		return -1;
+		return -EIO;
     }
 
 	ret = rtk_vlan_init();
     if (ret)
     {
 		dev_err(priv->dev, "rtk_vlan_init failed, errno:%d\n", ret);
-		return -1;
+		return -EIO;
     }
 
 	rtk_rmaParam_t pRmacfg;
@@ -300,7 +300,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	if ( ret )
 	{
 		dev_err(priv->dev, "rtk_rma_get get rma failed, errno %d\n", ret);
-        return -1;
+        return -EIO;
 	}
 
 	pRmacfg.operation = RMAOP_FORWARD;
@@ -308,7 +308,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	if ( ret )
 	{
 		dev_err(priv->dev, "rtk_rma_get set rma failed, errno %d\n", ret);
-		return -1;
+		return -EIO;
 	}
 
 	rtk_port_phy_ability_t ana = {
@@ -325,7 +325,14 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		.AsyFC = 1,
 	};
 
-	for(int port = 3;port < priv->num_ports;port++){
+	for(int port = 0;port < priv->num_ports;port++){
+		if (dsa_is_unused_port(priv->ds, port))
+			continue;
+
+    	/* Disable per-port learning limits */
+        rtk_l2_limitLearningCnt_set(port, 0);
+        rtk_l2_limitLearningCntAction_set(port, LIMIT_LEARN_CNT_ACTION_FORWARD);
+		
 		ret = rtk_eee_portTxRxEn_set(port, 0, 0);
 		if (ret)
 		{
@@ -343,12 +350,23 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		//跳过CPU端口和serdes端口
 		if(port == 3 || port == 8 || port == priv->cpu_port) continue;
 
+		rtk_port_t isolation_port_mask = (1 << port) | (1 << priv->cpu_port);
+
+		ret = rtk_port_isolation_set(port, isolation_port_mask);
+		if (ret) {
+			dev_err(priv->dev, "port: %d rtk_port_isolation_set configure failed, error: %d", port, ret);
+			return -EIO;
+		}
+
 		ret = rtk_phy_autoNegoAbility_set(port, &ana); 
 		if (ret) {
 			dev_err(priv->dev, "port: %d autoNegoAbility configure failed, error: %d", port, ret);
-			return EIO;
+			return -EIO;
 		}
 	}
+    /* Disable system-wide learning limit */
+    rtk_l2_limitSystemLearningCnt_set(0);
+    rtk_l2_limitSystemLearningCntAction_set(LIMIT_LEARN_CNT_ACTION_FORWARD);
 
 	ret = rtk_cpu_externalCpuPort_set(priv->cpu_port);
 	if (ret)
@@ -363,18 +381,18 @@ static int rtl8372n_setup(struct dsa_switch *ds)
     // 设置标签插入模式为所有帧
     rtk_cpuTag_insertMode_set(EXTERNAL_CPU, CPU_INSERT_TO_ALL);
 
+    // 设置所有端口为 CPU 感知端口
+    rtk_portmask_t portmask;
+	portmask.bits[0] = 0x1f;
+    rtk_cpuTag_awarePort_set(&portmask);
+
+    // 设置优先级映射
+    for (int i = 4; i < 8; i++) {
+        rtk_cpuTag_priRemap_set(EXTERNAL_CPU, i, i);
+    }
+
 	// 启用内部 CPU 标签功能
     rtk_cpuTag_enable_set(EXTERNAL_CPU, ENABLED);
-
-    // // 设置所有端口为 CPU 感知端口
-    // rtk_portmask_t portmask;
-	// portmask.bits[0] = 0x1f;
-    // rtk_cpuTag_awarePort_set(&portmask);
-
-    // // 设置优先级映射
-    // for (int i = 4; i < 8; i++) {
-    //     rtk_cpuTag_priRemap_set(EXTERNAL_CPU, i, i);
-    // }
 
 	// rtk_vlan_entry_t vlan_cfg = {
 	// 	.ivl_svl = 1,
@@ -413,11 +431,6 @@ static void rtl8372n_mac_link_up(struct dsa_switch *ds, int port, unsigned int m
 {
 	struct rtl837x_priv *priv = ds->priv;
 	int ret;
-
-    // if (dsa_is_cpu_port(ds, port)) {
-    //     // 配置 CPU 端口标签设置
-    //     rtk_cpuTag_insertMode_set(EXTERNAL_CPU, CPU_INSERT_TO_ALL);
-    // }
 
 	switch (port)
 	{
@@ -657,9 +670,9 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.get_ethtool_stats = rtl8372n_get_ethtool_stats,
 	.get_sset_count = rtl8372n_get_sset_count,
 
-	.port_vlan_filtering = rtl8372n_vlan_filtering,
-	.port_vlan_add = rtl8372n_vlan_add,
-	.port_vlan_del = rtl8372n_vlan_del,
+	// .port_vlan_filtering = rtl8372n_vlan_filtering,
+	// .port_vlan_add = rtl8372n_vlan_add,
+	// .port_vlan_del = rtl8372n_vlan_del,
 
 };
 

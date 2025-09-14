@@ -23,6 +23,7 @@
 #include "./rtk-api/cpuTag.h"
 #include "./rtk-api/mib.h"
 #include "./rtk-api/isolation.h"
+#include "./rtk-api/l2.h"
 
 #include <linux/printk.h>
 
@@ -107,7 +108,5 @@ struct rtl837x_ops {
 char* chipid_to_chip_name(switch_chip_t id);
 
 extern const struct rtl837x_variant rtl8372n_variant;
-// extern int rtl837x_phy_module_init(struct module *owner, const void *driver_data);
-// extern void rtl837x_phy_module_exit(void);
 
 #endif
