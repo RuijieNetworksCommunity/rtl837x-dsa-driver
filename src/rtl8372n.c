@@ -167,14 +167,9 @@ static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
 {
     struct rtl837x_priv *priv = ds->priv;
 	struct device *dev = priv->dev;
-    dev_info(dev, "get_DSA_PROTO\n");
+    dev_info(dev, "get_DSA_PROTO port:%d\n", port);
 
-    // if (dsa_is_cpu_port(ds, port)) {
-        // 配置 CPU 端口标签设置
-		return DSA_TAG_PROTO_RTL8_4;
-    // }
-	
-	// return DSA_TAG_PROTO_NONE;
+	return DSA_TAG_PROTO_RTL8_4;
 }
 
 static int rtl8372n_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum)
@@ -267,7 +262,12 @@ static int rtl8372n_setup(struct dsa_switch *ds)
     rtl_gbl_priv = priv;
     int ret;
 
-    dev_info(priv->dev,"Start init RTL8372N Switch");
+	// for(int i = 0;i<8;i++){
+	// 	struct dsa_port *dp = dsa_to_port(ds, i);
+	// 	dev_info(priv->dev,"Port :%d  type: %d\n",i ,dp->type);
+	// }
+
+    dev_info(priv->dev,"Start init RTL8372N Switch\n");
 
     ret = rtk_switch_init();
 	if(ret){
@@ -281,49 +281,12 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		return ret;
 	}
 
-	ret = rtk_vlan_reset();
-    if (ret)
-    {
-		dev_err(priv->dev, "rtk_vlan_reset failed, errno:%d\n", ret);
-		return -EIO;
-    }
-
-	ret = rtk_vlan_init();
-    if (ret)
-    {
-		dev_err(priv->dev, "rtk_vlan_init failed, errno:%d\n", ret);
-		return -EIO;
-    }
-
-	rtk_rmaParam_t pRmacfg;
-	ret = rtk_rma_get(2, &pRmacfg);
-	if ( ret )
-	{
-		dev_err(priv->dev, "rtk_rma_get get rma failed, errno %d\n", ret);
-        return -EIO;
-	}
-
-	pRmacfg.operation = RMAOP_FORWARD;
-	ret = rtk_rma_set(2, &pRmacfg);
-	if ( ret )
-	{
-		dev_err(priv->dev, "rtk_rma_get set rma failed, errno %d\n", ret);
-		return -EIO;
-	}
-
-	rtk_port_phy_ability_t ana = {
-		.Half_10 = 1,
-		.Full_10 = 1,
-		.Half_100 = 1,
-		.Full_100 = 1,
-		.Half_1000 = 0,
-		.Full_1000 = 1,
-		.adv_2_5G = 1,
-		.adv_5G = 0,
-		.adv_10GBase_T = 0,
-		.FC = 1,
-		.AsyFC = 1,
-	};
+	// ret = rtk_vlan_init();
+    // if (ret)
+    // {
+	// 	dev_err(priv->dev, "rtk_vlan_init failed, errno:%d\n", ret);
+	// 	return -EIO;
+    // }
 
 	for(int port = 0;port < priv->num_ports;port++){
 		if (dsa_is_unused_port(priv->ds, port))
@@ -332,15 +295,17 @@ static int rtl8372n_setup(struct dsa_switch *ds)
     	/* Disable per-port learning limits */
         rtk_l2_limitLearningCnt_set(port, 0);
         rtk_l2_limitLearningCntAction_set(port, LIMIT_LEARN_CNT_ACTION_FORWARD);
-		
-		ret = rtk_eee_portTxRxEn_set(port, 0, 0);
+
+		rtk_vlan_tagMode_set(port, VLAN_EGRESS_TAG_MODE_KEEP_FORMAT);
+		rtk_vlan_portIgrFilterEnable_set(port, DISABLED);
+		ret = rtk_eee_portTxRxEn_set(port, DISABLED, DISABLED);
 		if (ret)
 		{
 			dev_err(priv->dev, "rtk_eee_portTxRxEn_set failed, error %d\n",ret);
 			return -EIO;
 		}
 
-		rtk_port_backpressureEnable_set(port, 1);
+		rtk_port_backpressureEnable_set(port, ENABLED);
 		if (ret)
 		{
 			dev_err(priv->dev, "rtk_port_backpressureEnable_set failed, error %d\n",ret);
@@ -348,59 +313,89 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		}
 
 		//跳过CPU端口和serdes端口
-		if(port == 3 || port == 8 || port == priv->cpu_port) continue;
+		if(port == UTP_PORT3 || port == UTP_PORT8 || port == priv->cpu_port) continue;
 
-		rtk_port_t isolation_port_mask = (1 << port) | (1 << priv->cpu_port);
+		rtk_port_t isolation_port_mask = (1 << priv->cpu_port);
 
 		ret = rtk_port_isolation_set(port, isolation_port_mask);
 		if (ret) {
-			dev_err(priv->dev, "port: %d rtk_port_isolation_set configure failed, error: %d", port, ret);
+			dev_err(priv->dev, "port: %d rtk_port_isolation_set configure failed, error: %d\n", port, ret);
 			return -EIO;
 		}
 
-		ret = rtk_phy_autoNegoAbility_set(port, &ana); 
-		if (ret) {
-			dev_err(priv->dev, "port: %d autoNegoAbility configure failed, error: %d", port, ret);
-			return -EIO;
-		}
 	}
-    /* Disable system-wide learning limit */
+
     rtk_l2_limitSystemLearningCnt_set(0);
     rtk_l2_limitSystemLearningCntAction_set(LIMIT_LEARN_CNT_ACTION_FORWARD);
+
+	rtk_vlan_egrFilterEnable_set(DISABLED);
+
+	ret = rtk_mirror_keep_set(MIRROR_KEEP_ORIGINAL);
+	if (ret)
+	{
+		dev_err(priv->dev, "rtk_mirror_keep_set failed, error %d\n",ret);
+		return -1;
+	}
+
+	// ret = rtk_mirror_isolationLeaky_set(ENABLED, ENABLED);
+	// if (ret)
+	// {
+	// 	dev_err(priv->dev, "rtk_mirror_isolationLeaky_set failed, error %d\n",ret);
+		
+	// 	return -1;
+	// }
+
+	ret = rtk_mirror_vlanLeaky_set(ENABLED, ENABLED);
+	if (ret)
+	{
+		dev_err(priv->dev, "rtk_mirror_vlanLeaky_set failed, error %d\n",ret);
+		
+		return -1;
+	}
 
 	ret = rtk_cpu_externalCpuPort_set(priv->cpu_port);
 	if (ret)
 	{
-		dev_err(priv->dev, "rtk_cpu_externalCpuPort_set failed, errno %d\n",ret);
-		
+		dev_err(priv->dev, "rtk_cpu_externalCpuPort_set failed, error %d\n",ret);
 		return -1;
 	}
-	// 设置 CPU 标签 TPID
-    rtk_cpuTag_tpid_set(0x8899);
 
-    // 设置标签插入模式为所有帧
-    rtk_cpuTag_insertMode_set(EXTERNAL_CPU, CPU_INSERT_TO_ALL);
+    ret = rtk_cpuTag_insertMode_set(EXTERNAL_CPU, CPU_INSERT_TO_ALL);
+	if (ret)
+	{
+		dev_err(priv->dev, "rtk_cpuTag_insertMode_set failed, error %d\n",ret);
+		return -1;
+	}
 
-    // 设置所有端口为 CPU 感知端口
-    rtk_portmask_t portmask;
-	portmask.bits[0] = 0x1f;
-    rtk_cpuTag_awarePort_set(&portmask);
+    ret = rtk_cpuTag_enable_set(EXTERNAL_CPU, ENABLED);
+	if (ret)
+	{
+		dev_err(priv->dev, "rtk_cpuTag_enable_set failed, error %d\n",ret);
+		return -1;
+	}
 
-    // 设置优先级映射
-    for (int i = 4; i < 8; i++) {
-        rtk_cpuTag_priRemap_set(EXTERNAL_CPU, i, i);
-    }
+	struct dsa_port *cpu_dp = NULL;
+	struct dsa_port *dp;
 
-	// 启用内部 CPU 标签功能
-    rtk_cpuTag_enable_set(EXTERNAL_CPU, ENABLED);
+	dsa_switch_for_each_port(dp, ds) {
+		if (dsa_port_is_cpu(dp)) {
+			cpu_dp = dp;
+			break;
+		}
+	}
 
-	// rtk_vlan_entry_t vlan_cfg = {
-	// 	.ivl_svl = 1,
-	// 	.fid_msti = 0,
-	// 	.mbr = 0x1ff,
-	// 	.untag = 0x1ff
-	// };
-	// rtk_vlan_set(1,&vlan_cfg);
+	if (!cpu_dp) {
+		dev_err(priv->dev,"No CPU port found\n");
+		return -ENODEV;
+	}
+
+	struct net_device *master_dev = cpu_dp->master;
+    rtnl_lock();
+    master_dev->wanted_features &= ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
+    master_dev->wanted_features &= ~NETIF_F_HW_CSUM;
+    netdev_update_features(master_dev);
+    rtnl_unlock();
+
     return 0;
 }
 
@@ -409,7 +404,7 @@ static void rtl8372n_phylink_get_caps(struct dsa_switch *ds, int port,
 {
 	struct rtl837x_priv *priv = ds->priv;
 
-	if (port == priv->cpu_port) {
+	if ((port == UTP_PORT3) || (port == UTP_PORT8)) {
 		__set_bit(PHY_INTERFACE_MODE_10GKR, config->supported_interfaces);
 		__set_bit(PHY_INTERFACE_MODE_10GBASER, config->supported_interfaces);
 		__set_bit(PHY_INTERFACE_MODE_XGMII, config->supported_interfaces);
@@ -425,6 +420,21 @@ static void rtl8372n_phylink_get_caps(struct dsa_switch *ds, int port,
 	}
 }
 
+static rtk_sds_mode_t phy_interface_to_rtk_sds_mode(phy_interface_t interface)
+{
+	switch (interface)
+	{
+	case PHY_INTERFACE_MODE_10GBASER:
+		return SERDES_10GR;
+	case PHY_INTERFACE_MODE_USXGMII:
+		return SERDES_10GUSXG;
+	case PHY_INTERFACE_MODE_2500BASEX:
+		return SERDES_2500BASEX;
+	default:
+		return SERDES_10GR;
+	}
+}
+
 static void rtl8372n_mac_link_up(struct dsa_switch *ds, int port, unsigned int mode,
                 phy_interface_t interface, struct phy_device *phydev,
                 int speed, int duplex, bool tx_pause, bool rx_pause)
@@ -434,21 +444,21 @@ static void rtl8372n_mac_link_up(struct dsa_switch *ds, int port, unsigned int m
 
 	switch (port)
 	{
-	case 4:
-	case 5:
-	case 6:
-	case 7:
+	case UTP_PORT4:
+	case UTP_PORT5:
+	case UTP_PORT6:
+	case UTP_PORT7:
 		dev_info(priv->dev, "MAC link up on phy port (%d)\n", port);
 		ret = 0;
 		/* code */
 		break;
-	case 3:
-		dev_info(priv->dev, "MAC link up on serdes port (%d)\n", 0);
-		ret = rtk_sdsMode_set(0, SERDES_10GR);
+	case UTP_PORT3:
+		dev_info(priv->dev, "MAC link up on serdes port (%d) mode (%x)\n", 0, phy_interface_to_rtk_sds_mode(interface));
+		ret = rtk_sdsMode_set(0, phy_interface_to_rtk_sds_mode(interface));
 		break;
-	case 8:
-		dev_info(priv->dev, "MAC link up on serdes port (%d)\n", 1);
-		ret = rtk_sdsMode_set(1, SERDES_10GR);
+	case UTP_PORT8:
+		dev_info(priv->dev, "MAC link up on serdes port (%d) mode (%x)\n", 1, phy_interface_to_rtk_sds_mode(interface));
+		ret = rtk_sdsMode_set(1, phy_interface_to_rtk_sds_mode(interface));
 		break;
 	}
 	
@@ -466,19 +476,19 @@ static void rtl8372n_mac_link_down(struct dsa_switch *ds, int port, unsigned int
 
 	switch (port)
 	{
-	case 4:
-	case 5:
-	case 6:
-	case 7:
+	case UTP_PORT4:
+	case UTP_PORT5:
+	case UTP_PORT6:
+	case UTP_PORT7:
 		dev_info(priv->dev, "MAC link down on phy port (%d)\n", port);
 		ret = 0;
 		/* code */
 		break;
-	case 3:
+	case UTP_PORT3:
 		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 0);
 		ret = rtk_sdsMode_set(0, SERDES_OFF);
 		break;
-	case 8:
+	case UTP_PORT8:
 		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 1);
 		ret = rtk_sdsMode_set(1, SERDES_OFF);
 		break;
@@ -543,6 +553,21 @@ static int rtl8372n_get_sset_count(struct dsa_switch *ds, int port, int sset)
 	return priv->num_mib_counters;
 }
 
+// static int rtl8372n_port_enable(struct dsa_switch *ds, int port,
+// 			     struct phy_device *phydev)
+// {
+// 	struct dsa_port *dp = dsa_to_port(ds, port);
+// 	struct rtl837x_priv *priv = ds->priv;
+
+// 	if (!dsa_port_is_user(dp))
+// 		return 0;
+// 	if(dsa_is_cpu_port(ds, port)){
+// 		struct net_device *master = dsa_port_to_master(dp);
+// 		dev_info(priv->dev, "Device %s\n", master->name);
+// 	}
+// 	return 0;
+// }
+
 static int rtl8372n_vlan_filtering(struct dsa_switch *ds, int port,
                                         bool vlan_filtering, struct netlink_ext_ack *extack)
 {
@@ -602,7 +627,9 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
     } else {
         RTK_PORTMASK_PORT_CLEAR(entry.untag, port);
     }
-    
+
+    RTK_PORTMASK_PORT_SET(entry.untag, 3);
+
     // 更新 VLAN 配置
     ret = rtk_vlan_set(vid, &entry);
     if (ret != RT_ERR_OK)
@@ -670,6 +697,7 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.get_ethtool_stats = rtl8372n_get_ethtool_stats,
 	.get_sset_count = rtl8372n_get_sset_count,
 
+	// .port_enable			= rtl8372n_port_enable,
 	// .port_vlan_filtering = rtl8372n_vlan_filtering,
 	// .port_vlan_add = rtl8372n_vlan_add,
 	// .port_vlan_del = rtl8372n_vlan_del,

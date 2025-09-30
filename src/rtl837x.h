@@ -24,6 +24,7 @@
 #include "./rtk-api/mib.h"
 #include "./rtk-api/isolation.h"
 #include "./rtk-api/l2.h"
+#include "./rtk-api/mirror.h"
 
 #include <linux/printk.h>
 
