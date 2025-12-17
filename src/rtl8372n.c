@@ -16,45 +16,103 @@
 #define RTL8372N_VLAN_FID_MASK 0xF
 
 static struct rtl837x_mib_counter rtl8372n_mib_counters[] ={
-	{0,"ifInOctets"},
-	{2,"ifOutOctets"},
-	{4,"ifInUcastPkts"},
-	{6,"ifInMulticastPkts"},
-	{8,"ifInBroadcastPkts"},
-	{0xA,"ifOutUcastPkts"},
-	{0xC,"ifOutMulticastPkts"},
-	{0xE,"ifOutBroadcastPkts"},
-	{0x10,"ifOutDiscards"},
-	{0x19,"InPauseFrames"},
-	{0x1A,"OutPauseFrames"},
-	{0x1C,"TxBroadcastPkts"},
-	{0x1D,"TxMulticastPkts"},
-	{0x20,"TxUndersizePkts"},
-	{0x21,"RxUndersizePkts"},
-	{0x22,"TxOversizePkts"},
-	{0x23,"RxOversizePkts"},
-	{0x24,"TxFragments"},
-	{0x25,"RxFragments"},
-	{0x26,"TxJabbers"},
-	{0x27,"RxJabbers"},
-	{0x28,"TxCollisions"},
-	{0x29,"Tx64Octets"},
-	{0x2A,"Rx64Octets"},
-	{0x2B,"Tx65to127Bytes"},
-	{0x2C,"Rx65to127Bytes"},
-	{0x2D,"Tx128to255Bytes"},
-	{0x2E,"Rx128to255Bytes"},
-	{0x2F,"Tx256to511Bytes"},
-	{0x30,"Rx256to511Bytes"},
-	{0x31,"Tx512to1023Bytes"},
-	{0x32,"Rx512to1023Bytes"},
-	{0x33,"Tx1024to1518Bytes"},
-	{0x34,"Rx1024to1518Bytes"},
-	{0x36,"RxUndersizedropPkts"},
-	{0x37,"Tx1519toMaxBytes"},
-	{0x38,"Rx1519toMaxBytes"},
-	{0x39,"TxOverMaxBytes"},
-	{0x3A,"RxOverMaxBytes"}
+	{ 0,  2, "ifInOctets"        },
+	{ 2,  2, "ifOutOctets"       },
+	{ 4,  2, "ifInUcastPkts"     },
+	{ 6,  2, "ifInMulticastPkts" },
+	{ 8,  2, "ifInBroadcastPkts" },
+	{ 10, 2, "ifOutUcastPkts"    },
+	{ 12, 2, "ifOutMulticastPkts"},
+	{ 14, 2, "ifOutBroadcastPkts"},
+	{ 16, 2, "ifOutDiscards"     },
+
+	{ 17, 1, "dot1dTpPortInDiscards"            },
+	{ 18, 1, "dot3StatsSingleCollisionFrames"   },
+	{ 19, 1, "dot3StatMultipleCollisionFrames"  },
+	{ 20, 1, "dot3sDeferredTransmissions"       },
+	{ 21, 1, "dot3StatsLateCollisions"          },
+	{ 22, 1, "dot3StatsExcessiveCollisions"     },
+	{ 23, 1, "dot3StatsSymbolErrors"            },
+	{ 24, 1, "dot3ControlInUnknownOpcodes"      },
+	{ 25, 1, "dot3InPauseFrames"                },
+	{ 26, 1, "dot3OutPauseFrames"               },
+	{ 27, 1, "etherStatsDropEvents"             },
+	{ 28, 1, "tx_etherStatsBroadcastPkts"       },
+	{ 29, 1, "tx_etherStatsMulticastPkts"       },
+	{ 30, 1, "tx_etherStatsCRCAlignErrors"      },
+	{ 31, 1, "rx_etherStatsCRCAlignErrors"      },
+	{ 32, 1, "tx_etherStatsUndersizePkts"       },
+	{ 33, 1, "rx_etherStatsUndersizePkts"       },
+	{ 34, 1, "tx_etherStatsOversizePkts"        },
+	{ 35, 1, "rx_etherStatsOversizePkts"        },
+	{ 36, 1, "tx_etherStatsFragments"           },
+	{ 37, 1, "rx_etherStatsFragments"           },
+	{ 38, 1, "tx_etherStatsJabbers"             },
+	{ 39, 1, "rx_etherStatsJabbers"             },
+	{ 40, 1, "tx_etherStatsCollisions"          },
+	{ 41, 1, "tx_etherStatsPkts64Octets"        },
+	{ 42, 1, "rx_etherStatsPkts64Octets"        },
+	{ 43, 1, "tx_etherStatsPkts65to127Octets"   },
+	{ 44, 1, "rx_etherStatsPkts65to127Octets"   },
+	{ 45, 1, "tx_etherStatsPkts128to255Octets"  },
+	{ 46, 1, "rx_etherStatsPkts128to255Octets"  },
+	{ 47, 1, "tx_etherStatsPkts256to511Octets"  },
+	{ 48, 1, "rx_etherStatsPkts256to511Octets"  },
+	{ 49, 1, "tx_etherStatsPkts512to1023Octets" },
+	{ 50, 1, "rx_etherStatsPkts512to1023Octets" },
+	{ 51, 1, "tx_etherStatsPkts1024to1518Octets"},
+	{ 52, 1, "rx_etherStatsPkts1024to1518Octets"},
+
+	{ 54, 1, "rx_etherStatsUndersizedropPkts"        },
+	{ 55, 1, "tx_etherStatsPkts1519toMaxOctets"      },
+	{ 56, 1, "rx_etherStatsPkts1519toMaxOctets"      },
+	{ 57, 1, "tx_etherStatsPktsOverMaxOctets"        },
+	{ 58, 1, "rx_etherStatsPktsOverMaxOctets"        },
+	{ 59, 1, "tx_etherStatsPktsFlexibleOctetsSET1"   },
+	{ 60, 1, "rx_etherStatsPktsFlexibleOctetsSET1"   },
+	{ 61, 1, "tx_etherStatsPktsFlexibleOctetsCRCSET1"},
+	{ 62, 1, "rx_etherStatsPktsFlexibleOctetsCRCSET1"},
+	{ 63, 1, "tx_etherStatsPktsFlexibleOctetsSET0"   },
+	{ 64, 1, "rx_etherStatsPktsFlexibleOctetsSET0"   },
+	{ 65, 1, "tx_etherStatsPktsFlexibleOctetsCRSET0C"},
+	{ 66, 1, "rx_etherStatsPktsFlexibleOctetsCRSET0C"},
+	{ 67, 1, "lengthFieldError"                      },
+	{ 68, 1, "falseCarrieimes"                       },
+	{ 69, 1, "underSizeOctets"                       },
+	{ 70, 1, "framingErrors"                         },
+
+	{ 72, 1, "rxMacDiscards"              },
+	{ 73, 1, "rxMacIPGShortDropRT"        },
+
+	{ 75, 1, "dot1dTpLearnedEntryDiscards"},
+	{ 76, 1, "egrQueue7DropPktRT"         },
+	{ 77, 1, "egrQueue6DropPktRT"         },
+	{ 78, 1, "egrQueue5DropPktRT"         },
+	{ 79, 1, "egrQueue4DropPktRT"         },
+	{ 80, 1, "egrQueue3DropPktRT"         },
+	{ 81, 1, "egrQueue2DropPktRT"         },
+	{ 82, 1, "egrQueue1DropPktRT"         },
+	{ 83, 1, "egrQueue0DropPktRT"         },
+	{ 84, 1, "egrQueue7OutPktRT"          },
+	{ 85, 1, "egrQueue6OutPktRT"          },
+	{ 86, 1, "egrQueue5OutPktRT"          },
+	{ 87, 1, "egrQueue4OutPktRT"          },
+	{ 88, 1, "egrQueue3OutPktRT"          },
+	{ 89, 1, "egrQueue2OutPktRT"          },
+	{ 90, 1, "egrQueue1OutPktRT"          },
+	{ 91, 1, "egrQueue0OutPktRT"          },
+
+	{ 92, 2, "TxGoodCnt"                  },
+	{ 94, 2, "RxGoodCnt"                  },
+
+	{ 96, 1, "RxErrorCnt"                 },
+	{ 97, 1, "TxErrorCnt"                 },
+
+	{ 98, 2, "TxGoodCnt_phy"              },
+	{ 100, 2, "RxGoodCnt_phy"             },
+
+	{ 102, 1, "RxErrorCnt_phy"            },
+	{ 103, 1, "TxErrorCnt_phy"            }
 };
 
 struct rtl8372n {
@@ -150,7 +208,7 @@ static int rtl8372n_get_mib_counter(struct rtl837x_priv *priv,
 {
     int ret;
     rtk_stat_counter_t counter;
-    ret = rtk_stat_port_get(port, mib->base, &counter);
+    ret = rtk_stat_port_get(port, mib->offset, &counter);
     if(ret) return ret;
 
     *mibvalue = counter;
@@ -297,6 +355,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
         rtk_l2_limitLearningCntAction_set(port, LIMIT_LEARN_CNT_ACTION_FORWARD);
 
 		rtk_vlan_tagMode_set(port, VLAN_EGRESS_TAG_MODE_KEEP_FORMAT);
+		rtk_vlan_portAcceptFrameType_set(port, ACCEPT_FRAME_TYPE_ALL);
 		rtk_vlan_portIgrFilterEnable_set(port, DISABLED);
 		ret = rtk_eee_portTxRxEn_set(port, DISABLED, DISABLED);
 		if (ret)
@@ -345,7 +404,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	// 	return -1;
 	// }
 
-	ret = rtk_mirror_vlanLeaky_set(ENABLED, ENABLED);
+	ret = rtk_mirror_vlanLeaky_set(DISABLED, DISABLED);
 	if (ret)
 	{
 		dev_err(priv->dev, "rtk_mirror_vlanLeaky_set failed, error %d\n",ret);
@@ -416,7 +475,6 @@ static void rtl8372n_phylink_get_caps(struct dsa_switch *ds, int port,
 		__set_bit(PHY_INTERFACE_MODE_INTERNAL, config->supported_interfaces);
 		config->mac_capabilities = MAC_2500FD | MAC_1000 | MAC_100 | MAC_10 |
                                     MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
-        
 	}
 }
 
@@ -448,16 +506,16 @@ static void rtl8372n_mac_link_up(struct dsa_switch *ds, int port, unsigned int m
 	case UTP_PORT5:
 	case UTP_PORT6:
 	case UTP_PORT7:
-		dev_info(priv->dev, "MAC link up on phy port (%d)\n", port);
+		dev_info(priv->dev, "MAC link up on phy port(%d)\n", port);
 		ret = 0;
 		/* code */
 		break;
 	case UTP_PORT3:
-		dev_info(priv->dev, "MAC link up on serdes port (%d) mode (%x)\n", 0, phy_interface_to_rtk_sds_mode(interface));
+		dev_info(priv->dev, "MAC link up on serdes port(%d) mode (%x)\n", 0, phy_interface_to_rtk_sds_mode(interface));
 		ret = rtk_sdsMode_set(0, phy_interface_to_rtk_sds_mode(interface));
 		break;
 	case UTP_PORT8:
-		dev_info(priv->dev, "MAC link up on serdes port (%d) mode (%x)\n", 1, phy_interface_to_rtk_sds_mode(interface));
+		dev_info(priv->dev, "MAC link up on serdes port(%d) mode (%x)\n", 1, phy_interface_to_rtk_sds_mode(interface));
 		ret = rtk_sdsMode_set(1, phy_interface_to_rtk_sds_mode(interface));
 		break;
 	}

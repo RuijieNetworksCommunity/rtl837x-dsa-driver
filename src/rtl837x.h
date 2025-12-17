@@ -29,7 +29,8 @@
 #include <linux/printk.h>
 
 struct rtl837x_mib_counter {
-	uint16_t	base;
+	unsigned int	offset;
+	unsigned int	length;
 	const char	*name;
 };
 
