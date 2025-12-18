@@ -320,31 +320,19 @@ static int rtl8372n_setup(struct dsa_switch *ds)
     rtl_gbl_priv = priv;
     int ret;
 
-	// for(int i = 0;i<8;i++){
-	// 	struct dsa_port *dp = dsa_to_port(ds, i);
-	// 	dev_info(priv->dev,"Port :%d  type: %d\n",i ,dp->type);
-	// }
-
     dev_info(priv->dev,"Start init RTL8372N Switch\n");
 
     ret = rtk_switch_init();
 	if(ret){
-		dev_err(priv->dev, "rtk_switch_init Fail, erron:%d\n", ret);
+		dev_err(priv->dev, "rtk_switch_init Fail, error:%d\n", ret);
 		return -EIO;
 	}
 
     ret = rtl8372n_setup_mdio(priv);
 	if(ret){
-		dev_err(priv->dev, "rtl8372n_setup_mdio Fail, erron:%d\n", ret);
+		dev_err(priv->dev, "rtl8372n_setup_mdio Fail, error:%d\n", ret);
 		return ret;
 	}
-
-	// ret = rtk_vlan_init();
-    // if (ret)
-    // {
-	// 	dev_err(priv->dev, "rtk_vlan_init failed, errno:%d\n", ret);
-	// 	return -EIO;
-    // }
 
 	for(int port = 0;port < priv->num_ports;port++){
 		if (dsa_is_unused_port(priv->ds, port))
