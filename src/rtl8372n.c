@@ -454,10 +454,11 @@ static void rtl8372n_phylink_get_caps(struct dsa_switch *ds, int port,
 	if ((port == UTP_PORT3) || (port == UTP_PORT8)) {
 		__set_bit(PHY_INTERFACE_MODE_10GKR, config->supported_interfaces);
 		__set_bit(PHY_INTERFACE_MODE_10GBASER, config->supported_interfaces);
-		__set_bit(PHY_INTERFACE_MODE_XGMII, config->supported_interfaces);
         __set_bit(PHY_INTERFACE_MODE_5GBASER, config->supported_interfaces);
         __set_bit(PHY_INTERFACE_MODE_USXGMII, config->supported_interfaces);
-        __set_bit(PHY_INTERFACE_MODE_SGMII, config->supported_interfaces);
+        __set_bit(PHY_INTERFACE_MODE_1000BASEX, config->supported_interfaces);
+        __set_bit(PHY_INTERFACE_MODE_2500BASEX, config->supported_interfaces);
+        __set_bit(PHY_INTERFACE_MODE_TBI, config->supported_interfaces);
 		config->mac_capabilities = MAC_10000FD | MAC_5000FD | MAC_2500FD | MAC_1000 | MAC_100 | MAC_10 |
                                     MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
 	} else {
@@ -477,8 +478,12 @@ static rtk_sds_mode_t phy_interface_to_rtk_sds_mode(phy_interface_t interface)
 		return SERDES_10GUSXG;
 	case PHY_INTERFACE_MODE_2500BASEX:
 		return SERDES_2500BASEX;
-	case PHY_INTERFACE_MODE_SGMII:
+	case PHY_INTERFACE_MODE_TBI:
 		return SERDES_8221B;
+	case PHY_INTERFACE_MODE_1000BASEX:
+		return SERDES_SG;
+	case PHY_INTERFACE_MODE_2500BASEX:
+		return SERDES_HSG;
 	default:
 		return SERDES_10GR;
 	}
