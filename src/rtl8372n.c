@@ -458,7 +458,8 @@ static void rtl8372n_phylink_get_caps(struct dsa_switch *ds, int port,
         __set_bit(PHY_INTERFACE_MODE_USXGMII, config->supported_interfaces);
         __set_bit(PHY_INTERFACE_MODE_1000BASEX, config->supported_interfaces);
         __set_bit(PHY_INTERFACE_MODE_2500BASEX, config->supported_interfaces);
-        __set_bit(PHY_INTERFACE_MODE_TBI, config->supported_interfaces);
+        __set_bit(PHY_INTERFACE_MODE_MII, config->supported_interfaces);
+        __set_bit(PHY_INTERFACE_MODE_GMII, config->supported_interfaces);
 		config->mac_capabilities = MAC_10000FD | MAC_5000FD | MAC_2500FD | MAC_1000 | MAC_100 | MAC_10 |
                                     MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
 	} else {
@@ -476,14 +477,14 @@ static rtk_sds_mode_t phy_interface_to_rtk_sds_mode(phy_interface_t interface)
 		return SERDES_10GR;
 	case PHY_INTERFACE_MODE_USXGMII:
 		return SERDES_10GUSXG;
+	case PHY_INTERFACE_MODE_1000BASEX:
+		return SERDES_1000BASEX;
 	case PHY_INTERFACE_MODE_2500BASEX:
 		return SERDES_2500BASEX;
-	case PHY_INTERFACE_MODE_TBI:
+	case PHY_INTERFACE_MODE_MII:
 		return SERDES_8221B;
-	case PHY_INTERFACE_MODE_1000BASEX:
-		return SERDES_SG;
-	case PHY_INTERFACE_MODE_2500BASEX:
-		return SERDES_HSG;
+	case PHY_INTERFACE_MODE_GMII:
+		return SERDES_8221B;
 	default:
 		return SERDES_10GR;
 	}
@@ -494,7 +495,7 @@ static void rtl8372n_mac_link_up(struct dsa_switch *ds, int port, unsigned int m
                 int speed, int duplex, bool tx_pause, bool rx_pause)
 {
 	struct rtl837x_priv *priv = ds->priv;
-	int ret;
+	int ret = 0;
 
 	switch (port)
 	{
@@ -503,19 +504,32 @@ static void rtl8372n_mac_link_up(struct dsa_switch *ds, int port, unsigned int m
 	case UTP_PORT6:
 	case UTP_PORT7:
 		dev_info(priv->dev, "MAC link up on phy port(%d)\n", port);
-		ret = 0;
-		/* code */
 		break;
 	case UTP_PORT3:
-		dev_info(priv->dev, "MAC link up on serdes port(%d) mode (%x)\n", 0, phy_interface_to_rtk_sds_mode(interface));
-		ret = rtk_sdsMode_set(0, phy_interface_to_rtk_sds_mode(interface));
-		break;
 	case UTP_PORT8:
-		dev_info(priv->dev, "MAC link up on serdes port(%d) mode (%x)\n", 1, phy_interface_to_rtk_sds_mode(interface));
-		ret = rtk_sdsMode_set(1, phy_interface_to_rtk_sds_mode(interface));
+		rtk_sds_mode_t sds_mode = phy_interface_to_rtk_sds_mode(interface);
+		if (interface == PHY_INTERFACE_MODE_GMII)
+		{
+			switch (speed)
+			{
+			case SPEED_1000:
+				sds_mode = SERDES_SG;
+				break;
+			case SPEED_2500:
+				sds_mode = SERDES_HSG;
+				break;
+			default:
+				break;
+			}
+		}
+		dev_info(priv->dev, "MAC link up on serdes port(%d) mode (%x), speed (%d)\n", 
+							port == UTP_PORT3 ? 0 : 1, 
+							phy_interface_to_rtk_sds_mode(interface),
+							speed);
+		ret = rtk_sdsMode_set(port == UTP_PORT3 ? 0 : 1, phy_interface_to_rtk_sds_mode(interface));
 		break;
 	}
-	
+
 	if (ret) {
 		dev_err(priv->dev, "failed to enable the port(%d)\n", port);
 		return;
