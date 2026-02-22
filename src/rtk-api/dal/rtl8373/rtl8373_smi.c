@@ -11,6 +11,7 @@
 #include <rtl8373_smi.h>
 #include "rtk_error.h"
 
+// we need refactoring here to avoid global variable
 struct rtl837x_priv *rtl_gbl_priv;
 
 rtk_int32 rtl8373_smi_read(rtk_uint32 mAddrs, rtk_uint32 *rData)
