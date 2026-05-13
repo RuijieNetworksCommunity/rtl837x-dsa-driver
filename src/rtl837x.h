@@ -97,6 +97,7 @@ struct rtl837x_vlan_4k {
 struct rtl837x_variant {
 	const struct dsa_switch_ops *ds_ops_mdio;
 	const struct rtl837x_ops *ops;
+	const struct phylink_mac_ops *phy_mac_ops;
 	size_t chip_data_sz;
 };
 
@@ -124,6 +125,7 @@ struct rtl837x_ops {
 char* chipid_to_chip_name(switch_chip_t id);
 
 extern int rtl837x_gpiochip_init(struct rtl837x_priv *priv);
+extern rtk_sds_mode_t phy_interface_to_rtk_sds_mode(phy_interface_t interface);
 
 extern const struct rtl837x_variant rtl8372n_variant;
 

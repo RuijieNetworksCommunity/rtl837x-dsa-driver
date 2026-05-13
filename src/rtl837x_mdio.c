@@ -19,13 +19,6 @@ static int rtl837x_mdio_write(void *ctx, u32 reg, u32 val)
 
 	mutex_lock(&bus->mdio_lock);
 
-	// check busy
-	ret = bus->read(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG);
-    if (ret & 0x4) {
-		ret = EBUSY;
-		goto out_unlock;
-    }
-
 	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_ADDR_REG, reg);
 	if (ret)
 		goto out_unlock;
@@ -42,12 +35,6 @@ static int rtl837x_mdio_write(void *ctx, u32 reg, u32 val)
 	if (ret)
 		goto out_unlock;
 
-	// check busy
-	ret = bus->read(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG);
-    if (ret & 0x4) {
-		ret = EBUSY;
-		goto out_unlock;
-    }
 	ret = 0;
 out_unlock:
 	mutex_unlock(&bus->mdio_lock);
@@ -64,13 +51,6 @@ static int rtl837x_mdio_read(void *ctx, u32 reg, u32 *val)
 
 	mutex_lock(&bus->mdio_lock);
 
-	// check busy
-	ret = bus->read(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG);
-    if (ret & 0x4) {
-		ret = EBUSY;
-		goto out_unlock;
-    }
-
 	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_ADDR_REG, reg);
 	if (ret)
 		goto out_unlock;
@@ -78,13 +58,6 @@ static int rtl837x_mdio_read(void *ctx, u32 reg, u32 *val)
 	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG, MDC_MDIO_READ_CMD);
 	if (ret)
 		goto out_unlock;
-
-	// check busy
-	ret = bus->read(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG);
-    if (ret & 0x4) {
-		ret = EBUSY;
-		goto out_unlock;
-    }
 
 	val_l = bus->read(bus, priv->mdio_addr, MDC_MDIO_DATA_LOW);
 	val_h = bus->read(bus, priv->mdio_addr, MDC_MDIO_DATA_HIGH);
@@ -243,6 +216,8 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	priv->ds->num_ports = priv->num_ports;
 	priv->ds->priv = priv;
 	priv->ds->ops = var->ds_ops_mdio;
+	if (var->phy_mac_ops)
+		priv->ds->phylink_mac_ops = var->phy_mac_ops;
 	
 	ret = dsa_register_switch(priv->ds);
 	if (ret) {
