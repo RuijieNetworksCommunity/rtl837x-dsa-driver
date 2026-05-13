@@ -20,19 +20,19 @@ static int rtl837x_mdio_write(void *ctx, u32 reg, u32 val)
 	mutex_lock(&bus->mdio_lock);
 
 	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_ADDR_REG, reg);
-	if (ret)
+	if (unlikely(ret))
 		goto out_unlock;
 
 	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_DATA_LOW, (val & 0xFFFF));
-	if (ret)
+	if (unlikely(ret))
 		goto out_unlock;
 
 	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_DATA_HIGH, ((val >> 16) & 0xFFFF));
-	if (ret)
+	if (unlikely(ret))
 		goto out_unlock;
 
 	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG, MDC_MDIO_WRITE_CMD);
-	if (ret)
+	if (unlikely(ret))
 		goto out_unlock;
 
 	ret = 0;
@@ -52,11 +52,11 @@ static int rtl837x_mdio_read(void *ctx, u32 reg, u32 *val)
 	mutex_lock(&bus->mdio_lock);
 
 	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_ADDR_REG, reg);
-	if (ret)
+	if (unlikely(ret))
 		goto out_unlock;
 
 	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG, MDC_MDIO_READ_CMD);
-	if (ret)
+	if (unlikely(ret))
 		goto out_unlock;
 
 	val_l = bus->read(bus, priv->mdio_addr, MDC_MDIO_DATA_LOW);
