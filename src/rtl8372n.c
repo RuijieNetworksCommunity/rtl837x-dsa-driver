@@ -323,8 +323,10 @@ static int rtl8372n_setup_mdio(struct rtl837x_priv *priv)
 		goto out;
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,44)
 	if (!mnp)
 		ds->user_mii_bus = bus;
+#endif
 
     bus->priv = priv;
 	bus->name = KBUILD_MODNAME "-mii";
