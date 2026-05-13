@@ -50,21 +50,26 @@ rtk_api_ret_t dal_rtl8373_gpio_muxSel_set(rtk_uint32 gpioNum)
 
     if(gpioNum < 30)
     {
+        val = 1;
         if((retVal = rtl8373_setAsicRegBit(RTL8373_IO_MUX_SEL_0_ADDR, gpioNum, val)) != RT_ERR_OK)
             return retVal;
     }
     else if (gpioNum == 30)
     {
+        val = 1;
         if((retVal = rtl8373_setAsicRegBit(RTL8373_IO_MUX_SEL_2_ADDR, RTL8373_IO_MUX_SEL_2_ACL_BIT3_EN_OFFSET, val)) != RT_ERR_OK)
             return retVal;
     }
     else if (gpioNum == 31 || gpioNum == 32)
     {
-        if((retVal = rtl8373_setAsicRegBits(RTL8373_IO_MUX_SEL_1_ADDR, (RTL8373_IO_MUX_SEL_1_PAD_UART0_SEL_0_MASK | RTL8373_IO_MUX_SEL_1_PAD_UART0_SEL_1_MASK), val)) != RT_ERR_OK)
+        // we have to set RTL8373_IO_MUX_SEL_1_PAD_UART0_SEL_0_MASK and RTL8373_IO_MUX_SEL_1_PAD_UART0_SEL_1_MASK
+        // only set RTL8373_IO_MUX_SEL_1_PAD_UART0_SEL_0_MASK or RTL8373_IO_MUX_SEL_1_PAD_UART0_SEL_1_MASK is not work
+        if((retVal = rtl8373_setAsicRegBits(RTL8373_IO_MUX_SEL_1_ADDR, RTL8373_IO_MUX_SEL_1_PAD_UART0_SEL_0_MASK | RTL8373_IO_MUX_SEL_1_PAD_UART0_SEL_1_MASK, 0x3)) != RT_ERR_OK)
             return retVal;
     }
     else if (gpioNum >= 33 && gpioNum <= 35 )
     {
+        val = 1;
         if((retVal = rtl8373_setAsicRegBit(RTL8373_IO_MUX_SEL_1_ADDR, (gpioNum - 31), val)) != RT_ERR_OK)
             return retVal;
     }
@@ -84,39 +89,54 @@ rtk_api_ret_t dal_rtl8373_gpio_muxSel_set(rtk_uint32 gpioNum)
     }
     else if (gpioNum == 40 || gpioNum == 41)
     {
-        if((retVal = rtl8373_setAsicRegBits(RTL8373_IO_MUX_SEL_1_ADDR, (RTL8373_IO_MUX_SEL_1_GPIO_MDX1_SEL_0_MASK | RTL8373_IO_MUX_SEL_1_GPIO_MDX1_SEL_1_MASK), val)) != RT_ERR_OK)
+        val = 1;
+        mask = gpioNum == 40 ? RTL8373_IO_MUX_SEL_1_GPIO_MDX1_SEL_0_MASK : RTL8373_IO_MUX_SEL_1_GPIO_MDX1_SEL_1_MASK;
+        if((retVal = rtl8373_setAsicRegBits(RTL8373_IO_MUX_SEL_1_ADDR, mask, val)) != RT_ERR_OK)
             return retVal;
     }
     else if (gpioNum >= 42 && gpioNum <= 45)
     {
+        // what fuck is this?
+        // I don't know how does realtek use two bits to represent gpio 42 43 44 45
+        // Is this a magic?????
         if((retVal = rtl8373_setAsicRegBits(RTL8373_INI_MODE_ADDR, RTL8373_INI_MODE_INI_MODE_MASK , val)) != RT_ERR_OK)
             return retVal;
     }
     else if (gpioNum >= 46 && gpioNum <= 51)
     {
         mask = (0x180 << ((gpioNum-46)*2));
+        // what fuck is this????
+        // I don't know how does realtek use two bits to represent gpio 46 47 48 49 50 51
+        // Is this a magic?????
         if((retVal = rtl8373_setAsicRegBits(RTL8373_IO_MUX_SEL_1_ADDR, mask , val)) != RT_ERR_OK)
             return retVal;
     }
     else if (gpioNum >= 52 && gpioNum <= 54)
     {
+        val = 1;
         if((retVal = rtl8373_setAsicRegBit(RTL8373_IO_MUX_SEL_2_ADDR, gpioNum -52, val)) != RT_ERR_OK)
             return retVal;
     }
     else if (gpioNum >= 55 && gpioNum <= 60)
     {
+        val = 1;
         if((retVal = rtl8373_setAsicRegBit(RTL8373_IO_MUX_SEL_1_ADDR, gpioNum -36, val)) != RT_ERR_OK)
             return retVal;
     }
     else if (gpioNum == 61 || gpioNum == 62)
     {
+        val = 1;
         if((retVal = rtl8373_setAsicRegBit(RTL8373_IO_MUX_SEL_1_ADDR, gpioNum -34, val)) != RT_ERR_OK)
             return retVal;
     }
-    else//gpio63
+    else if (gpioNum == 63) //gpio63
     {
+        val = 1;
         if((retVal = rtl8373_setAsicRegBit(RTL8373_IO_MUX_SEL_1_ADDR, RTL8373_IO_MUX_SEL_1_GPIO_MDIO0_SEL_OFFSET, val)) != RT_ERR_OK)
             return retVal;
+    }else
+    {
+        return RT_ERR_RANGE;
     }
 
     return RT_ERR_OK;

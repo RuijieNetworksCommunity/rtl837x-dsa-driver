@@ -25,6 +25,7 @@
 #include "./rtk-api/isolation.h"
 #include "./rtk-api/l2.h"
 #include "./rtk-api/mirror.h"
+#include "./rtk-api/dal/rtl8373/dal_rtl8373_mapper.h"
 
 #include <linux/printk.h>
 
@@ -39,6 +40,18 @@ struct rtl837x_sdsmode_map {
 	const char *name;
 };
 
+typedef struct rtl837x_pnswap_cfg_s {
+	uint8_t sds0_rx_swap:1;
+	uint8_t sds0_tx_swap:1;
+
+	uint8_t sds1_rx_swap:1;
+	uint8_t sds1_tx_swap:1;
+
+	uint8_t phy_mdi_reverse:1;
+	uint8_t phy_tx_polarity_swap:1;
+	uint8_t RESERVED:2;
+} rtl837x_pnswap_cfg_t;
+
 struct rtl837x_priv {
  	struct device *dev;
 	struct gpio_desc	*reset;
@@ -52,11 +65,12 @@ struct rtl837x_priv {
 	switch_chip_t chip_id;
 	const uint8_t *port_map;
 
-	unsigned int cpu_port;
 	unsigned int num_ports;
 
 	rtk_sds_mode_t sds0mode;
 	rtk_sds_mode_t sds1mode;
+	rtl837x_pnswap_cfg_t swap_cfg;
+	dal_mapper_t *pMapper;
 
 	struct dsa_switch	*ds;
 
@@ -108,6 +122,8 @@ struct rtl837x_ops {
 };
 
 char* chipid_to_chip_name(switch_chip_t id);
+
+extern int rtl837x_gpiochip_init(struct rtl837x_priv *priv);
 
 extern const struct rtl837x_variant rtl8372n_variant;
 

@@ -6,6 +6,7 @@
 #include <linux/of.h>
 #include <linux/gpio/consumer.h>
 #include <linux/mutex.h>
+#include <linux/gpio/driver.h>
 
 #include "./rtl837x.h"
 
@@ -21,7 +22,7 @@ static int rtl837x_mdio_write(void *ctx, u32 reg, u32 val)
 	// check busy
 	ret = bus->read(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG);
     if (ret & 0x4) {
-		ret = RT_ERR_BUSYWAIT_TIMEOUT;
+		ret = EBUSY;
 		goto out_unlock;
     }
 
@@ -44,7 +45,7 @@ static int rtl837x_mdio_write(void *ctx, u32 reg, u32 val)
 	// check busy
 	ret = bus->read(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG);
     if (ret & 0x4) {
-		ret = RT_ERR_BUSYWAIT_TIMEOUT;
+		ret = EBUSY;
 		goto out_unlock;
     }
 	ret = 0;
@@ -66,7 +67,7 @@ static int rtl837x_mdio_read(void *ctx, u32 reg, u32 *val)
 	// check busy
 	ret = bus->read(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG);
     if (ret & 0x4) {
-		ret = RT_ERR_BUSYWAIT_TIMEOUT;
+		ret = EBUSY;
 		goto out_unlock;
     }
 
@@ -81,10 +82,9 @@ static int rtl837x_mdio_read(void *ctx, u32 reg, u32 *val)
 	// check busy
 	ret = bus->read(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG);
     if (ret & 0x4) {
-		ret = RT_ERR_BUSYWAIT_TIMEOUT;
+		ret = EBUSY;
 		goto out_unlock;
     }
-
 
 	val_l = bus->read(bus, priv->mdio_addr, MDC_MDIO_DATA_LOW);
 	val_h = bus->read(bus, priv->mdio_addr, MDC_MDIO_DATA_HIGH);
@@ -116,7 +116,7 @@ static void rtl837x_mdio_unlock(void *ctx)
 static const struct regmap_config rtl837x_mdio_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 32,
-	.reg_stride = 1,
+	.reg_stride = 4,
 
 	.max_register = 0xffff,
 	.reg_format_endian = REGMAP_ENDIAN_BIG,
@@ -130,7 +130,7 @@ static const struct regmap_config rtl837x_mdio_regmap_config = {
 static const struct regmap_config rtl837x_mdio_nolock_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 32,
-	.reg_stride = 1,
+	.reg_stride = 4,
 
 	.max_register = 0xffff,
 	.reg_format_endian = REGMAP_ENDIAN_BIG,
@@ -144,9 +144,9 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 {
 	struct rtl837x_priv *priv;
 	struct device *dev = &mdiodev->dev;
+	struct device_node *np = dev->of_node;
 	const struct rtl837x_variant *var;
 	struct regmap_config rc;
-	struct device_node *np;
 	int ret;
 
 	var = of_device_get_match_data(dev);
@@ -162,6 +162,21 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 		ret = -ENOMEM;
 		goto err;
 	}
+
+	memset(&(priv->swap_cfg),0,sizeof(rtl837x_pnswap_cfg_t));
+	if (of_property_read_bool(np, "sds0-rx-swap"))
+		priv->swap_cfg.sds0_rx_swap = 1;
+	if (of_property_read_bool(np, "sds0-tx-swap"))
+		priv->swap_cfg.sds0_tx_swap = 1;
+	if (of_property_read_bool(np, "sds1-rx-swap"))
+		priv->swap_cfg.sds1_rx_swap = 1;
+	if (of_property_read_bool(np, "sds1-tx-swap"))
+		priv->swap_cfg.sds1_tx_swap = 1;
+
+	if (of_property_read_bool(np, "phy-mdi-reverse"))
+		priv->swap_cfg.phy_mdi_reverse = 1;
+	if (of_property_read_bool(np, "phy-tx-polarity-swap"))
+		priv->swap_cfg.phy_tx_polarity_swap = 1;
 
 	mutex_init(&priv->map_lock);
 	
@@ -191,7 +206,6 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 
 	priv->write_reg_noack = rtl837x_mdio_write;
 
-	np = dev->of_node;
 
 	dev_set_drvdata(dev, priv);
 
@@ -219,8 +233,6 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 		goto err;
 	}
 
-	// rtl837x_phy_module_init(THIS_MODULE, (void*)priv);
-
 	priv->ds = devm_kzalloc(dev, sizeof(*priv->ds), GFP_KERNEL);
 	if (!priv->ds){
 		ret =  -ENOMEM;
@@ -237,6 +249,15 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 		dev_err(priv->dev, "unable to register switch ret = %d\n", ret);
 		goto err;
 	}
+
+#ifdef CONFIG_GPIOLIB
+	if (of_property_read_bool(np, "gpio-controller"))
+	{
+		ret = rtl837x_gpiochip_init(priv);
+		if (ret) 
+			dev_err(priv->dev, "Failed to register gpiochip. ret = %d\n", ret);
+	}
+#endif /* CONFIG_GPIOLIB */
 
 	return 0;
 err:
@@ -288,5 +309,5 @@ static struct mdio_driver rtl837x_mdio_driver = {
 mdio_module_driver(rtl837x_mdio_driver);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("air jinkela <air_jinkela@163.com>");
+MODULE_AUTHOR("StarField Xu <air_jinkela@163.com>");
 MODULE_DESCRIPTION("rtl8372n switch driver for MT7988");

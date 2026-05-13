@@ -4,6 +4,11 @@ ccflags-y += -I$(src)/rtk-api -I$(src)/rtk-api/dal/rtl8373 -Iinclude/linux/
 obj-$(CONFIG_RTL8372N_DSA) += rtl8372n_dsa.o
 
 rtl8372n_dsa-objs := rtl8372n.o
+
+ifeq ($(CONFIG_GPIOLIB),y)
+rtl8372n_dsa-objs += rtl837x_gpio.o
+endif
+
 rtl8372n_dsa-objs += rtl837x_mdio.o
 rtl8372n_dsa-objs += rtl837x_common.o
 

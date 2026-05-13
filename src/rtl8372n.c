@@ -1,10 +1,12 @@
 #include <linux/bitops.h>
+#include <linux/bitfield.h>
 #include <linux/etherdevice.h>
 #include <linux/if_bridge.h>
 #include <linux/interrupt.h>
 #include <linux/irqdomain.h>
 #include <linux/irqchip/chained_irq.h>
 #include <linux/regmap.h>
+#include <linux/version.h>
 
 #include "rtl837x.h"
 
@@ -24,8 +26,8 @@ static struct rtl837x_mib_counter rtl8372n_mib_counters[] ={
 	{ 10, 2, "ifOutUcastPkts"    },
 	{ 12, 2, "ifOutMulticastPkts"},
 	{ 14, 2, "ifOutBroadcastPkts"},
-	{ 16, 2, "ifOutDiscards"     },
 
+	{ 16, 1, "ifOutDiscards"                    },
 	{ 17, 1, "dot1dTpPortInDiscards"            },
 	{ 18, 1, "dot3StatsSingleCollisionFrames"   },
 	{ 19, 1, "dot3StatMultipleCollisionFrames"  },
@@ -139,7 +141,6 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
 	switch (sw_chip) {
         case CHIP_RTL8372N:
             dev_info(dev, "found an %s switch\n", chipid_to_chip_name(sw_chip));
-            priv->cpu_port = RTL8372N_PORT_NUM_CPU;
             priv->num_ports = RTL8372N_NUM_PORTS;
             // priv->port_map = rtl8372_port_map;
             priv->mib_counters = rtl8372n_mib_counters;
@@ -159,6 +160,7 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
                 val);
             return -ENODEV;
 	}
+	priv->pMapper = dal_rtl8373_mapper_get();
 	return 0;
 }
 
@@ -189,8 +191,6 @@ static int rtl8372n_set_vlan_4k(struct rtl837x_priv *priv,
     rtk_vlan_entry_t vlanCfg;
 	memset(&vlanCfg, '\0', sizeof(rtk_vlan_entry_t));
 
-    if(ret) return ret;
-
     vlanCfg.mbr.bits[0] = vlan4k->member;
     vlanCfg.untag.bits[0] = vlan4k->untag;
     vlanCfg.fid_msti = vlan4k->fid;
@@ -207,13 +207,37 @@ static int rtl8372n_get_mib_counter(struct rtl837x_priv *priv,
                 u64 *mibvalue)
 {
     int ret;
-    rtk_stat_counter_t counter;
-    ret = rtk_stat_port_get(port, mib->offset, &counter);
+	uint32_t val_h, val_l;
+
+    int mib_id = (mib->offset)/2;
+
+	uint32_t tmp = (FIELD_PREP(RTL8373_INDIRECT_ACCESS_CTRL_PORT_ID_MASK, port) |
+					FIELD_PREP(RTL8373_INDIRECT_ACCESS_CTRL_MIB_ID_MASK, mib_id) |
+					FIELD_PREP(RTL8373_INDIRECT_ACCESS_CTRL_ACC_CMD_MASK, 1));
+
+	ret = regmap_write(priv->map, RTL8373_INDIRECT_ACCESS_CTRL_ADDR, tmp);
     if(ret) return ret;
 
-    *mibvalue = counter;
-    return 0;
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_INDIRECT_ACCESS_CTRL_ADDR, tmp, ((tmp & RTL8373_INDIRECT_ACCESS_CTRL_ACC_CMD_MASK) == 0), 0, 1000);
+    if(ret) return ret;
+
+	if (mib->length > 1)
+	{
+		ret = regmap_read(priv->map, RTL8373_INDIRECT_ACCESS_CNT_L_ADDR, &val_l);
+		if(ret) return ret;
+		ret = regmap_read(priv->map, RTL8373_INDIRECT_ACCESS_CNT_H_ADDR, &val_h);
+		if(ret) return ret;
+		*mibvalue = ((uint64_t)val_l << 32) | val_h;
+		return 0;
+	} else
+	{
+		if(mib->offset % 2)
+			return regmap_read(priv->map, RTL8373_INDIRECT_ACCESS_CNT_H_ADDR, (u32*)mibvalue);
+		else
+			return regmap_read(priv->map, RTL8373_INDIRECT_ACCESS_CNT_L_ADDR, (u32*)mibvalue);
+	}
 }
+
 static int rtl8372n_enable_vlan(struct rtl837x_priv *priv, bool enable)
 {
     return 0;
@@ -292,9 +316,6 @@ static int rtl8372n_setup_mdio(struct rtl837x_priv *priv)
 		goto out;
 	}
 
-    if (!mnp)
-		ds->slave_mii_bus = bus;
-
     bus->priv = priv;
 	bus->name = KBUILD_MODNAME "-mii";
 	snprintf(bus->id, MII_BUS_ID_SIZE, KBUILD_MODNAME "-%d", idx++);
@@ -316,9 +337,23 @@ out:
 
 static int rtl8372n_setup(struct dsa_switch *ds)
 {
-    struct rtl837x_priv *priv = ds->priv;
-    rtl_gbl_priv = priv;
     int ret;
+    struct rtl837x_priv *priv = ds->priv;
+	struct dsa_port *cpu_dp = NULL;
+	struct dsa_port *dp;
+    rtl_gbl_priv = priv;
+
+	dsa_switch_for_each_port(dp, ds) {
+		if (dsa_port_is_cpu(dp)) {
+			cpu_dp = dp;
+			break;
+		}
+	}
+
+	if (!cpu_dp) {
+		dev_err(priv->dev,"No CPU port found\n");
+		return -ENODEV;
+	}
 
     dev_info(priv->dev,"Start init RTL8372N Switch\n");
 
@@ -326,6 +361,39 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	if(ret){
 		dev_err(priv->dev, "rtk_switch_init Fail, error:%d\n", ret);
 		return -EIO;
+	}
+	if (priv->swap_cfg.sds0_rx_swap)
+	{
+		priv->pMapper->rtl8373_sds_regbits_write(0, 0, 0, 0x200, 1); //#SDS0RX PN swap
+		priv->pMapper->rtl8373_sds_regbits_write(0, 6, 2, 0x2000, 1);
+	}
+
+	if (priv->swap_cfg.sds0_tx_swap)
+	{
+		priv->pMapper->rtl8373_sds_regbits_write(0, 0, 0, 1 << 8, 1); //#SDS0RTX PN swap
+		priv->pMapper->rtl8373_sds_regbits_write(0, 6, 2, 1 << 14, 1);
+	}
+
+	if (priv->swap_cfg.sds1_rx_swap)
+	{
+		priv->pMapper->rtl8373_sds_regbits_write(1, 0, 0, 0x200, 1); //#SDS1RX PN swap
+		priv->pMapper->rtl8373_sds_regbits_write(1, 6, 2, 0x2000, 1);
+	}
+
+	if (priv->swap_cfg.sds1_tx_swap)
+	{
+		priv->pMapper->rtl8373_sds_regbits_write(1, 0, 0, 1 << 8, 1); //#SDS1TX PN swap
+		priv->pMapper->rtl8373_sds_regbits_write(1, 6, 2, 1 << 14, 1);
+	}
+
+    // ##MDI reverse configuration for Demo Tap UP RJ45, RTL8366U/RTL8373N/RTL8372N
+	if (priv->swap_cfg.phy_mdi_reverse){
+		priv->pMapper->rtl8373_setAsicRegBits(RTL8373_CFG_PHY_MDI_REVERSE_ADDR, 0xF, 0xC);
+	}
+
+	if (priv->swap_cfg.phy_tx_polarity_swap)
+	{
+    	priv->pMapper->rtl8373_setAsicRegBits(RTL8373_CFG_PHY_TX_POLARITY_SWAP_ADDR, 0xFFFF, 0x596A); //#TX_POLARITY_SWAP
 	}
 
     ret = rtl8372n_setup_mdio(priv);
@@ -360,16 +428,15 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		}
 
 		//跳过CPU端口和serdes端口
-		if(port == UTP_PORT3 || port == UTP_PORT8 || port == priv->cpu_port) continue;
+		if(port == cpu_dp->index) continue;
 
-		rtk_port_t isolation_port_mask = (1 << priv->cpu_port);
+		rtk_port_t isolation_port_mask = (1 << cpu_dp->index);
 
 		ret = rtk_port_isolation_set(port, isolation_port_mask);
 		if (ret) {
 			dev_err(priv->dev, "port: %d rtk_port_isolation_set configure failed, error: %d\n", port, ret);
 			return -EIO;
 		}
-
 	}
 
     rtk_l2_limitSystemLearningCnt_set(0);
@@ -400,7 +467,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		return -1;
 	}
 
-	ret = rtk_cpu_externalCpuPort_set(priv->cpu_port);
+	ret = rtk_cpu_externalCpuPort_set(cpu_dp->index);
 	if (ret)
 	{
 		dev_err(priv->dev, "rtk_cpu_externalCpuPort_set failed, error %d\n",ret);
@@ -421,22 +488,20 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		return -1;
 	}
 
-	struct dsa_port *cpu_dp = NULL;
-	struct dsa_port *dp;
+	struct net_device *master_dev = NULL;
 
-	dsa_switch_for_each_port(dp, ds) {
-		if (dsa_port_is_cpu(dp)) {
-			cpu_dp = dp;
-			break;
-		}
-	}
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,12,44)
+	master_dev = cpu_dp->master;
+#else
+	master_dev = cpu_dp->conduit;
+#endif
 
-	if (!cpu_dp) {
-		dev_err(priv->dev,"No CPU port found\n");
+	if (!master_dev)
+	{
+		dev_err(priv->dev, "cannot get master netdev from cpu port\n");
 		return -ENODEV;
 	}
 
-	struct net_device *master_dev = cpu_dp->master;
     rtnl_lock();
     master_dev->wanted_features &= ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
     master_dev->wanted_features &= ~NETIF_F_HW_CSUM;
@@ -458,8 +523,7 @@ static void rtl8372n_phylink_get_caps(struct dsa_switch *ds, int port,
         __set_bit(PHY_INTERFACE_MODE_USXGMII, config->supported_interfaces);
         __set_bit(PHY_INTERFACE_MODE_1000BASEX, config->supported_interfaces);
         __set_bit(PHY_INTERFACE_MODE_2500BASEX, config->supported_interfaces);
-        __set_bit(PHY_INTERFACE_MODE_MII, config->supported_interfaces);
-        __set_bit(PHY_INTERFACE_MODE_GMII, config->supported_interfaces);
+
 		config->mac_capabilities = MAC_10000FD | MAC_5000FD | MAC_2500FD | MAC_1000 | MAC_100 | MAC_10 |
                                     MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
 	} else {
@@ -473,18 +537,14 @@ static rtk_sds_mode_t phy_interface_to_rtk_sds_mode(phy_interface_t interface)
 {
 	switch (interface)
 	{
-	case PHY_INTERFACE_MODE_10GBASER:
-		return SERDES_10GR;
 	case PHY_INTERFACE_MODE_USXGMII:
 		return SERDES_10GUSXG;
 	case PHY_INTERFACE_MODE_1000BASEX:
 		return SERDES_1000BASEX;
 	case PHY_INTERFACE_MODE_2500BASEX:
 		return SERDES_2500BASEX;
-	case PHY_INTERFACE_MODE_MII:
-		return SERDES_8221B;
-	case PHY_INTERFACE_MODE_GMII:
-		return SERDES_8221B;
+	case PHY_INTERFACE_MODE_10GBASER:
+	case PHY_INTERFACE_MODE_10GKR:
 	default:
 		return SERDES_10GR;
 	}
@@ -507,21 +567,6 @@ static void rtl8372n_mac_link_up(struct dsa_switch *ds, int port, unsigned int m
 		break;
 	case UTP_PORT3:
 	case UTP_PORT8:
-		rtk_sds_mode_t sds_mode = phy_interface_to_rtk_sds_mode(interface);
-		if (interface == PHY_INTERFACE_MODE_GMII)
-		{
-			switch (speed)
-			{
-			case SPEED_1000:
-				sds_mode = SERDES_SG;
-				break;
-			case SPEED_2500:
-				sds_mode = SERDES_HSG;
-				break;
-			default:
-				break;
-			}
-		}
 		dev_info(priv->dev, "MAC link up on serdes port(%d) mode (%x), speed (%d)\n", 
 							port == UTP_PORT3 ? 0 : 1, 
 							phy_interface_to_rtk_sds_mode(interface),
@@ -754,10 +799,60 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
     return 0;
 }
 
+static void rtl8372n_phylink_mac_config(struct dsa_switch *ds, int port,
+					unsigned int mode,
+					const struct phylink_link_state *state)
+{
+    struct rtl837x_priv *priv = ds->priv;
+
+	// dev_info(priv->dev, "\n\ncalled rtl8372n_phylink_mac_config: port: %d, mode: %s\n\n\n", port, phy_modes(interface));
+
+	if (port != UTP_PORT8 && port != UTP_PORT3)
+		return;
+	dev_info(priv->dev, "MAC config serdes port(%d) mode (%x)\n", 
+			  port == UTP_PORT3 ? 0 : 1, 
+			  phy_interface_to_rtk_sds_mode(state->interface));
+	rtk_sdsMode_set(port == UTP_PORT3 ? 0 : 1, phy_interface_to_rtk_sds_mode(state->interface));
+}
+
+static struct phylink_pcs *rtl8372n_phylink_mac_select_pcs(struct dsa_switch *ds, int port,
+			     phy_interface_t interface)
+{
+    struct rtl837x_priv *priv = ds->priv;
+	// dev_info(priv->dev, "called rtl8372n_phylink_mac_select_pcs: port: %d, mode: %s\n", port, phy_modes(interface));
+	return NULL;
+}
+
+// TODO
+/*
+struct phylink_pcs *rtl8372n_phylink_mac_select_pcs(struct phylink_config *config,
+						phy_interface_t interface);
+
+void rtl8372n_phylink_mac_config(struct phylink_config *config, unsigned int mode,
+			const struct phylink_link_state *state);
+
+void rtl8372n_phylink_mac_link_down(struct phylink_config *config, unsigned int mode,
+				phy_interface_t interface);
+
+void rtl8372n_phylink_mac_link_up(struct phylink_config *config,
+			struct phy_device *phy, unsigned int mode,
+			phy_interface_t interface, int speed, int duplex,
+			bool tx_pause, bool rx_pause);
+
+static const struct phylink_mac_ops rtl8372n_phylink_mac_ops = {
+	.mac_select_pcs	= rtl8372n_phylink_mac_select_pcs,
+	.mac_config	= rtl8372n_phylink_mac_config,
+	.mac_link_down	= rtl8372n_phylink_mac_link_down,
+	.mac_link_up	= rtl8372n_phylink_mac_link_up,
+};
+*/
+
 static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.get_tag_protocol = rtl8372n_get_tag_protocol,
 	.setup = rtl8372n_setup,
 
+	.phylink_mac_select_pcs = rtl8372n_phylink_mac_select_pcs,
+	.phylink_mac_config = rtl8372n_phylink_mac_config,
 	.phylink_get_caps = rtl8372n_phylink_get_caps,
 	.phylink_mac_link_up = rtl8372n_mac_link_up,
 	.phylink_mac_link_down = rtl8372n_mac_link_down,
@@ -769,7 +864,6 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	// .port_vlan_filtering = rtl8372n_vlan_filtering,
 	// .port_vlan_add = rtl8372n_vlan_add,
 	// .port_vlan_del = rtl8372n_vlan_del,
-
 };
 
 static const struct rtl837x_ops rtl8372n_ops = {
@@ -791,5 +885,5 @@ const struct rtl837x_variant rtl8372n_variant = {
 EXPORT_SYMBOL_GPL(rtl8372n_variant);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("air jinkela <air_jinkela@163.com>");
+MODULE_AUTHOR("StarField Xu <air_jinkela@163.com>");
 MODULE_DESCRIPTION("rtl8372n switch driver for MT7988");
