@@ -716,38 +716,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
     return 0;
 }
 
-static void rtl8372n_mac_link_down(struct dsa_switch *ds, int port, unsigned int mode,
-			phy_interface_t interface)
-{
-	struct rtl837x_priv *priv = ds->priv;
-	int ret;
-
-	switch (port)
-	{
-	case UTP_PORT4:
-	case UTP_PORT5:
-	case UTP_PORT6:
-	case UTP_PORT7:
-		dev_info(priv->dev, "MAC link down on phy port (%d)\n", port);
-		ret = 0;
-		/* code */
-		break;
-	case UTP_PORT3:
-		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 0);
-		ret = rtk_sdsMode_set(0, SERDES_OFF);
-		break;
-	case UTP_PORT8:
-		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 1);
-		ret = rtk_sdsMode_set(1, SERDES_OFF);
-		break;
-	}
-	
-	if (ret) {
-		dev_err(priv->dev, "failed to disable the port(%d)\n", port);
-		return;
-	}
-}
-
 static void rtl8372n_get_strings(struct dsa_switch *ds, int port, u32 stringset,
 			 uint8_t *data)
 {
@@ -1014,7 +982,7 @@ static void rtl8372n_phylink_mac_link_down(struct dsa_switch *ds, int port, unsi
 			phy_interface_t interface)
 {
 	struct rtl837x_priv *priv = ds->priv;
-	int ret;
+	int ret = 0;
 
 	switch (port)
 	{
@@ -1028,14 +996,16 @@ static void rtl8372n_phylink_mac_link_down(struct dsa_switch *ds, int port, unsi
 		break;
 	case UTP_PORT3:
 		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 0);
-		ret = rtk_sdsMode_set(0, SERDES_OFF);
+		/* todo */
+		// ret = rtk_sdsMode_set(0, SERDES_OFF);
 		break;
 	case UTP_PORT8:
 		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 1);
-		ret = rtk_sdsMode_set(1, SERDES_OFF);
+		/* todo */
+		// ret = rtk_sdsMode_set(1, SERDES_OFF);
 		break;
 	}
-	
+
 	if (ret) {
 		dev_err(priv->dev, "failed to disable the port(%d)\n", port);
 		return;
