@@ -1050,7 +1050,3 @@ const struct rtl837x_variant rtl8372n_variant = {
 	.chip_data_sz = sizeof(struct rtl8372n),
 };
 EXPORT_SYMBOL_GPL(rtl8372n_variant);
-
-MODULE_LICENSE("GPL");
-MODULE_AUTHOR("StarField Xu <air_jinkela@163.com>");
-MODULE_DESCRIPTION("rtl8372n switch driver for MT7988");
