@@ -17,6 +17,7 @@
  *
  */
 
+#include <linux/bitops.h>
 #include <rtl8373_asicdrv.h>
 
 #include <rtl8373_smi.h>
@@ -88,8 +89,7 @@ ret_t rtl8373_getAsicRegBit(rtk_uint32 reg, rtk_uint32 offset, rtk_uint32 *pValu
     if(retVal != RT_ERR_OK)
         return RT_ERR_SMI;
 
-
-    *pValue = (regData & (0x1 << offset)) >> offset;
+    *pValue = !!(regData & (0x1 << offset));
 
     return RT_ERR_OK;
 }
@@ -120,13 +120,8 @@ ret_t rtl8373_setAsicRegBits(rtk_uint32 reg, rtk_uint32 bitsMask, rtk_uint32 val
     if( !bitsMask )
         return RT_ERR_INPUT;
 
-    bitsShift = 0;
-    while(!(bitsMask & (1 << bitsShift)))
-    {
-        bitsShift++;
-        if(bitsShift >= RTL8373_REGBITLENGTH)
-            return RT_ERR_INPUT;
-    }
+    bitsShift = __ffs(bitsMask);
+
     valueShifted = value << bitsShift;
 
     if(valueShifted > RTL8373_REGDATAMAX)
@@ -170,13 +165,7 @@ ret_t rtl8373_getAsicRegBits(rtk_uint32 reg, rtk_uint32 bitsMask, rtk_uint32 *pV
     if( !bitsMask )
         return RT_ERR_INPUT;
 
-    bitsShift = 0;
-    while(!(bitsMask & (1 << bitsShift)))
-    {
-        bitsShift++;
-        if(bitsShift >= RTL8373_REGBITLENGTH)
-            return RT_ERR_INPUT;
-    }
+    bitsShift = __ffs(bitsMask);
 
     retVal = rtl8373_smi_read(reg, &regData);
     if(retVal != RT_ERR_OK) return RT_ERR_SMI;
