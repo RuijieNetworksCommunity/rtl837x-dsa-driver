@@ -13,7 +13,6 @@
 static int rtl837x_mdio_write(void *ctx, u32 reg, u32 val)
 {
 	struct rtl837x_priv *priv = ctx;
-	rtl_gbl_priv = priv;
 	struct mii_bus *bus = priv->bus;
 	int ret;
 
@@ -45,7 +44,6 @@ out_unlock:
 static int rtl837x_mdio_read(void *ctx, u32 reg, u32 *val)
 {
 	struct rtl837x_priv *priv = ctx;
-	rtl_gbl_priv = priv;
 	struct mii_bus *bus = priv->bus;
 	int ret, val_l, val_h;
 

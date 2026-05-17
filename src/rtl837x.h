@@ -63,12 +63,9 @@ struct rtl837x_priv {
 
 	const char *chip_name;
 	switch_chip_t chip_id;
-	const uint8_t *port_map;
 
 	unsigned int num_ports;
 
-	rtk_sds_mode_t sds0mode;
-	rtk_sds_mode_t sds1mode;
 	rtl837x_pnswap_cfg_t swap_cfg;
 	dal_mapper_t *pMapper;
 
@@ -79,9 +76,6 @@ struct rtl837x_priv {
 
 	const struct rtl837x_ops *ops;
 	int			(*write_reg_noack)(void *ctx, u32 addr, u32 data);
-
-	int			vlan_enabled;
-	int			vlan4k_enabled;
 
 	char			buf[4096];
 	void			*chip_data; /* Per-chip extra variant data */

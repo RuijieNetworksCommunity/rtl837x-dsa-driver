@@ -10,8 +10,6 @@
 
 #include "rtl837x.h"
 
-#define RTL8372N_PORT_NUM_CPU 3
-#define RTL8372N_NUM_VLANS 4096
 #define RTL8372N_NUM_PORTS 9
 #define RTL8372N_VLAN_UNTAG_MASK 0x3FF
 #define RTL8372N_VLAN_MEMBER_MASK 0x3FF
@@ -128,11 +126,6 @@ struct rtl8372n {
 	struct rtl8372n_pcs pcs[RTL8372N_NUM_PORTS];
 };
 
-// const uint8_t rtl8372_port_map[16] = {
-//     3, 4, 5, 6, 7, 8, // 物理端口3-8
-//     0, 0, 0, 0, 0, 0, 0, 0, 0, 0 // 填充
-// };
-
 static int rtl8372n_detect(struct rtl837x_priv *priv)
 {
 	struct device *dev = priv->dev;
@@ -149,7 +142,6 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
         case CHIP_RTL8372N:
             dev_info(dev, "found an %s switch\n", chipid_to_chip_name(sw_chip));
             priv->num_ports = RTL8372N_NUM_PORTS;
-            // priv->port_map = rtl8372_port_map;
             priv->mib_counters = rtl8372n_mib_counters;
             priv->num_mib_counters = ARRAY_SIZE(rtl8372n_mib_counters);
             break;
