@@ -269,7 +269,7 @@ static const struct of_device_id rtk_mdio_match[] = {
 	{ .compatible = "realtek,rtl8372n", .data = &rtl8372n_variant},
 	{},
 };
-MODULE_DEVICE_TABLE(of, rtk_gsw_match);
+MODULE_DEVICE_TABLE(of, rtk_mdio_match);
 
 static struct mdio_driver rtl837x_mdio_driver = {
 	.mdiodrv.driver = {
