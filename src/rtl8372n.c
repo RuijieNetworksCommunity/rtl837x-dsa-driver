@@ -255,28 +255,70 @@ static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
 
 static int rtl8372n_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum)
 {
-    rtk_uint32 data;
+	int ret;
+    u32 val, tmp;
 
-    int ret = rtk_port_phyReg_get(phy, devad, regnum, &data);
-    if (ret != RT_ERR_OK)
-    {
-        dev_info(priv->dev,"ERROR:rtk_port_phyReg_get ret: %d\n", ret);
-        return -EIO;
-    }
+	ret = regmap_update_bits(priv->map,
+			  RTL8373_SMI_ACCESS_PHY_CTRL_3_ADDR,
+			  RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK,
+			  FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK, phy));
+	if (ret)
+		return ret;
 
-    return data;
+	tmp = FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_MMD_DEVAD_4_0_MASK, devad) |
+		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_MMD_REG_15_0_MASK, regnum) |
+		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_RWOP_MASK, 0) |
+		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_TYPE_MASK, 1) |
+		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK, 1);
+
+	ret = regmap_write(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp);
+	if (ret)
+		return ret;
+
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp, 
+		((tmp & (RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK | RTL8373_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK))==0),
+		0, 1000);
+	if (ret)
+		return ret;
+
+	ret = regmap_read(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_2_ADDR, &tmp);
+	if (ret)
+		return ret;
+
+	return (tmp & RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK) >> __ffs(RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK);
 }
 
 static int rtl8372n_phy_write_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 val)
 {
+	int ret;
+    u32 tmp;
 
-    int ret = rtk_port_phyReg_set(1 << phy, devad, regnum, val);
-    if (ret != RT_ERR_OK)
-    {
-        dev_info(priv->dev,"ERROR:rtk_port_phyReg_set ret: %d\n", ret);
-        return -EIO;
-    }
+	ret = regmap_write(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_0_ADDR, BIT(phy));
+	if (ret)
+		return ret;
 
+	ret = regmap_update_bits(priv->map, 
+			  RTL8373_SMI_ACCESS_PHY_CTRL_3_ADDR,
+			  RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK,
+			  FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK, val));
+	if (ret)
+		return ret;
+
+	tmp = FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_MMD_DEVAD_4_0_MASK, devad) |
+		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_MMD_REG_15_0_MASK, regnum) |
+		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_RWOP_MASK, 1) |
+		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_TYPE_MASK, 1) |
+		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK, 1);
+
+	ret = regmap_write(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp);
+	if (ret)
+		return ret;
+
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp, 
+		((tmp & (RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK | RTL8373_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK))==0),
+		0, 1000);
+	if (ret)
+		return ret;
     return 0;
 }
 
@@ -627,13 +669,19 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		//跳过CPU端口和serdes端口
 		if(port == cpu_dp->index) continue;
 
-		rtk_port_t isolation_port_mask = (1 << cpu_dp->index);
+		rtk_port_t isolation_port_mask = BIT(cpu_dp->index);
 
 		ret = rtk_port_isolation_set(port, isolation_port_mask);
 		if (ret) {
 			dev_err(priv->dev, "port: %d rtk_port_isolation_set configure failed, error: %d\n", port, ret);
 			return -EIO;
 		}
+	}
+
+	ret = rtk_port_isolation_set(cpu_dp->index, dsa_user_ports(ds));
+	if (ret) {
+		dev_err(priv->dev, "port: %d rtk_port_isolation_set configure failed, error: %d\n", cpu_dp->index, ret);
+		return -EIO;
 	}
 
     rtk_l2_limitSystemLearningCnt_set(0);
@@ -761,21 +809,6 @@ static int rtl8372n_get_sset_count(struct dsa_switch *ds, int port, int sset)
 	return priv->num_mib_counters;
 }
 
-// static int rtl8372n_port_enable(struct dsa_switch *ds, int port,
-// 			     struct phy_device *phydev)
-// {
-// 	struct dsa_port *dp = dsa_to_port(ds, port);
-// 	struct rtl837x_priv *priv = ds->priv;
-
-// 	if (!dsa_port_is_user(dp))
-// 		return 0;
-// 	if(dsa_is_cpu_port(ds, port)){
-// 		struct net_device *master = dsa_port_to_master(dp);
-// 		dev_info(priv->dev, "Device %s\n", master->name);
-// 	}
-// 	return 0;
-// }
-
 static int rtl8372n_vlan_filtering(struct dsa_switch *ds, int port,
                                         bool vlan_filtering, struct netlink_ext_ack *extack)
 {
@@ -892,6 +925,97 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
     }
     
     return 0;
+}
+
+static int
+rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
+			   struct dsa_bridge bridge,
+			   bool *tx_fwd_offload,
+			   struct netlink_ext_ack *extack)
+{
+    struct rtl837x_priv *priv = ds->priv;
+	unsigned int port_bitmap = 0;
+	int ret, i;
+	dev_info(priv->dev, "port_bridge_join %d\n", port);
+
+	/* Loop over all other ports than the current one */
+	for (i = 0; i < priv->num_ports; i++) {
+		/* Current port handled last */
+		if (i == port)
+			continue;
+		/* Not on this bridge */
+		if (!dsa_port_offloads_bridge(dsa_to_port(ds, i), &bridge))
+			continue;
+		/* Join this port to each other port on the bridge */
+		ret = regmap_update_bits(priv->map, 
+				  RTL8373_PORT_ISO_PORT_PMSK_ADDR(i),
+				  BIT(port),
+				  BIT(port));
+		if (ret)
+			dev_err(priv->dev, "failed to join port %d\n", port);
+
+		port_bitmap |= BIT(i);
+	}
+
+	/* Set the bits for the ports we can access */
+	ret = regmap_update_bits(priv->map, 
+			RTL8373_PORT_ISO_PORT_PMSK_ADDR(port),
+			port_bitmap,
+			port_bitmap);
+	return ret;
+}
+
+static void
+rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
+			    struct dsa_bridge bridge)
+{
+    struct rtl837x_priv *priv = ds->priv;
+	unsigned int port_bitmap = 0;
+	int ret, i;
+	dev_info(priv->dev, "port_bridge_leave %d\n", port);
+
+	/* Loop over all other ports than this one */
+	for (i = 0; i < priv->num_ports; i++) {
+		/* Current port handled last */
+		if (i == port)
+			continue;
+		/* Not on this bridge */
+		if (!dsa_port_offloads_bridge(dsa_to_port(ds, i), &bridge))
+			continue;
+		/* Remove this port from any other port on the bridge */
+		ret = regmap_update_bits(priv->map, RTL8373_PORT_ISO_PORT_PMSK_ADDR(i),
+					 BIT(port), 0);
+		if (ret)
+			dev_err(priv->dev, "failed to leave port %d\n", port);
+
+		port_bitmap |= BIT(i);
+	}
+
+	/* Clear the bits for the ports we can not access, leave ourselves */
+	regmap_update_bits(priv->map, RTL8373_PORT_ISO_PORT_PMSK_ADDR(port),
+			   port_bitmap, 0);
+}
+
+static int rtl8372n_port_enable(struct dsa_switch *ds, int port,
+			       struct phy_device *phy)
+{
+    struct rtl837x_priv *priv = ds->priv;
+	int ret;
+	dev_info(priv->dev, "port_enable %d\n", port);
+
+	ret = priv->pMapper->fMdrv_miim_mmd_write(BIT(port), 31, 0xa610, 0x2058);
+	if (ret != RT_ERR_OK)
+		return -EIO;
+
+	return 0;
+}
+
+static void rtl8372n_port_disable(struct dsa_switch *ds, int port)
+{
+    struct rtl837x_priv *priv = ds->priv;
+	dev_info(priv->dev, "port_disable %d\n", port);
+
+	priv->pMapper->fMdrv_miim_mmd_write(BIT(port), 31, 0xa610, 0x2858);
 }
 
 static void rtl8372n_phylink_mac_config(struct dsa_switch *ds, int port,
@@ -1018,10 +1142,15 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.get_ethtool_stats = rtl8372n_get_ethtool_stats,
 	.get_sset_count = rtl8372n_get_sset_count,
 
-	// .port_enable			= rtl8372n_port_enable,
 	// .port_vlan_filtering = rtl8372n_vlan_filtering,
 	// .port_vlan_add = rtl8372n_vlan_add,
 	// .port_vlan_del = rtl8372n_vlan_del,
+
+	.port_bridge_join = rtl8372n_port_bridge_join,
+	.port_bridge_leave = rtl8372n_port_bridge_leave,
+
+	.port_enable = rtl8372n_port_enable,
+	.port_disable = rtl8372n_port_disable
 };
 
 static const struct rtl837x_ops rtl8372n_ops = {
