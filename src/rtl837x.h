@@ -9,7 +9,7 @@
 #include <net/dsa.h>
 
 #include <rtl8373_asicdrv.h>
-#include "./rtk-api/dal/rtl8373/rtl8373_smi.h"
+#include "./rtk-api/dal/rtl8373/rtl8373_asicdrv.h"
 #include "./rtk-api/dal/rtl8373/dal_rtl8373_drv.h"
 #include "./rtk-api/rtk_error.h"
 #include "./rtk-api/rtk_types.h"
@@ -28,6 +28,13 @@
 #include "./rtk-api/dal/rtl8373/dal_rtl8373_mapper.h"
 
 #include <linux/printk.h>
+
+#define MDC_MDIO_CTRL_REG           21
+#define MDC_MDIO_ADDR_REG           22
+#define MDC_MDIO_DATA_LOW           23
+#define MDC_MDIO_DATA_HIGH          24
+#define MDC_MDIO_READ_CMD           0x1B
+#define MDC_MDIO_WRITE_CMD          0x19
 
 struct rtl837x_mib_counter {
 	unsigned int	offset;

@@ -18,9 +18,13 @@
  */
 
 #include <linux/bitops.h>
+#include <linux/regmap.h>
 #include <rtl8373_asicdrv.h>
 
-#include <rtl8373_smi.h>
+#include "../../../rtl837x.h"
+
+// we need refactoring here to avoid global variable
+struct rtl837x_priv *rtl_gbl_priv;
 
 /* Function Name:
  *      rtl8373_setAsicRegBit
@@ -41,25 +45,14 @@
  */
 ret_t rtl8373_setAsicRegBit(rtk_uint32 reg, rtk_uint32 offset, rtk_uint32 value)
 {
-
-    rtk_uint32 regData;
-    ret_t retVal;
-
-
-    if(offset >= RTL8373_REGBITLENGTH)
-        return RT_ERR_INPUT;
-
-    retVal = rtl8373_smi_read(reg, &regData);
-    if(retVal != RT_ERR_OK)
-        return RT_ERR_SMI;
+    int ret;
 
     if(value)
-        regData = regData | (1 << offset);
+        ret = regmap_set_bits(rtl_gbl_priv->map, reg, BIT(offset));
     else
-        regData = regData & (~(1 << offset));
+        ret = regmap_clear_bits(rtl_gbl_priv->map, reg, BIT(offset));
 
-    retVal = rtl8373_smi_write(reg, regData);
-    if(retVal != RT_ERR_OK)
+    if (ret)
         return RT_ERR_SMI;
     return RT_ERR_OK;
 }
@@ -82,14 +75,15 @@ ret_t rtl8373_setAsicRegBit(rtk_uint32 reg, rtk_uint32 offset, rtk_uint32 value)
  */
 ret_t rtl8373_getAsicRegBit(rtk_uint32 reg, rtk_uint32 offset, rtk_uint32 *pValue)
 {
-    rtk_uint32 regData;
-    ret_t retVal;
+    int ret;
+    u32 val;
 
-    retVal = rtl8373_smi_read(reg, &regData);
-    if(retVal != RT_ERR_OK)
+    ret = regmap_read(rtl_gbl_priv->map, reg, &val);
+
+    if (ret)
         return RT_ERR_SMI;
 
-    *pValue = !!(regData & (0x1 << offset));
+    *pValue = !!(val & (0x1 << offset));
 
     return RT_ERR_OK;
 }
@@ -112,30 +106,10 @@ ret_t rtl8373_getAsicRegBit(rtk_uint32 reg, rtk_uint32 offset, rtk_uint32 *pValu
  */
 ret_t rtl8373_setAsicRegBits(rtk_uint32 reg, rtk_uint32 bitsMask, rtk_uint32 value)
 {
-    rtk_uint32 regData;
-    ret_t retVal;
-    rtk_uint32 bitsShift;
-    rtk_uint32 valueShifted;
+    int ret;
 
-    if( !bitsMask )
-        return RT_ERR_INPUT;
-
-    bitsShift = __ffs(bitsMask);
-
-    valueShifted = value << bitsShift;
-
-    if(valueShifted > RTL8373_REGDATAMAX)
-        return RT_ERR_INPUT;
-
-    retVal = rtl8373_smi_read(reg, &regData);
-    if(retVal != RT_ERR_OK)
-        return RT_ERR_SMI;
-
-    regData = regData & (~bitsMask);
-    regData = regData | (valueShifted & bitsMask);
-
-    retVal = rtl8373_smi_write(reg, regData);
-    if(retVal != RT_ERR_OK)
+    ret = regmap_update_bits(rtl_gbl_priv->map, reg, bitsMask, (value << __ffs(bitsMask)) & bitsMask);
+    if (ret)
         return RT_ERR_SMI;
     return RT_ERR_OK;
 }
@@ -158,19 +132,15 @@ ret_t rtl8373_setAsicRegBits(rtk_uint32 reg, rtk_uint32 bitsMask, rtk_uint32 val
  */
 ret_t rtl8373_getAsicRegBits(rtk_uint32 reg, rtk_uint32 bitsMask, rtk_uint32 *pValue)
 {
-    rtk_uint32 regData;
-    ret_t retVal;
-    rtk_uint32 bitsShift;
+    int ret;
+    u32 val;
 
-    if( !bitsMask )
-        return RT_ERR_INPUT;
+    ret = regmap_read(rtl_gbl_priv->map, reg, &val);
 
-    bitsShift = __ffs(bitsMask);
+    if (ret)
+        return RT_ERR_SMI;
 
-    retVal = rtl8373_smi_read(reg, &regData);
-    if(retVal != RT_ERR_OK) return RT_ERR_SMI;
-
-    *pValue = (regData & bitsMask) >> bitsShift;
+    *pValue = (val & bitsMask) >> __ffs(bitsMask);
     return RT_ERR_OK;
 }
 /* Function Name:
@@ -190,10 +160,11 @@ ret_t rtl8373_getAsicRegBits(rtk_uint32 reg, rtk_uint32 bitsMask, rtk_uint32 *pV
  */
 ret_t rtl8373_setAsicReg(rtk_uint32 reg, rtk_uint32 value)
 {
-    ret_t retVal;
+    int ret;
 
-    retVal = rtl8373_smi_write(reg, value);
-    if(retVal != RT_ERR_OK)
+    ret = regmap_write(rtl_gbl_priv->map, reg, value);
+
+    if (ret)
         return RT_ERR_SMI;
     return RT_ERR_OK;
 }
@@ -214,13 +185,14 @@ ret_t rtl8373_setAsicReg(rtk_uint32 reg, rtk_uint32 value)
  */
 ret_t rtl8373_getAsicReg(rtk_uint32 reg, rtk_uint32 *pValue)
 {
-    rtk_uint32 regData;
-    ret_t retVal;
+    int ret;
+    u32 val;
 
-    retVal = rtl8373_smi_read(reg, &regData);
-    if(retVal != RT_ERR_OK)
+    ret = regmap_read(rtl_gbl_priv->map, reg, &val);
+
+    if (ret)
         return RT_ERR_SMI;
-    *pValue = regData;
+
+    *pValue = val;
     return RT_ERR_OK;
 }
-
