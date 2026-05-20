@@ -563,6 +563,33 @@ static const struct phylink_mac_ops rtl8372n_phylink_mac_ops = {
 };
 */
 
+static int of_extra_init(struct dsa_switch *ds)
+{
+    struct rtl837x_priv *priv = ds->priv;
+	struct device_node *np = ds->dev->of_node;
+	const __be32 *list;
+	int size, data_len;
+	u32 reg, mask, val;
+
+	list = of_get_property(np, "extra-init", &size);
+	if (!list || !size) return 0;
+
+	data_len = size / (3*sizeof(__be32));
+	for (int i=0; i<data_len; i++)
+	{
+		reg = be32_to_cpu(*list);
+		list++;
+		mask = be32_to_cpu(*list);
+		list++;
+		val = be32_to_cpu(*list);
+		list++;
+		dev_info(ds->dev, "of_extra_init: reg:0x%04X mask:0x%08X val:0x%08X\n", 
+							reg, mask, val);
+		priv->pMapper->rtl8373_setAsicRegBits(reg, mask, val);
+	}
+	return 0;
+}
+
 static int rtl8372n_setup(struct dsa_switch *ds)
 {
     int ret;
@@ -634,6 +661,8 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	{
     	priv->pMapper->rtl8373_setAsicRegBits(RTL8373_CFG_PHY_TX_POLARITY_SWAP_ADDR, 0xFFFF, 0x596A); //#TX_POLARITY_SWAP
 	}
+
+	of_extra_init(ds);
 
     ret = rtl8372n_setup_mdio(priv);
 	if(ret){
