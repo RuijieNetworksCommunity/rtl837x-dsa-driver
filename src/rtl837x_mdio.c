@@ -126,7 +126,7 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 		goto err;
 	}
 	
-	priv = devm_kzalloc(&mdiodev->dev,
+	priv = devm_kzalloc(dev,
 				size_add(sizeof(*priv), var->chip_data_sz),
 				GFP_KERNEL);
 	if (!priv){
@@ -170,7 +170,7 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 
 	priv->mdio_addr = mdiodev->addr;
 	priv->bus = mdiodev->bus;
-	priv->dev = &mdiodev->dev;
+	priv->dev = dev;
 	priv->chip_data = (void *)priv + sizeof(*priv);
 
 	priv->ops = var->ops;
