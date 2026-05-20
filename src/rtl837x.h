@@ -98,7 +98,7 @@ struct rtl837x_vlan_4k {
 struct rtl837x_variant {
 	const struct dsa_switch_ops *ds_ops_mdio;
 	const struct rtl837x_ops *ops;
-	const struct phylink_mac_ops *phy_mac_ops;
+	const struct phylink_mac_ops *pl_mac_ops;
 	size_t chip_data_sz;
 };
 

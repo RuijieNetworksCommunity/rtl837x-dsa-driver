@@ -256,7 +256,7 @@ static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
 static int rtl8372n_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum)
 {
 	int ret;
-    u32 val, tmp;
+    u32 tmp;
 
 	ret = regmap_update_bits(priv->map,
 			  RTL8373_SMI_ACCESS_PHY_CTRL_3_ADDR,
@@ -388,9 +388,13 @@ static int rtl8372n_pcs_validate(struct phylink_pcs *pcs,
 {
 	return 0;
 }
-
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,18,0)
+static void rtl8372n_sds_pcs_get_state(struct phylink_pcs *pcs, unsigned int neg_mode,
+				 struct phylink_link_state *state)
+#else
 static void rtl8372n_sds_pcs_get_state(struct phylink_pcs *pcs,
 				 struct phylink_link_state *state)
+#endif
 {
 	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
 	struct rtl837x_priv *priv = _pcs->priv;
@@ -458,7 +462,27 @@ static const struct phylink_pcs_ops rtl8372n_sds_pcs_ops = {
 	.pcs_config = rtl8372n_pcs_config,
 	.pcs_an_restart = rtl8372n_pcs_an_restart,
 };
-/*
+
+static void rtl8372n_phylink_get_caps(struct dsa_switch *ds, int port,
+				       struct phylink_config *config)
+{
+	if ((port == UTP_PORT3) || (port == UTP_PORT8)) {
+		__set_bit(PHY_INTERFACE_MODE_10GKR, config->supported_interfaces);
+		__set_bit(PHY_INTERFACE_MODE_10GBASER, config->supported_interfaces);
+        __set_bit(PHY_INTERFACE_MODE_5GBASER, config->supported_interfaces);
+        __set_bit(PHY_INTERFACE_MODE_USXGMII, config->supported_interfaces);
+        __set_bit(PHY_INTERFACE_MODE_1000BASEX, config->supported_interfaces);
+        __set_bit(PHY_INTERFACE_MODE_2500BASEX, config->supported_interfaces);
+
+		config->mac_capabilities = MAC_10000FD | MAC_5000FD | MAC_2500FD | MAC_1000 | MAC_100 | MAC_10 |
+                                    MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
+	} else {
+		__set_bit(PHY_INTERFACE_MODE_INTERNAL, config->supported_interfaces);
+		config->mac_capabilities = MAC_2500FD | MAC_1000 | MAC_100 | MAC_10 |
+                                    MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
+	}
+}
+
 struct phylink_pcs *rtl8372n_phylink_mac_select_pcs(struct phylink_config *config,
 						phy_interface_t interface)
 {
@@ -507,11 +531,11 @@ void rtl8372n_phylink_mac_link_down(struct phylink_config *config, unsigned int 
 		break;
 	case UTP_PORT3:
 		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 0);
-		ret = rtk_sdsMode_set(0, SERDES_OFF);
+		// ret = rtk_sdsMode_set(0, SERDES_OFF);
 		break;
 	case UTP_PORT8:
 		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 1);
-		ret = rtk_sdsMode_set(1, SERDES_OFF);
+		// ret = rtk_sdsMode_set(1, SERDES_OFF);
 		break;
 	}
 	
@@ -561,7 +585,7 @@ static const struct phylink_mac_ops rtl8372n_phylink_mac_ops = {
 	.mac_link_down	= rtl8372n_phylink_mac_link_down,
 	.mac_link_up	= rtl8372n_phylink_mac_link_up,
 };
-*/
+
 
 static int of_extra_init(struct dsa_switch *ds)
 {
@@ -612,12 +636,16 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	}
 
 	chip_data->pcs[3].pcs.ops = &rtl8372n_sds_pcs_ops;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,18,0)
 	chip_data->pcs[3].pcs.neg_mode = true;
+#endif
 	chip_data->pcs[3].priv = priv;
 	chip_data->pcs[3].index = 3;
 
 	chip_data->pcs[8].pcs.ops = &rtl8372n_sds_pcs_ops;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,18,0)
 	chip_data->pcs[8].pcs.neg_mode = true;
+#endif
 	chip_data->pcs[8].priv = priv;
 	chip_data->pcs[8].index = 8;
 
@@ -1047,125 +1075,11 @@ static void rtl8372n_port_disable(struct dsa_switch *ds, int port)
 	priv->pMapper->fMdrv_miim_mmd_write(BIT(port), 31, 0xa610, 0x2858);
 }
 
-static void rtl8372n_phylink_mac_config(struct dsa_switch *ds, int port,
-					unsigned int mode,
-					const struct phylink_link_state *state)
-{
-    struct rtl837x_priv *priv = ds->priv;
-
-	if (port != UTP_PORT8 && port != UTP_PORT3)
-		return;
-	dev_info(priv->dev, "MAC config serdes port(%d) mode (%x)\n", 
-			  port == UTP_PORT3 ? 0 : 1, 
-			  phy_interface_to_rtk_sds_mode(state->interface));
-	rtk_sdsMode_set(port == UTP_PORT3 ? 0 : 1, phy_interface_to_rtk_sds_mode(state->interface));
-}
-
-static struct phylink_pcs *rtl8372n_phylink_mac_select_pcs(struct dsa_switch *ds, int port,
-			     phy_interface_t interface)
-{
-    struct rtl837x_priv *priv = ds->priv;
-	struct rtl8372n *chip_data = priv->chip_data;
-	
-	if (port != UTP_PORT3 && port != UTP_PORT8)
-		return NULL;
-	return &(chip_data->pcs[port].pcs);
-}
-
-static void rtl8372n_phylink_get_caps(struct dsa_switch *ds, int port,
-				       struct phylink_config *config)
-{
-	if ((port == UTP_PORT3) || (port == UTP_PORT8)) {
-		__set_bit(PHY_INTERFACE_MODE_10GKR, config->supported_interfaces);
-		__set_bit(PHY_INTERFACE_MODE_10GBASER, config->supported_interfaces);
-        __set_bit(PHY_INTERFACE_MODE_5GBASER, config->supported_interfaces);
-        __set_bit(PHY_INTERFACE_MODE_USXGMII, config->supported_interfaces);
-        __set_bit(PHY_INTERFACE_MODE_1000BASEX, config->supported_interfaces);
-        __set_bit(PHY_INTERFACE_MODE_2500BASEX, config->supported_interfaces);
-
-		config->mac_capabilities = MAC_10000FD | MAC_5000FD | MAC_2500FD | MAC_1000 | MAC_100 | MAC_10 |
-                                    MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
-	} else {
-		__set_bit(PHY_INTERFACE_MODE_INTERNAL, config->supported_interfaces);
-		config->mac_capabilities = MAC_2500FD | MAC_1000 | MAC_100 | MAC_10 |
-                                    MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
-	}
-}
-
-static void rtl8372n_phylink_mac_link_up(struct dsa_switch *ds, int port, unsigned int mode,
-                phy_interface_t interface, struct phy_device *phydev,
-                int speed, int duplex, bool tx_pause, bool rx_pause)
-{
-	struct rtl837x_priv *priv = ds->priv;
-	int ret = 0;
-
-	switch (port)
-	{
-	case UTP_PORT4:
-	case UTP_PORT5:
-	case UTP_PORT6:
-	case UTP_PORT7:
-		dev_info(priv->dev, "MAC link up on phy port(%d)\n", port);
-		break;
-	case UTP_PORT3:
-	case UTP_PORT8:
-		dev_info(priv->dev, "MAC link up on serdes port(%d) mode (%x), speed (%d)\n", 
-							port == UTP_PORT3 ? 0 : 1, 
-							phy_interface_to_rtk_sds_mode(interface),
-							speed);
-		ret = rtk_sdsMode_set(port == UTP_PORT3 ? 0 : 1, phy_interface_to_rtk_sds_mode(interface));
-		break;
-	}
-
-	if (ret) {
-		dev_err(priv->dev, "failed to enable the port(%d)\n", port);
-		return;
-	}
-}
-
-static void rtl8372n_phylink_mac_link_down(struct dsa_switch *ds, int port, unsigned int mode,
-			phy_interface_t interface)
-{
-	struct rtl837x_priv *priv = ds->priv;
-	int ret = 0;
-
-	switch (port)
-	{
-	case UTP_PORT4:
-	case UTP_PORT5:
-	case UTP_PORT6:
-	case UTP_PORT7:
-		dev_info(priv->dev, "MAC link down on phy port (%d)\n", port);
-		ret = 0;
-		/* code */
-		break;
-	case UTP_PORT3:
-		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 0);
-		/* todo */
-		// ret = rtk_sdsMode_set(0, SERDES_OFF);
-		break;
-	case UTP_PORT8:
-		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 1);
-		/* todo */
-		// ret = rtk_sdsMode_set(1, SERDES_OFF);
-		break;
-	}
-
-	if (ret) {
-		dev_err(priv->dev, "failed to disable the port(%d)\n", port);
-		return;
-	}
-}
-
 static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.get_tag_protocol = rtl8372n_get_tag_protocol,
 	.setup = rtl8372n_setup,
 
-	.phylink_mac_select_pcs = rtl8372n_phylink_mac_select_pcs,
-	.phylink_mac_config = rtl8372n_phylink_mac_config,
 	.phylink_get_caps = rtl8372n_phylink_get_caps,
-	.phylink_mac_link_up = rtl8372n_phylink_mac_link_up,
-	.phylink_mac_link_down = rtl8372n_phylink_mac_link_down,
 
 	.get_strings = rtl8372n_get_strings,
 	.get_ethtool_stats = rtl8372n_get_ethtool_stats,
@@ -1196,7 +1110,7 @@ static const struct rtl837x_ops rtl8372n_ops = {
 const struct rtl837x_variant rtl8372n_variant = {
 	.ds_ops_mdio = &rtl8372n_switch_ops_mdio,
 	.ops = &rtl8372n_ops,
-	// .phy_mac_ops = &rtl8372n_phylink_mac_ops,
+	.pl_mac_ops = &rtl8372n_phylink_mac_ops,
 	.chip_data_sz = sizeof(struct rtl8372n),
 };
 EXPORT_SYMBOL_GPL(rtl8372n_variant);

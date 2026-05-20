@@ -214,8 +214,8 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	priv->ds->num_ports = priv->num_ports;
 	priv->ds->priv = priv;
 	priv->ds->ops = var->ds_ops_mdio;
-	if (var->phy_mac_ops)
-		priv->ds->phylink_mac_ops = var->phy_mac_ops;
+	if (var->pl_mac_ops)
+		priv->ds->phylink_mac_ops = var->pl_mac_ops;
 	
 	ret = dsa_register_switch(priv->ds);
 	if (ret) {
