@@ -253,80 +253,6 @@ static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
 	return DSA_TAG_PROTO_RTL8_4;
 }
 
-static int rtl8372n_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum)
-{
-	int ret;
-    u32 tmp;
-
-	ret = regmap_update_bits(priv->map,
-			  RTL8373_SMI_ACCESS_PHY_CTRL_3_ADDR,
-			  RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK,
-			  FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK, phy));
-	if (ret)
-		return ret;
-
-	tmp = FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_MMD_DEVAD_4_0_MASK, devad) |
-		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_MMD_REG_15_0_MASK, regnum) |
-		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_RWOP_MASK, 0) |
-		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_TYPE_MASK, 1) |
-		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK, 1);
-
-	ret = regmap_write(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp);
-	if (ret)
-		return ret;
-
-	ret = regmap_read_poll_timeout(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp, 
-		((tmp & (RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK | RTL8373_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK))==0),
-		0, 1000);
-	if (ret)
-		return ret;
-
-	ret = regmap_read(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_2_ADDR, &tmp);
-	if (ret)
-		return ret;
-
-	return (tmp & RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK) >> __ffs(RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK);
-}
-
-static int rtl8372n_phys_write_c45(struct rtl837x_priv *priv, u16 phy_mask, int devad, int regnum, u16 val)
-{
-	int ret;
-    u32 tmp;
-
-	ret = regmap_write(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_0_ADDR, phy_mask);
-	if (ret)
-		return ret;
-
-	ret = regmap_update_bits(priv->map, 
-			  RTL8373_SMI_ACCESS_PHY_CTRL_3_ADDR,
-			  RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK,
-			  FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK, val));
-	if (ret)
-		return ret;
-
-	tmp = FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_MMD_DEVAD_4_0_MASK, devad) |
-		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_MMD_REG_15_0_MASK, regnum) |
-		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_RWOP_MASK, 1) |
-		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_TYPE_MASK, 1) |
-		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK, 1);
-
-	ret = regmap_write(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp);
-	if (ret)
-		return ret;
-
-	ret = regmap_read_poll_timeout(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp, 
-		((tmp & (RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK | RTL8373_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK))==0),
-		0, 1000);
-	if (ret)
-		return ret;
-    return 0;
-}
-
-static int rtl8372n_phy_write_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 val)
-{
-	return rtl8372n_phys_write_c45(priv, BIT(phy), devad, regnum, val);
-}
-
 static int rtl8372n_mdio_phy_read_c45(struct mii_bus *bus, int port, int devad, int regnum)
 {
 	struct rtl837x_priv *priv = bus->priv;
@@ -724,7 +650,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	}
 
 	//  puts "Power down PHY 4~7"
-	rtl8372n_phys_write_c45(priv, 0xF0, 31, 0xa610, 0x2858);
+	rtl837x_phys_write_c45(priv, 0xF0, 31, 0xa610, 0x2858);
 
 	//## ---------------------------Patch MAC--------------------------
 	//#cfg_FWD_INVLD_MAC_CTRL_EN,cfg_FWD_UNKN_OPCODE_EN
@@ -761,7 +687,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	RL6818C_pwr_on_patch_phy_v008_rls_lockmain(0xf0);
 
 	//  puts "Power up PHY 4~7"
-    rtl8372n_phys_write_c45(priv, 0xF0 ,31,0xa610,0x2058);
+    rtl837x_phys_write_c45(priv, 0xF0 ,31,0xa610,0x2058);
     //RTL8372/RTL8372N/RTL8366U set polling mask 0x1f8, port 3/8 from serdes need config bit8=1
     regmap_update_bits(priv->map, RTL8373_SMI_GLB_CTRL_ADDR,
 		 RTL8373_SMI_GLB_CTRL_SMI_POLLING_MASK_MASK,
@@ -1180,8 +1106,8 @@ static const struct rtl837x_ops rtl8372n_ops = {
 	.get_mib_counter = rtl8372n_get_mib_counter,
 	.enable_vlan	= rtl8372n_enable_vlan,
 
-    .phy_read_c45   = rtl8372n_phy_read_c45,
-    .phy_write_c45  = rtl8372n_phy_write_c45,
+    .phy_read_c45   = rtl837x_phy_read_c45,
+    .phy_write_c45  = rtl837x_phy_write_c45,
 };
 
 const struct rtl837x_variant rtl8372n_variant = {

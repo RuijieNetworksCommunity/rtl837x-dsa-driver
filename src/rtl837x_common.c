@@ -51,6 +51,81 @@ rtk_sds_mode_t phy_interface_to_rtk_sds_mode(phy_interface_t interface)
 	}
 }
 
+
+int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum)
+{
+	int ret;
+    u32 tmp;
+
+	ret = regmap_update_bits(priv->map,
+			  RTL8373_SMI_ACCESS_PHY_CTRL_3_ADDR,
+			  RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK,
+			  FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK, phy));
+	if (ret)
+		return ret;
+
+	tmp = FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_MMD_DEVAD_4_0_MASK, devad) |
+		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_MMD_REG_15_0_MASK, regnum) |
+		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_RWOP_MASK, 0) |
+		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_TYPE_MASK, 1) |
+		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK, 1);
+
+	ret = regmap_write(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp);
+	if (ret)
+		return ret;
+
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp, 
+		((tmp & (RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK | RTL8373_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK))==0),
+		0, 1000);
+	if (ret)
+		return ret;
+
+	ret = regmap_read(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_2_ADDR, &tmp);
+	if (ret)
+		return ret;
+
+	return (tmp & RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK) >> __ffs(RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK);
+}
+
+int rtl837x_phys_write_c45(struct rtl837x_priv *priv, u16 phy_mask, int devad, int regnum, u16 val)
+{
+	int ret;
+    u32 tmp;
+
+	ret = regmap_write(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_0_ADDR, phy_mask);
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(priv->map, 
+			  RTL8373_SMI_ACCESS_PHY_CTRL_3_ADDR,
+			  RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK,
+			  FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK, val));
+	if (ret)
+		return ret;
+
+	tmp = FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_MMD_DEVAD_4_0_MASK, devad) |
+		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_MMD_REG_15_0_MASK, regnum) |
+		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_RWOP_MASK, 1) |
+		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_TYPE_MASK, 1) |
+		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK, 1);
+
+	ret = regmap_write(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp);
+	if (ret)
+		return ret;
+
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp, 
+		((tmp & (RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK | RTL8373_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK))==0),
+		0, 1000);
+	if (ret)
+		return ret;
+    return 0;
+}
+
+int rtl837x_phy_write_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 val)
+{
+	return rtl837x_phys_write_c45(priv, BIT(phy), devad, regnum, val);
+}
+
 // will remove this in the feature
 rtk_api_ret_t rtk_hal_init(void)
 {
