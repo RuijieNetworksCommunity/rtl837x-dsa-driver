@@ -6,6 +6,7 @@
 #include <linux/phy.h>
 #include <linux/regmap.h>
 #include <linux/platform_device.h>
+#include <linux/debugfs.h>
 #include <net/dsa.h>
 
 #include <rtl8373_asicdrv.h>
@@ -68,6 +69,8 @@ struct rtl837x_priv {
 	struct mutex		map_lock;
 	int			mdio_addr;
 
+	struct dentry *debugfs_parent;
+
 	const char *chip_name;
 	switch_chip_t chip_id;
 
@@ -127,6 +130,9 @@ char* chipid_to_chip_name(switch_chip_t id);
 
 extern int rtl837x_gpiochip_init(struct rtl837x_priv *priv);
 extern rtk_sds_mode_t phy_interface_to_rtk_sds_mode(phy_interface_t interface);
+
+extern int rtl837x_debug_proc_init(struct rtl837x_priv *priv);
+extern int rtl837x_debug_proc_deinit(struct rtl837x_priv *priv);
 
 extern const struct rtl837x_variant rtl8372n_variant;
 

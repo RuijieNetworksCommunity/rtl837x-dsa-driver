@@ -232,6 +232,8 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	}
 #endif /* CONFIG_GPIOLIB */
 
+	rtl837x_debug_proc_init(priv);
+
 	return 0;
 err:
 	return ret;
@@ -244,8 +246,10 @@ static void rtl837x_mdio_remove(struct mdio_device *mdiodev)
 	if (!priv)
 		return;
 
-	dsa_unregister_switch(priv->ds);
+	rtl837x_debug_proc_deinit(priv);
 
+	dsa_unregister_switch(priv->ds);
+	
 	/* leave the device reset asserted */
 	if (priv->reset)
 		gpiod_set_value(priv->reset, 1);

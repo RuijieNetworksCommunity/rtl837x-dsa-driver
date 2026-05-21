@@ -9,6 +9,7 @@ ifeq ($(CONFIG_GPIOLIB),y)
 rtl8372n_dsa-objs += rtl837x_gpio.o
 endif
 
+rtl8372n_dsa-objs += rtl837x_dbg.o
 rtl8372n_dsa-objs += rtl837x_mdio.o
 rtl8372n_dsa-objs += rtl837x_common.o
 
