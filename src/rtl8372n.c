@@ -288,12 +288,12 @@ static int rtl8372n_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, 
 	return (tmp & RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK) >> __ffs(RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK);
 }
 
-static int rtl8372n_phy_write_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 val)
+static int rtl8372n_phys_write_c45(struct rtl837x_priv *priv, u16 phy_mask, int devad, int regnum, u16 val)
 {
 	int ret;
     u32 tmp;
 
-	ret = regmap_write(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_0_ADDR, BIT(phy));
+	ret = regmap_write(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_0_ADDR, phy_mask);
 	if (ret)
 		return ret;
 
@@ -320,6 +320,11 @@ static int rtl8372n_phy_write_c45(struct rtl837x_priv *priv, int phy, int devad,
 	if (ret)
 		return ret;
     return 0;
+}
+
+static int rtl8372n_phy_write_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 val)
+{
+	return rtl8372n_phys_write_c45(priv, BIT(phy), devad, regnum, val);
 }
 
 static int rtl8372n_mdio_phy_read_c45(struct mii_bus *bus, int port, int devad, int regnum)
@@ -651,11 +656,34 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 
     dev_info(priv->dev,"Start init RTL8372N Switch\n");
 
-    ret = rtk_switch_init();
+	ret = rtk_hal_init();
 	if(ret){
-		dev_err(priv->dev, "rtk_switch_init Fail, error:%d\n", ret);
-		return -EIO;
+		dev_err(priv->dev, "Fail init hal, error:%d\n", ret);
+		return -ENODEV;
 	}
+
+	get_version_8373();
+
+	// set port 3 and port 8 as serdes port
+	regmap_update_bits(priv->map, RTL8373_SMI_MAC_TYPE_CTRL_ADDR, 
+			 RTL8373_SMI_MAC_TYPE_CTRL_MAC_PORT8_TYPE_MASK | RTL8373_SMI_MAC_TYPE_CTRL_MAC_PORT3_TYPE_MASK,
+			 FIELD_PREP(RTL8373_SMI_MAC_TYPE_CTRL_MAC_PORT8_TYPE_MASK, 0) | FIELD_PREP(RTL8373_SMI_MAC_TYPE_CTRL_MAC_PORT3_TYPE_MASK, 0)
+			);
+
+	// set port4-7 polling internal resolution reg
+	regmap_update_bits(priv->map, RTL8373_SMI_PORT_POLLING_SEL_ADDR, 
+			 RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL4_MASK | RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL5_MASK |
+			  RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL6_MASK | RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL7_MASK,
+			 FIELD_PREP(RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL4_MASK | RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL5_MASK |
+			  RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL6_MASK | RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL7_MASK, 0b1111)
+			);
+
+	// enable SMI0/1/2 MDC clock output
+	regmap_update_bits(priv->map, RTL8373_SMI_CTRL_ADDR,
+			 RTL8373_SMI_CTRL_SMI0_MDC_EN_MASK | RTL8373_SMI_CTRL_SMI1_MDC_EN_MASK | RTL8373_SMI_CTRL_SMI2_MDC_EN_MASK,
+			 FIELD_PREP(RTL8373_SMI_CTRL_SMI0_MDC_EN_MASK | RTL8373_SMI_CTRL_SMI1_MDC_EN_MASK | RTL8373_SMI_CTRL_SMI2_MDC_EN_MASK, 0b111)
+			);
+
 	if (priv->swap_cfg.sds0_rx_swap)
 	{
 		priv->pMapper->rtl8373_sds_regbits_write(0, 0, 0, 0x200, 1); //#SDS0RX PN swap
@@ -680,6 +708,11 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		priv->pMapper->rtl8373_sds_regbits_write(1, 6, 2, 1 << 14, 1);
 	}
 
+	msleep(5);
+	priv->pMapper->fw_reset_flow_tgr(1);
+	msleep(5);
+	priv->pMapper->fw_reset_flow_tgr(0);
+
     // ##MDI reverse configuration for Demo Tap UP RJ45, RTL8366U/RTL8373N/RTL8372N
 	if (priv->swap_cfg.phy_mdi_reverse){
 		priv->pMapper->rtl8373_setAsicRegBits(RTL8373_CFG_PHY_MDI_REVERSE_ADDR, 0xF, 0xC);
@@ -689,6 +722,52 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	{
     	priv->pMapper->rtl8373_setAsicRegBits(RTL8373_CFG_PHY_TX_POLARITY_SWAP_ADDR, 0xFFFF, 0x596A); //#TX_POLARITY_SWAP
 	}
+
+	//  puts "Power down PHY 4~7"
+	rtl8372n_phys_write_c45(priv, 0xF0, 31, 0xa610, 0x2858);
+
+	//## ---------------------------Patch MAC--------------------------
+	//#cfg_FWD_INVLD_MAC_CTRL_EN,cfg_FWD_UNKN_OPCODE_EN
+	regmap_update_bits(priv->map, RTL8373_MAC_L2_GLOBAL_CTRL0_ADDR,
+			 RTL8373_MAC_L2_GLOBAL_CTRL0_FWD_UNKN_OPCODE_EN_MASK | RTL8373_MAC_L2_GLOBAL_CTRL0_FWD_INVLD_MAC_CTRL_EN_MASK,
+			 FIELD_PREP(RTL8373_MAC_L2_GLOBAL_CTRL0_FWD_UNKN_OPCODE_EN_MASK | RTL8373_MAC_L2_GLOBAL_CTRL0_FWD_INVLD_MAC_CTRL_EN_MASK, 0b11)
+			);
+
+	for(int i=3; i<9; i++)
+	{
+		regmap_update_bits(priv->map, RTL8373_MAC_L2_PORT_CTRL_ADDR(i),
+		 RTL8373_MAC_L2_PORT_CTRL_RX_CHK_CRC_EN_MASK | RTL8373_MAC_L2_PORT_CTRL_CLOCK_SWITCH_MASK,
+		 FIELD_PREP(RTL8373_MAC_L2_PORT_CTRL_RX_CHK_CRC_EN_MASK, 1) | FIELD_PREP(RTL8373_MAC_L2_PORT_CTRL_CLOCK_SWITCH_MASK, 1)
+		);
+	}
+
+	// #RS_LINK_FAULT_INDI_OFF=1 disable link fault flag, resolve port4-port7 linkdown dsc expand issue
+    regmap_update_bits(priv->map, RTL8373_RS_LAYER_CONFIG_ADDR,
+		 RTL8373_RS_LAYER_CONFIG_RS_LINK_FAULT_INDI_OFF_MASK,
+		 FIELD_PREP(RTL8373_RS_LAYER_CONFIG_RS_LINK_FAULT_INDI_OFF_MASK, 1)
+		);
+
+	for(int i=0; i<10; i++)
+    {
+        regmap_write(priv->map, RTL8373_FC_PORT_ACT_CTRL_ADDR(i), 0x1050);
+    }
+
+	regmap_update_bits(priv->map, RTL8373_DW8051_CFG_ADDR,
+			 RTL8373_DW8051_CFG_DW8051_READY_MASK,
+			 FIELD_PREP(RTL8373_DW8051_CFG_DW8051_READY_MASK, 1));
+
+	// TODO: refactor
+	RL6818C_pwr_on_patch_phy_v008(0xf0);
+	RL6818C_pwr_on_patch_phy_v008_rls_lockmain(0xf0);
+
+	//  puts "Power up PHY 4~7"
+    rtl8372n_phys_write_c45(priv, 0xF0 ,31,0xa610,0x2058);
+    //RTL8372/RTL8372N/RTL8366U set polling mask 0x1f8, port 3/8 from serdes need config bit8=1
+    regmap_update_bits(priv->map, RTL8373_SMI_GLB_CTRL_ADDR,
+		 RTL8373_SMI_GLB_CTRL_SMI_POLLING_MASK_MASK,
+		 FIELD_PREP(RTL8373_SMI_GLB_CTRL_SMI_POLLING_MASK_MASK,0x1f8)
+		);
+	msleep(5);
 
 	of_extra_init(ds);
 
@@ -723,7 +802,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 			return -EIO;
 		}
 
-		//跳过CPU端口和serdes端口
+		// skip cpu port
 		if(port == cpu_dp->index) continue;
 
 		rtk_port_t isolation_port_mask = BIT(cpu_dp->index);
@@ -1058,9 +1137,8 @@ static int rtl8372n_port_enable(struct dsa_switch *ds, int port,
 {
     struct rtl837x_priv *priv = ds->priv;
 	int ret;
-	dev_info(priv->dev, "port_enable %d\n", port);
 
-	ret = priv->pMapper->fMdrv_miim_mmd_write(BIT(port), 31, 0xa610, 0x2058);
+	ret = priv->ops->phy_write_c45(priv, port, 31, 0xa610, 0x2058);
 	if (ret != RT_ERR_OK)
 		return -EIO;
 
@@ -1070,9 +1148,8 @@ static int rtl8372n_port_enable(struct dsa_switch *ds, int port,
 static void rtl8372n_port_disable(struct dsa_switch *ds, int port)
 {
     struct rtl837x_priv *priv = ds->priv;
-	dev_info(priv->dev, "port_disable %d\n", port);
 
-	priv->pMapper->fMdrv_miim_mmd_write(BIT(port), 31, 0xa610, 0x2858);
+	priv->ops->phy_write_c45(priv, port, 31, 0xa610, 0x2858);
 }
 
 static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {

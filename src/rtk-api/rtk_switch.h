@@ -190,6 +190,8 @@ do {                                                        \
  *      The function have found the exactly hal control information structure.
  */
 extern rtk_switch_halCtrl_t *hal_ctrlInfo_get(void);
+extern rtk_switch_halCtrl_t **hal_ctrlInfo_p_get(void);
+
 /* Function Name:
  *      rtk_switch_initialState_set
  * Description:

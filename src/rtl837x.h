@@ -9,9 +9,6 @@
 #include <linux/debugfs.h>
 #include <net/dsa.h>
 
-#include <rtl8373_asicdrv.h>
-#include "./rtk-api/dal/rtl8373/rtl8373_asicdrv.h"
-#include "./rtk-api/dal/rtl8373/dal_rtl8373_drv.h"
 #include "./rtk-api/rtk_error.h"
 #include "./rtk-api/rtk_types.h"
 #include "./rtk-api/rtk_switch.h"
@@ -26,7 +23,9 @@
 #include "./rtk-api/isolation.h"
 #include "./rtk-api/l2.h"
 #include "./rtk-api/mirror.h"
+#include "./rtk-api/dal/rtl8373/rtl8373_asicdrv.h"
 #include "./rtk-api/dal/rtl8373/dal_rtl8373_mapper.h"
+#include "./rtk-api/dal/rtl8373/dal_rtl8373_switch.h"
 
 #include <linux/printk.h>
 
@@ -128,6 +127,7 @@ struct rtl837x_ops {
 
 char* chipid_to_chip_name(switch_chip_t id);
 
+extern rtk_api_ret_t rtk_hal_init(void);
 extern int rtl837x_gpiochip_init(struct rtl837x_priv *priv);
 extern rtk_sds_mode_t phy_interface_to_rtk_sds_mode(phy_interface_t interface);
 

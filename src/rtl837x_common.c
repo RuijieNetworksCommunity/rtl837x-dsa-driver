@@ -8,8 +8,8 @@
 #include <linux/regmap.h>
 
 #include "./rtl837x.h"
-
-#include <linux/printk.h>
+#include "./rtk-api/dal/dal_mgmt.h"
+#include "./rtk-api/identify.h"
 
 char* chipid_to_chip_name(switch_chip_t id)
 {
@@ -49,4 +49,29 @@ rtk_sds_mode_t phy_interface_to_rtk_sds_mode(phy_interface_t interface)
 	default:
 		return SERDES_10GR;
 	}
+}
+
+// will remove this in the feature
+rtk_api_ret_t rtk_hal_init(void)
+{
+    rtk_int32  retVal;
+    switch_chip_t   switchChip;
+    rtk_switch_halCtrl_t **phalCtrl = hal_ctrlInfo_p_get();
+    
+    /* Find device */
+    if((*phalCtrl = hal_find_device()) == NULL)
+        return RT_ERR_CHIP_NOT_FOUND;
+
+    if((retVal = phy_identify_init()) != RT_ERR_OK)
+        return retVal;
+
+    /* Attached DAL mapper */
+    switchChip = (*phalCtrl)->switch_type;
+    if((retVal = dal_mgmt_attachDevice(switchChip)) != RT_ERR_OK)
+        return retVal;
+
+    /* Set initial state */
+    if((retVal = rtk_switch_initialState_set(INIT_COMPLETED)) != RT_ERR_OK)
+        return retVal;
+    return RT_ERR_OK;
 }

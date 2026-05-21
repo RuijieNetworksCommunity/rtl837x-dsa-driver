@@ -78,6 +78,13 @@ hal_ctrlInfo_get(void)
 {
    return  halCtrl;
 } 
+
+rtk_switch_halCtrl_t **
+hal_ctrlInfo_p_get(void)
+{
+   return  &halCtrl;
+} 
+
 /* Function Name:
  *      rtk_switch_initialState_set
  * Description:
