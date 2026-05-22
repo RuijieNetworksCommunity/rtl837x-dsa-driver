@@ -193,6 +193,34 @@ int rtl837x_sds_reg_read(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page, 
 	return 0;
 }
 
+int rtl837x_sds_reg_bits_write(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page, u16 sds_reg, u16 mask, u16 data)
+{
+	int ret;
+	u16 val;
+
+	ret = rtl837x_sds_reg_read(priv, sds_index, sds_page, sds_reg, &val);
+	if (ret)
+		return ret;
+
+	val &= ~mask;
+	val |= (data << __ffs(mask)) & mask;
+
+	return rtl837x_sds_reg_write(priv, sds_index, sds_page, sds_reg, val);
+}
+
+int rtl837x_sds_reg_bits_read(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page, u16 sds_reg, u16 mask, u16 *pdata)
+{
+	int ret;
+	u16 val;
+
+	ret = rtl837x_sds_reg_read(priv, sds_index, sds_page, sds_reg, &val);
+	if (ret)
+		return ret;
+
+	*pdata = (val & mask) >> __ffs(mask);
+	return 0;
+}
+
 // will remove this in the feature
 rtk_api_ret_t rtk_hal_init(void)
 {

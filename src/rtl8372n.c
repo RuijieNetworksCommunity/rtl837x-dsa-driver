@@ -612,26 +612,26 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 
 	if (priv->swap_cfg.sds0_rx_swap)
 	{
-		priv->pMapper->rtl8373_sds_regbits_write(0, 0, 0, 0x200, 1); //#SDS0RX PN swap
-		priv->pMapper->rtl8373_sds_regbits_write(0, 6, 2, 0x2000, 1);
+		rtl837x_sds_reg_bits_write(priv, 0, 0, 0, 0x200, 1); //#SDS0RX PN swap
+		rtl837x_sds_reg_bits_write(priv, 0, 6, 2, 0x2000, 1);
 	}
 
 	if (priv->swap_cfg.sds0_tx_swap)
 	{
-		priv->pMapper->rtl8373_sds_regbits_write(0, 0, 0, 1 << 8, 1); //#SDS0RTX PN swap
-		priv->pMapper->rtl8373_sds_regbits_write(0, 6, 2, 1 << 14, 1);
+		rtl837x_sds_reg_bits_write(priv, 0, 0, 0, 1 << 8, 1); //#SDS0RTX PN swap
+		rtl837x_sds_reg_bits_write(priv, 0, 6, 2, 1 << 14, 1);
 	}
 
 	if (priv->swap_cfg.sds1_rx_swap)
 	{
-		priv->pMapper->rtl8373_sds_regbits_write(1, 0, 0, 0x200, 1); //#SDS1RX PN swap
-		priv->pMapper->rtl8373_sds_regbits_write(1, 6, 2, 0x2000, 1);
+		rtl837x_sds_reg_bits_write(priv, 1, 0, 0, 0x200, 1); //#SDS1RX PN swap
+		rtl837x_sds_reg_bits_write(priv, 1, 6, 2, 0x2000, 1);
 	}
 
 	if (priv->swap_cfg.sds1_tx_swap)
 	{
-		priv->pMapper->rtl8373_sds_regbits_write(1, 0, 0, 1 << 8, 1); //#SDS1TX PN swap
-		priv->pMapper->rtl8373_sds_regbits_write(1, 6, 2, 1 << 14, 1);
+		rtl837x_sds_reg_bits_write(priv, 1, 0, 0, 1 << 8, 1); //#SDS1TX PN swap
+		rtl837x_sds_reg_bits_write(priv, 1, 6, 2, 1 << 14, 1);
 	}
 
 	msleep(5);
@@ -640,14 +640,19 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	priv->pMapper->fw_reset_flow_tgr(0);
 
     // ##MDI reverse configuration for Demo Tap UP RJ45, RTL8366U/RTL8373N/RTL8372N
-	if (priv->swap_cfg.phy_mdi_reverse){
-		priv->pMapper->rtl8373_setAsicRegBits(RTL8373_CFG_PHY_MDI_REVERSE_ADDR, 0xF, 0xC);
-	}
+	if (priv->swap_cfg.phy_mdi_reverse)
+		regmap_update_bits(priv->map, RTL8373_CFG_PHY_MDI_REVERSE_ADDR, 
+				  RTL8373_CFG_PHY_MDI_REVERSE_P0_MDI_REVERSE_MASK | RTL8373_CFG_PHY_MDI_REVERSE_P1_MDI_REVERSE_MASK |
+				   RTL8373_CFG_PHY_MDI_REVERSE_P2_MDI_REVERSE_MASK | RTL8373_CFG_PHY_MDI_REVERSE_P3_MDI_REVERSE_MASK,
+				  0xC
+				);
 
 	if (priv->swap_cfg.phy_tx_polarity_swap)
-	{
-    	priv->pMapper->rtl8373_setAsicRegBits(RTL8373_CFG_PHY_TX_POLARITY_SWAP_ADDR, 0xFFFF, 0x596A); //#TX_POLARITY_SWAP
-	}
+		regmap_update_bits(priv->map, RTL8373_CFG_PHY_TX_POLARITY_SWAP_ADDR,
+				 RTL8373_CFG_PHY_TX_POLARITY_SWAP_P0_TX_POLARITY_SWAP_MASK | RTL8373_CFG_PHY_TX_POLARITY_SWAP_P1_TX_POLARITY_SWAP_MASK |
+				  RTL8373_CFG_PHY_TX_POLARITY_SWAP_P2_TX_POLARITY_SWAP_MASK | RTL8373_CFG_PHY_TX_POLARITY_SWAP_P3_TX_POLARITY_SWAP_MASK,
+				 0x596A
+				); //#TX_POLARITY_SWAP
 
 	//  puts "Power down PHY 4~7"
 	rtl837x_phys_write_c45(priv, 0xF0, 31, 0xa610, 0x2858);
