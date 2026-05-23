@@ -549,6 +549,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 {
     int ret;
     struct rtl837x_priv *priv = ds->priv;
+	struct device_node *np = priv->dev->of_node;
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *cpu_dp = NULL;
 	struct dsa_port *dp;
@@ -610,25 +611,25 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 			 FIELD_PREP(RTL8373_SMI_CTRL_SMI0_MDC_EN_MASK | RTL8373_SMI_CTRL_SMI1_MDC_EN_MASK | RTL8373_SMI_CTRL_SMI2_MDC_EN_MASK, 0b111)
 			);
 
-	if (priv->swap_cfg.sds0_rx_swap)
+	if (of_property_read_bool(np, "sds0-rx-swap"))
 	{
 		rtl837x_sds_reg_bits_write(priv, 0, 0, 0, 0x200, 1); //#SDS0RX PN swap
 		rtl837x_sds_reg_bits_write(priv, 0, 6, 2, 0x2000, 1);
 	}
 
-	if (priv->swap_cfg.sds0_tx_swap)
+	if (of_property_read_bool(np, "sds0-tx-swap"))
 	{
 		rtl837x_sds_reg_bits_write(priv, 0, 0, 0, 1 << 8, 1); //#SDS0RTX PN swap
 		rtl837x_sds_reg_bits_write(priv, 0, 6, 2, 1 << 14, 1);
 	}
 
-	if (priv->swap_cfg.sds1_rx_swap)
+	if (of_property_read_bool(np, "sds1-rx-swap"))
 	{
 		rtl837x_sds_reg_bits_write(priv, 1, 0, 0, 0x200, 1); //#SDS1RX PN swap
 		rtl837x_sds_reg_bits_write(priv, 1, 6, 2, 0x2000, 1);
 	}
 
-	if (priv->swap_cfg.sds1_tx_swap)
+	if (of_property_read_bool(np, "sds1-tx-swap"))
 	{
 		rtl837x_sds_reg_bits_write(priv, 1, 0, 0, 1 << 8, 1); //#SDS1TX PN swap
 		rtl837x_sds_reg_bits_write(priv, 1, 6, 2, 1 << 14, 1);
@@ -640,14 +641,14 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	priv->pMapper->fw_reset_flow_tgr(0);
 
     // ##MDI reverse configuration for Demo Tap UP RJ45, RTL8366U/RTL8373N/RTL8372N
-	if (priv->swap_cfg.phy_mdi_reverse)
+	if (of_property_read_bool(np, "phy-mdi-reverse"))
 		regmap_update_bits(priv->map, RTL8373_CFG_PHY_MDI_REVERSE_ADDR, 
 				  RTL8373_CFG_PHY_MDI_REVERSE_P0_MDI_REVERSE_MASK | RTL8373_CFG_PHY_MDI_REVERSE_P1_MDI_REVERSE_MASK |
 				   RTL8373_CFG_PHY_MDI_REVERSE_P2_MDI_REVERSE_MASK | RTL8373_CFG_PHY_MDI_REVERSE_P3_MDI_REVERSE_MASK,
 				  0xC
 				);
 
-	if (priv->swap_cfg.phy_tx_polarity_swap)
+	if (of_property_read_bool(np, "phy-tx-polarity-swap"))
 		regmap_update_bits(priv->map, RTL8373_CFG_PHY_TX_POLARITY_SWAP_ADDR,
 				 RTL8373_CFG_PHY_TX_POLARITY_SWAP_P0_TX_POLARITY_SWAP_MASK | RTL8373_CFG_PHY_TX_POLARITY_SWAP_P1_TX_POLARITY_SWAP_MASK |
 				  RTL8373_CFG_PHY_TX_POLARITY_SWAP_P2_TX_POLARITY_SWAP_MASK | RTL8373_CFG_PHY_TX_POLARITY_SWAP_P3_TX_POLARITY_SWAP_MASK,

@@ -221,7 +221,7 @@ int rtl837x_sds_reg_bits_read(struct rtl837x_priv *priv, u8 sds_index, u16 sds_p
 	return 0;
 }
 
-// will remove this in the feature
+// will remove this in the future
 rtk_api_ret_t rtk_hal_init(void)
 {
     rtk_int32  retVal;

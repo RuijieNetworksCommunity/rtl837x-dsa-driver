@@ -134,21 +134,6 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 		goto err;
 	}
 
-	memset(&(priv->swap_cfg),0,sizeof(rtl837x_pnswap_cfg_t));
-	if (of_property_read_bool(np, "sds0-rx-swap"))
-		priv->swap_cfg.sds0_rx_swap = 1;
-	if (of_property_read_bool(np, "sds0-tx-swap"))
-		priv->swap_cfg.sds0_tx_swap = 1;
-	if (of_property_read_bool(np, "sds1-rx-swap"))
-		priv->swap_cfg.sds1_rx_swap = 1;
-	if (of_property_read_bool(np, "sds1-tx-swap"))
-		priv->swap_cfg.sds1_tx_swap = 1;
-
-	if (of_property_read_bool(np, "phy-mdi-reverse"))
-		priv->swap_cfg.phy_mdi_reverse = 1;
-	if (of_property_read_bool(np, "phy-tx-polarity-swap"))
-		priv->swap_cfg.phy_tx_polarity_swap = 1;
-
 	mutex_init(&priv->map_lock);
 	
 	rc = rtl837x_mdio_regmap_config;

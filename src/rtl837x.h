@@ -47,18 +47,6 @@ struct rtl837x_sdsmode_map {
 	const char *name;
 };
 
-typedef struct rtl837x_pnswap_cfg_s {
-	uint8_t sds0_rx_swap:1;
-	uint8_t sds0_tx_swap:1;
-
-	uint8_t sds1_rx_swap:1;
-	uint8_t sds1_tx_swap:1;
-
-	uint8_t phy_mdi_reverse:1;
-	uint8_t phy_tx_polarity_swap:1;
-	uint8_t RESERVED:2;
-} rtl837x_pnswap_cfg_t;
-
 struct rtl837x_priv {
  	struct device *dev;
 	struct gpio_desc	*reset;
@@ -75,7 +63,6 @@ struct rtl837x_priv {
 
 	unsigned int num_ports;
 
-	rtl837x_pnswap_cfg_t swap_cfg;
 	dal_mapper_t *pMapper;
 
 	struct dsa_switch	*ds;
