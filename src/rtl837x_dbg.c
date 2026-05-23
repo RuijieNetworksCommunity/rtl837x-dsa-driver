@@ -152,7 +152,8 @@ static ssize_t _sds_page_dump_read(struct file *filep, char __user *ubuf,
 				size_t count, loff_t *offp)
 {
 	int ret, len = 0;
-	char buf[2048];
+#define SDS_DUMP_BUF_SIZE 2048
+	char *buf;
 	u16 tmp16;
 	u32 tmp32;
 	struct seq_file *sfile;
@@ -161,49 +162,54 @@ static ssize_t _sds_page_dump_read(struct file *filep, char __user *ubuf,
 	sfile = filep->private_data;
 	priv = sfile->private;
 
+	buf = kmalloc(SDS_DUMP_BUF_SIZE, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
 	regmap_read(priv->map, RTL8373_SDS_MODE_SEL_ADDR, &tmp32);
-	len += snprintf(buf + len, sizeof(buf)-len, "reg 0x7b20: %#08x\n", tmp32);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "reg 0x7b20: %#08x\n", tmp32);
 	rtl837x_sds_reg_read(priv, 0, 0x21, 0x10, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x21  reg 0x10; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x21  reg 0x10; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x21, 0x13, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x21  reg 0x13; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x21  reg 0x13; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x21, 0x18, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x21  reg 0x18; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x21  reg 0x18; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x21, 0x1B, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x21  reg 0x1b; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x21  reg 0x1b; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x21, 0x1D, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x21  reg 0x1d; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x21  reg 0x1d; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x36, 0x1C, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x36  reg 0x1c; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x36  reg 0x1c; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x36, 0x14, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x36  reg 0x14; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x36  reg 0x14; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x36, 0x10, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x36  reg 0x10; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x36  reg 0x10; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 4, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x2e  reg 0x04; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x04; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 6, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x2e  reg 0x06; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x06; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 7, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x2e  reg 0x07; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x07; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 9, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x2e  reg 0x09; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x09; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 0xB, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x2e  reg 0x0b; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x0b; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 0xC, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x2e  reg 0x0c; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x0c; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 0xD, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x2e  reg 0x0d; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x0d; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 0x15, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x2e  reg 0x15; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x15; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 0x16, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x2e  reg 0x16; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x16; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 0x1D, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x2e  reg 0x1d; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x1d; data = 0x%04x\n", tmp16);
 
 	rtl837x_sds_reg_read(priv, 0, 0x05, 0x00, &tmp16);
-	len += snprintf(buf + len, sizeof(buf)-len, "sds page 0x05  reg 0x00; data = 0x%04x\n", tmp16);
+	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x05  reg 0x00; data = 0x%04x\n", tmp16);
 
 	ret = simple_read_from_buffer(ubuf, count, offp, buf, strlen(buf));
+	kfree(buf);
 	return ret;
 }
 
