@@ -42,6 +42,8 @@ rtk_sds_mode_t phy_interface_to_rtk_sds_mode(phy_interface_t interface)
 		return SERDES_10GUSXG;
 	case PHY_INTERFACE_MODE_1000BASEX:
 		return SERDES_1000BASEX;
+	case PHY_INTERFACE_MODE_SGMII:
+		return SERDES_SG;
 	case PHY_INTERFACE_MODE_2500BASEX:
 		return SERDES_2500BASEX;
 	case PHY_INTERFACE_MODE_10GBASER:
