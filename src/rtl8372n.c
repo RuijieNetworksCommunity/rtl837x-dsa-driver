@@ -1027,7 +1027,7 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 	vlan4k.untag &= ~BIT(port);
 
 	if (!vlan4k.member) {
-		vlan4k.vid = 0;
+		vlan4k.vid = vlan->vid;
 		vlan4k.untag = 0;
 		vlan4k.fid = 0;
 	}
