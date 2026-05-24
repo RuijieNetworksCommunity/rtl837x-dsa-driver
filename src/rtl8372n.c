@@ -174,6 +174,7 @@ static int rtl8372n_drop_untagged(struct rtl837x_priv *priv, int port, bool drop
 	//     ACCEPT_FRAME_TYPE_UNTAG_ONLY,     /* untagged and priority-tagged */
 	//     ACCEPT_FRAME_TYPE_END
 	// } rtk_vlan_acceptFrameType_t;
+	dev_dbg(priv->dev, "rtl8372n_drop_untagged port (%d)\n", port);
 
 	u32 tmp = drop ? 1 : 0;
 	return regmap_update_bits(priv->map, RTL8373_VLAN_PORT_AFT_ADDR(port), 
@@ -240,6 +241,7 @@ static int rtl8372n_set_pvid(struct rtl837x_priv *priv, int port,
 	struct dsa_switch *ds = priv->ds;
 	bool pvid_enabled;
 
+	dev_dbg(priv->dev, "rtl8372n_set_pvid port (%d), vid (%d)\n", port, vid);
 	pvid_enabled = !!vid;
 
 	ret = regmap_update_bits(priv->map, RTL8373_VLAN_PORT_PB_VLAN_ADDR(port),
@@ -964,6 +966,7 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
                             const struct switchdev_obj_port_vlan *vlan,
                             struct netlink_ext_ack *extack)
 {
+    int ret;
 	bool untagged = !!(vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED);
 	bool pvid = !!(vlan->flags & BRIDGE_VLAN_INFO_PVID);
     struct rtl837x_priv *priv = ds->priv;
@@ -972,10 +975,7 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 	u32 member = 0;
 	u32 untag = 0;
 
-    rtk_api_ret_t ret;
-    rtk_vlan_entry_t entry;
-
-	dev_info(priv->dev, "rtl8372n_vlan_add vid (%d)\n", vid);
+	dev_info(priv->dev, "rtl8372n_vlan_add port (%d) vid (%d)\n", port, vid);
 
     if (vid >= 4095)
     {
@@ -1007,45 +1007,39 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
     return 0;
 }
 
+
+
 static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
                                  const struct switchdev_obj_port_vlan *vlan)
 {
-    struct rtl837x_priv *priv = ds->priv;
+	int ret;
+	struct rtl837x_priv *priv = ds->priv;
 
-    rtk_api_ret_t ret;
-    rtk_vlan_entry_t entry;
-    u16 vid = vlan->vid;
+	dev_info(priv->dev, "del VLAN %d on port %d\n", vlan->vid, port);
 
-	dev_info(priv->dev, "rtl8372n_vlan_del vid (%d)\n", vid);
-    
-    if (vid <= 0 || vid >= 4095)
-        return 0;
-    
-    // 获取 VLAN 配置
-    ret = rtk_vlan_get(vid, &entry);
-    if (ret != RT_ERR_OK) {
-        if (ret == RT_ERR_VLAN_ENTRY_NOT_FOUND)
-            return 0;  // VLAN 不存在，无需操作
-        return -EIO;
-    }
-    
-    // 从成员中移除端口
-    RTK_PORTMASK_PORT_CLEAR(entry.mbr, port);
-    RTK_PORTMASK_PORT_CLEAR(entry.untag, port);
-    
-    // 更新 VLAN 配置
-    ret = rtk_vlan_set(vid, &entry);
-    if (ret != RT_ERR_OK)
-        return -EIO;
-    
-    // 如果删除的是 PVID，恢复默认 PVID
-    if (vlan->flags & BRIDGE_VLAN_INFO_PVID) {
-        ret = rtk_vlan_portPvid_set(port, 0);
-        if (ret != RT_ERR_OK)
-            return -EIO;
-    }
-    
-    return 0;
+	struct rtl837x_vlan_4k vlan4k;
+
+	ret = priv->ops->get_vlan_4k(priv, vlan->vid, &vlan4k);
+	if (ret)
+		return ret;
+
+	vlan4k.member &= ~BIT(port);
+	vlan4k.untag &= ~BIT(port);
+
+	if (!vlan4k.member) {
+		vlan4k.vid = 0;
+		vlan4k.untag = 0;
+		vlan4k.fid = 0;
+	}
+
+	ret = priv->ops->set_vlan_4k(priv, &vlan4k);
+	if (ret) {
+		dev_err(priv->dev,
+			"failed to remove VLAN %04x\n",
+			vlan->vid);
+		return ret;
+	}
+	return 0;
 }
 
 static int
@@ -1200,9 +1194,11 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.get_ethtool_stats = rtl8372n_get_ethtool_stats,
 	.get_sset_count = rtl8372n_get_sset_count,
 
-	// .port_vlan_filtering = rtl8372n_vlan_filtering,
-	// .port_vlan_add = rtl8372n_vlan_add,
-	// .port_vlan_del = rtl8372n_vlan_del,
+	.port_vlan_filtering = rtl8372n_vlan_filtering,
+	.port_vlan_add = rtl8372n_vlan_add,
+	.port_vlan_del = rtl8372n_vlan_del,
+
+	.port_stp_state_set = rtl8372n_port_stp_state_set,
 
 	.port_bridge_join = rtl8372n_port_bridge_join,
 	.port_bridge_leave = rtl8372n_port_bridge_leave,
