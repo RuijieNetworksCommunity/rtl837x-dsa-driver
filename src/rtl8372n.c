@@ -1070,6 +1070,9 @@ static int rtl8372n_port_enable(struct dsa_switch *ds, int port,
     struct rtl837x_priv *priv = ds->priv;
 	int ret;
 
+	if (port==UTP_PORT3 || port==UTP_PORT8)
+		return 0;
+
 	ret = priv->ops->phy_write_c45(priv, port, 31, 0xa610, 0x2058);
 	if (ret != RT_ERR_OK)
 		return -EIO;
@@ -1080,6 +1083,9 @@ static int rtl8372n_port_enable(struct dsa_switch *ds, int port,
 static void rtl8372n_port_disable(struct dsa_switch *ds, int port)
 {
     struct rtl837x_priv *priv = ds->priv;
+
+	if (port==UTP_PORT3 || port==UTP_PORT8)
+		return;
 
 	priv->ops->phy_write_c45(priv, port, 31, 0xa610, 0x2858);
 }
