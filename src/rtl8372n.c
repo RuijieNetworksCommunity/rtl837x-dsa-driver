@@ -164,7 +164,7 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
 	return 0;
 }
 
-
+// Set Ingress frame type
 static int rtl8372n_drop_untagged(struct rtl837x_priv *priv, int port, bool drop)
 {
 	// typedef enum rtk_vlan_acceptFrameType_e
@@ -174,7 +174,7 @@ static int rtl8372n_drop_untagged(struct rtl837x_priv *priv, int port, bool drop
 	//     ACCEPT_FRAME_TYPE_UNTAG_ONLY,     /* untagged and priority-tagged */
 	//     ACCEPT_FRAME_TYPE_END
 	// } rtk_vlan_acceptFrameType_t;
-	dev_dbg(priv->dev, "rtl8372n_drop_untagged port (%d)\n", port);
+	dev_dbg(priv->dev, "rtl8372n_drop_untagged port (%d), (%s)\n", port, drop ? "drop" : "keep");
 
 	u32 tmp = drop ? 1 : 0;
 	return regmap_update_bits(priv->map, RTL8373_VLAN_PORT_AFT_ADDR(port), 
@@ -600,7 +600,7 @@ static int of_extra_init(struct dsa_switch *ds)
 		list++;
 		val = be32_to_cpu(*list);
 		list++;
-		dev_info(ds->dev, "of_extra_init: reg:0x%04X mask:0x%08X val:0x%08X\n", 
+		dev_dbg(ds->dev, "of_extra_init: reg:0x%04X mask:0x%08X val:0x%08X\n", 
 							reg, mask, val);
 		priv->pMapper->rtl8373_setAsicRegBits(reg, mask, val);
 	}
@@ -771,6 +771,11 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		return ret;
 	}
 
+	// reset vlan table
+	ret = regmap_set_bits(priv->map, RTL8373_VLAN_CTRL_ADDR, RTL8373_VLAN_CTRL_TABLE_RST_MASK);
+	if (ret)
+		return ret;
+
 	for(int port = 0;port < priv->num_ports;port++){
 		if (dsa_is_unused_port(priv->ds, port))
 			continue;
@@ -779,7 +784,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
         rtk_l2_limitLearningCnt_set(port, 0);
         rtk_l2_limitLearningCntAction_set(port, LIMIT_LEARN_CNT_ACTION_FORWARD);
 
-		rtk_vlan_tagMode_set(port, VLAN_EGRESS_TAG_MODE_KEEP_FORMAT);
+		rtk_vlan_tagMode_set(port, VLAN_EGRESS_TAG_MODE_ORIGINAL);
 		rtk_vlan_portAcceptFrameType_set(port, ACCEPT_FRAME_TYPE_ALL);
 		rtk_vlan_portIgrFilterEnable_set(port, DISABLED);
 		ret = rtk_eee_portTxRxEn_set(port, DISABLED, DISABLED);
@@ -946,7 +951,7 @@ static int rtl8372n_vlan_filtering(struct dsa_switch *ds, int port,
     struct rtl837x_priv *priv = ds->priv;
 	struct rtl8372n *chip_data = priv->chip_data;
     
-	dev_info(priv->dev, "rtl8372n_vlan_filtering port (%d)\n", port);
+	dev_dbg(priv->dev, "rtl8372n_vlan_filtering port (%d)\n", port);
 
 	// Set Ingress filter
 	ret = regmap_update_bits(priv->map, RTL8373_VLAN_PORT_IGR_FLTR_ADDR(port),
@@ -975,7 +980,7 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 	u32 member = 0;
 	u32 untag = 0;
 
-	dev_info(priv->dev, "rtl8372n_vlan_add port (%d) vid (%d)\n", port, vid);
+	dev_dbg(priv->dev, "rtl8372n_vlan_add port (%d) vid (%d)\n", port, vid);
 
     if (vid >= 4095)
     {
@@ -1015,7 +1020,7 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 	int ret;
 	struct rtl837x_priv *priv = ds->priv;
 
-	dev_info(priv->dev, "del VLAN %d on port %d\n", vlan->vid, port);
+	dev_dbg(priv->dev, "del VLAN %d on port %d\n", vlan->vid, port);
 
 	struct rtl837x_vlan_4k vlan4k;
 
@@ -1051,7 +1056,7 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
     struct rtl837x_priv *priv = ds->priv;
 	unsigned int port_bitmap = 0;
 	int ret, i;
-	dev_info(priv->dev, "port_bridge_join %d\n", port);
+	dev_dbg(priv->dev, "port_bridge_join %d\n", port);
 
 	/* Loop over all other ports than the current one */
 	for (i = 0; i < priv->num_ports; i++) {
@@ -1074,9 +1079,9 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 
 	/* Set the bits for the ports we can access */
 	ret = regmap_update_bits(priv->map, 
-			RTL8373_PORT_ISO_PORT_PMSK_ADDR(port),
-			port_bitmap,
-			port_bitmap);
+				  RTL8373_PORT_ISO_PORT_PMSK_ADDR(port),
+				  port_bitmap,
+				  port_bitmap);
 	return ret;
 }
 
@@ -1087,7 +1092,7 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
     struct rtl837x_priv *priv = ds->priv;
 	unsigned int port_bitmap = 0;
 	int ret, i;
-	dev_info(priv->dev, "port_bridge_leave %d\n", port);
+	dev_dbg(priv->dev, "port_bridge_leave %d\n", port);
 
 	/* Loop over all other ports than this one */
 	for (i = 0; i < priv->num_ports; i++) {
@@ -1137,7 +1142,7 @@ static void rtl8372n_port_disable(struct dsa_switch *ds, int port)
 	priv->ops->phy_write_c45(priv, port, 31, 0xa610, 0x2858);
 }
 
-static enum RTL8373_MSTP_STATE
+enum RTL8373_MSTP_STATE
 {
     MSTP_DISABLE = 0,
     MSTP_BLOCKING,

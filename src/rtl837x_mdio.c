@@ -174,13 +174,13 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 
 	if (priv->reset) {
 		gpiod_set_value(priv->reset, 1);
-		dev_info(dev, "asserted RESET\n");
+		dev_dbg(dev, "asserted RESET\n");
 		msleep(50);
 		gpiod_set_value(priv->reset, 0);
 		msleep(50);
 		gpiod_set_value(priv->reset, 1);
 		mdelay(50);
-		dev_info(dev, "deasserted RESET\n");
+		dev_dbg(dev, "deasserted RESET\n");
 	}
 
 	ret = priv->ops->detect(priv);
