@@ -1,6 +1,10 @@
 ccflags-y += -Wall
 ccflags-y += -I$(src)/rtk-api -I$(src)/rtk-api/dal/rtl8373 -Iinclude/linux/
 
+ifeq ($(CONFIG_RTL8372N_DSA_DEBUG),y)
+ccflags-y += -DDEBUG
+endif
+
 obj-$(CONFIG_RTL8372N_DSA) += rtl8372n_dsa.o
 
 rtl8372n_dsa-objs := rtl8372n.o
