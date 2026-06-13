@@ -15,6 +15,7 @@
 #include "./rtk-api/phy.h"
 #include "./rtk-api/port.h"
 #include "./rtk-api/vlan.h"
+#include "./rtk-api/svlan.h"
 #include "./rtk-api/chip.h"
 #include "./rtk-api/eee.h"
 #include "./rtk-api/rma.h"

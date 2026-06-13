@@ -20,7 +20,8 @@ define KernelPackage/$(PKG_NAME)
   FILES:=$(PKG_BUILD_DIR)/rtl8372n_dsa.ko
   AUTOLOAD:=$(call AutoLoad,42,rtl8372n_dsa)
   KCONFIG:= \
-    CONFIG_NET_DSA_TAG_RTL8_4=y
+    CONFIG_NET_DSA_TAG_RTL8_4=y \
+    CONFIG_NET_DSA_TAG_MXL_862XX_8021Q=y
 endef
 
 define Build/Compile
@@ -28,6 +29,7 @@ define Build/Compile
 		M="$(PKG_BUILD_DIR)" \
 		EXTRA_CFLAGS="$(EXTRA_CFLAGS)" \
 		CONFIG_RTL8372N_DSA=m \
+    CONFIG_RTL8372N_DSA_DEBUG=y \
 		modules
 endef
 
