@@ -602,7 +602,7 @@ static int of_extra_init(struct dsa_switch *ds)
 		list++;
 		dev_dbg(ds->dev, "of_extra_init: reg:0x%04X mask:0x%08X val:0x%08X\n", 
 							reg, mask, val);
-		priv->pMapper->rtl8373_setAsicRegBits(reg, mask, val);
+		regmap_update_bits(priv->map, reg, mask, (val << __ffs(mask)) & mask);
 	}
 	return 0;
 }
