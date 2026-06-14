@@ -186,10 +186,14 @@ static int rtl8372n_drop_untagged(struct rtl837x_priv *priv, int port, bool drop
 static int rtl8372n_get_vlan_4k(struct rtl837x_priv *priv, u32 vid,
 				 struct rtl837x_vlan_4k *vlan4k)
 {
+	ret_t ret;
     rtk_vlan_entry_t vlanCfg;
 	memset(vlan4k, 0, sizeof(struct rtl837x_vlan_4k));
-    if (rtk_vlan_get(vid, &vlanCfg) != RT_ERR_OK)
+    if ((ret = rtk_vlan_get(vid, &vlanCfg)) != RT_ERR_OK)
+	{
+		dev_dbg(priv->dev, "rtl8372n_get_vlan_4k: failed: ret: %d\n", ret);
 		return -EINVAL;
+	}
 
 	vlan4k->vid = vid;
 	vlan4k->member = vlanCfg.mbr.bits[0] & RTL8372N_VLAN_MEMBER_MASK;
@@ -201,6 +205,7 @@ static int rtl8372n_get_vlan_4k(struct rtl837x_priv *priv, u32 vid,
 static int rtl8372n_set_vlan_4k(struct rtl837x_priv *priv,
 			       const struct rtl837x_vlan_4k *vlan4k)
 {
+	ret_t ret;
     rtk_vlan_entry_t vlanCfg;
 	memset(&vlanCfg, 0, sizeof(rtk_vlan_entry_t));
 
@@ -209,8 +214,11 @@ static int rtl8372n_set_vlan_4k(struct rtl837x_priv *priv,
     vlanCfg.fid_msti = vlan4k->fid;
     vlanCfg.ivl_svl = 1;
 
-	if (rtk_vlan_set(vlan4k->vid, &vlanCfg) != RT_ERR_OK)
+	if ((ret = rtk_vlan_set(vlan4k->vid, &vlanCfg)) != RT_ERR_OK)
+	{
+		dev_dbg(priv->dev, "rtl8372n_set_vlan_4k: failed: ret: %d\n", ret);
 		return -EINVAL;
+	}
 	return 0;
 }
 
@@ -784,7 +792,10 @@ static int rtl8372n_setup(struct dsa_switch *ds)
         rtk_l2_limitLearningCnt_set(port, 0);
         rtk_l2_limitLearningCntAction_set(port, LIMIT_LEARN_CNT_ACTION_FORWARD);
 
-		rtk_vlan_tagMode_set(port, VLAN_EGRESS_TAG_MODE_ORIGINAL);
+		// What fuck is this?
+		// rtk_vlan_tagMode_set(port, VLAN_EGRESS_TAG_MODE_ORIGINAL);
+		rtk_vlan_tagMode_set(port, VLAN_EGRESS_TAG_MODE_KEEP_FORMAT);
+
 		rtk_vlan_portAcceptFrameType_set(port, ACCEPT_FRAME_TYPE_ALL);
 		rtk_vlan_portIgrFilterEnable_set(port, DISABLED);
 		ret = rtk_eee_portTxRxEn_set(port, DISABLED, DISABLED);
@@ -951,7 +962,8 @@ static int rtl8372n_vlan_filtering(struct dsa_switch *ds, int port,
     struct rtl837x_priv *priv = ds->priv;
 	struct rtl8372n *chip_data = priv->chip_data;
     
-	dev_dbg(priv->dev, "rtl8372n_vlan_filtering port (%d)\n", port);
+	dev_dbg(priv->dev, "rtl8372n_vlan_filtering port (%d), filtering: %s\n",
+				  port, !!vlan_filtering ? "true" : "false");
 
 	// Set Ingress filter
 	ret = regmap_update_bits(priv->map, RTL8373_VLAN_PORT_IGR_FLTR_ADDR(port),
@@ -1020,7 +1032,7 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 	int ret;
 	struct rtl837x_priv *priv = ds->priv;
 
-	dev_dbg(priv->dev, "del VLAN %d on port %d\n", vlan->vid, port);
+	dev_dbg(priv->dev, "rtl8372n_vlan_del port (%d) vid (%d)\n", port, vlan->vid);
 
 	struct rtl837x_vlan_4k vlan4k;
 
