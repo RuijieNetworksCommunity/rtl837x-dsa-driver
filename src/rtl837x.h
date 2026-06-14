@@ -8,6 +8,7 @@
 #include <linux/platform_device.h>
 #include <linux/debugfs.h>
 #include <net/dsa.h>
+#include <linux/dsa/8021q.h>
 
 #include "./rtk-api/rtk_error.h"
 #include "./rtk-api/rtk_types.h"

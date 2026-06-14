@@ -234,6 +234,12 @@ static void rtl837x_mdio_remove(struct mdio_device *mdiodev)
 
 	rtl837x_debug_proc_deinit(priv);
 
+	if (priv->ds->tag_8021q_ctx) {
+		rtnl_lock();
+		dsa_tag_8021q_unregister(priv->ds);
+		rtnl_unlock();
+	}
+
 	dsa_unregister_switch(priv->ds);
 	
 	/* leave the device reset asserted */

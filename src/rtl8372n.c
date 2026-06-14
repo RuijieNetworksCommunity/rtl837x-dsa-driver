@@ -7,7 +7,6 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/regmap.h>
 #include <linux/version.h>
-#include <linux/dsa/8021q.h>
 
 #include "rtl837x.h"
 
@@ -623,6 +622,7 @@ static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 	int ret;
     struct rtl837x_priv *priv = ds->priv;
 	struct dsa_port *dp, *cpu_dp = NULL;
+	dev_dbg(priv->dev, "[%s]\n", __func__);
 
 	dsa_switch_for_each_cpu_port(dp, ds) {
 		cpu_dp = dp;
@@ -661,7 +661,6 @@ static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 	if (ret)
 		return ret;
 
-	priv->tag_proto = DSA_TAG_PROTO_RTL8_4;
 	return 0;
 }
 
@@ -669,6 +668,7 @@ static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 {
     struct rtl837x_priv *priv = ds->priv;
 	struct dsa_port *dp = NULL;
+	dev_dbg(priv->dev, "[%s]\n", __func__);
 
 	// Set external CPU DSA tag insert mode
 	regmap_update_bits(priv->map, RTL8373_CPU_TAG_CTRL_ADDR,
@@ -695,6 +695,7 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 	int ret;
     struct rtl837x_priv *priv = ds->priv;
 	struct dsa_port *dp = NULL;
+	dev_dbg(priv->dev, "[%s]\n", __func__);
 
 	u32 cpu_port_mask = 0;
 
@@ -747,13 +748,10 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 	if (ret)
 		return ret;
 
-    rtnl_lock();
 	ret = dsa_tag_8021q_register(ds, htons(ETH_P_8021Q));
-    rtnl_unlock();
 	if (ret)
 		return ret;
 
-	priv->tag_proto = DSA_TAG_PROTO_MXL862_8021Q;
 	return 0;
 }
 
@@ -762,6 +760,7 @@ static int rtl8372n_teardown_tag_8021q(struct dsa_switch *ds)
     struct rtl837x_priv *priv = ds->priv;
     struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *dp = NULL;
+	dev_dbg(priv->dev, "[%s]\n", __func__);
 
 	if (ds->tag_8021q_ctx) {
 		rtnl_lock();
@@ -889,6 +888,42 @@ static int rtl8372n_tag_8021q_vlan_del(struct dsa_switch *ds, int port,
 
 	return 0;
 }
+
+static int rtl8372n_change_tag_protocol(struct dsa_switch *ds,
+					enum dsa_tag_protocol proto)
+{
+	int ret;
+    struct rtl837x_priv *priv = ds->priv;
+	struct rtl8372n *chip_data = priv->chip_data;
+
+	dev_dbg(priv->dev, "[%s]: proto: %d\n", __func__, proto);
+
+
+	switch (proto) {
+	case DSA_TAG_PROTO_MXL862_8021Q:
+		ret = rtl8372n_teardown_tag_rtl(ds);
+		if (ret)
+			return ret;
+		ret = rtl8372n_set_tag_8021q(ds);
+		if (ret)
+			return ret;
+		break;
+	case DSA_TAG_PROTO_RTL8_4:
+		ret = rtl8372n_teardown_tag_8021q(ds);
+		if (ret)
+			return ret;
+		ret = rtl8372n_set_tag_rtl(ds);
+		if (ret)
+			return ret;
+		break;
+	default:
+		return -EPROTONOSUPPORT;
+	}
+	priv->tag_proto = proto;
+
+	return 0;
+}
+
 
 static int rtl8372n_setup(struct dsa_switch *ds)
 {
@@ -1136,19 +1171,22 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		return -1;
 	}
 
-	ret = rtl8372n_set_tag_8021q(ds);
-	if (ret)
-	{
-		dev_err(priv->dev, "rtl8372n_set_vlan_tag Failed, error: %d", ret);
-		return -1;
+	switch (priv->tag_proto) {
+	case DSA_TAG_PROTO_MXL862_8021Q:
+		rtnl_lock();
+		ret = rtl8372n_set_tag_8021q(ds);
+		rtnl_unlock();
+		if (ret)
+			return ret;
+		break;
+	case DSA_TAG_PROTO_RTL8_4:
+		ret = rtl8372n_set_tag_rtl(ds);
+		if (ret)
+			return ret;
+		break;
+	default:
+		return -EPROTONOSUPPORT;
 	}
-
-	// ret = rtl8372n_set_tag_rtl(ds);
-	// if (ret)
-	// {
-	// 	dev_err(priv->dev, "rtl8372n_set_tag_rtl Failed, error: %d", ret);
-	// 	return -1;
-	// }
 
 	struct net_device *master_dev = NULL;
 
@@ -1480,6 +1518,7 @@ static void rtl8372n_port_stp_state_set(struct dsa_switch *ds, int port, u8 stat
 
 static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.get_tag_protocol = rtl8372n_get_tag_protocol,
+	.change_tag_protocol = rtl8372n_change_tag_protocol,
 	.setup = rtl8372n_setup,
 
 	.phylink_get_caps = rtl8372n_phylink_get_caps,
@@ -1518,7 +1557,7 @@ static const struct rtl837x_ops rtl8372n_ops = {
 const struct rtl837x_variant rtl8372n_variant = {
 	.ds_ops_mdio = &rtl8372n_switch_ops_mdio,
 	.ops = &rtl8372n_ops,
-	.def_tag_proto = DSA_TAG_PROTO_MXL862_8021Q,
+	.def_tag_proto = DSA_TAG_PROTO_RTL8_4,
 	.pl_mac_ops = &rtl8372n_phylink_mac_ops,
 	.chip_data_sz = sizeof(struct rtl8372n),
 };
