@@ -157,6 +157,7 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	priv->bus = mdiodev->bus;
 	priv->dev = dev;
 	priv->chip_data = (void *)priv + sizeof(*priv);
+	priv->tag_proto = var->def_tag_proto;
 
 	priv->ops = var->ops;
 

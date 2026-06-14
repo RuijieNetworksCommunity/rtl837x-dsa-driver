@@ -56,6 +56,7 @@ struct rtl837x_priv {
 	struct regmap		*map_nolock;
 	struct mutex		map_lock;
 	int			mdio_addr;
+	enum dsa_tag_protocol tag_proto;
 
 	struct dentry *debugfs_parent;
 
@@ -74,7 +75,6 @@ struct rtl837x_priv {
 	const struct rtl837x_ops *ops;
 	int			(*write_reg_noack)(void *ctx, u32 addr, u32 data);
 
-	char			buf[4096];
 	void			*chip_data; /* Per-chip extra variant data */
 };
 
@@ -88,6 +88,7 @@ struct rtl837x_vlan_4k {
 struct rtl837x_variant {
 	const struct dsa_switch_ops *ds_ops_mdio;
 	const struct rtl837x_ops *ops;
+	enum dsa_tag_protocol def_tag_proto;
 	const struct phylink_mac_ops *pl_mac_ops;
 	size_t chip_data_sz;
 };
