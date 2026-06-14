@@ -18,8 +18,8 @@ static int simple_debugfs_open(struct inode *inode, struct file *file)
 	return single_open(file, NULL, inode->i_private);
 }
 
-#define REGRWFUNC(name) \
-	static char _buf_rd_##name[64];  \
+#define REGRWFUNC(name, BUF_SIZE) \
+	static char _buf_rd_##name[BUF_SIZE];  \
 	static ssize_t _##name##_rw_read(struct file *filep, char __user *ubuf,  \
 				  size_t count, loff_t *offp)   \
 	{   \
@@ -34,9 +34,42 @@ static int simple_debugfs_open(struct inode *inode, struct file *file)
 		.read = _##name##_rw_read   \
 	};
 
-REGRWFUNC(reg)
-REGRWFUNC(phyreg_mmd)
-REGRWFUNC(sdsreg)
+REGRWFUNC(vlan, 128)
+REGRWFUNC(reg, 64)
+REGRWFUNC(phyreg_mmd, 64)
+REGRWFUNC(sdsreg, 64)
+
+ssize_t _vlan_rw_write(struct file *filep, const char __user *ubuf,
+				   size_t count, loff_t *offp)
+{
+	char *buf;
+	uint32_t vlan_id, page;
+	u16 tmp16;
+	struct seq_file *sfile;
+	struct rtl837x_priv *priv;
+
+	sfile = filep->private_data;
+	priv = sfile->private;
+
+	buf = memdup_user_nul(ubuf, count);
+	if (IS_ERR(buf))
+		return PTR_ERR(buf);
+	
+	if(buf[0] == 'r') {
+		if(sscanf(buf, "r %d", &vlan_id) == -1)
+			return -EFAULT;
+		else {
+			struct rtl837x_vlan_4k vlan4k;
+			memset(&vlan4k, 0, sizeof(vlan4k));
+			priv->ops->get_vlan_4k(priv,vlan_id,  &vlan4k);
+			snprintf(_buf_rd_vlan, 128, "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
+						  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
+		}
+	} else {
+		snprintf(_buf_rd_vlan, 128, "echo \"r <vlan_id>\" > vlan_dump\n");
+	}
+	return count;
+}
 
 ssize_t _sdsreg_rw_write(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
@@ -235,6 +268,10 @@ int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 	debugfs_create_file("sdsreg", 0600,
 		priv->debugfs_parent, priv,
 		&TO_FOPS(sdsreg));
+
+	debugfs_create_file("vlan_dump", 0400,
+		priv->debugfs_parent, priv,
+		&TO_FOPS(vlan));
 
 	debugfs_create_file("sds_page_dump", 0400,
 		priv->debugfs_parent, priv,
