@@ -719,7 +719,7 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 		return ret;
 
 	// Set Custome TPID
-	ret = regmap_write(priv->map, RTL8373_VS_GLB_CTRL_ADDR, ETH_P_8021AD);
+	ret = regmap_write(priv->map, RTL8373_VS_GLB_CTRL_ADDR, ETH_P_8021Q);
 	if (ret)
 		return ret;
 
@@ -748,7 +748,7 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 		return ret;
 
     rtnl_lock();
-	ret = dsa_tag_8021q_register(ds, htons(ETH_P_8021AD));
+	ret = dsa_tag_8021q_register(ds, htons(ETH_P_8021Q));
     rtnl_unlock();
 	if (ret)
 		return ret;
@@ -1136,19 +1136,19 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		return -1;
 	}
 
-	// ret = rtl8372n_set_tag_8021q(ds);
-	// if (ret)
-	// {
-	// 	dev_err(priv->dev, "rtl8372n_set_vlan_tag Failed, error: %d", ret);
-	// 	return -1;
-	// }
-
-	ret = rtl8372n_set_tag_rtl(ds);
+	ret = rtl8372n_set_tag_8021q(ds);
 	if (ret)
 	{
-		dev_err(priv->dev, "rtl8372n_set_tag_rtl Failed, error: %d", ret);
+		dev_err(priv->dev, "rtl8372n_set_vlan_tag Failed, error: %d", ret);
 		return -1;
 	}
+
+	// ret = rtl8372n_set_tag_rtl(ds);
+	// if (ret)
+	// {
+	// 	dev_err(priv->dev, "rtl8372n_set_tag_rtl Failed, error: %d", ret);
+	// 	return -1;
+	// }
 
 	struct net_device *master_dev = NULL;
 
@@ -1518,7 +1518,7 @@ static const struct rtl837x_ops rtl8372n_ops = {
 const struct rtl837x_variant rtl8372n_variant = {
 	.ds_ops_mdio = &rtl8372n_switch_ops_mdio,
 	.ops = &rtl8372n_ops,
-	.def_tag_proto = DSA_TAG_PROTO_RTL8_4,
+	.def_tag_proto = DSA_TAG_PROTO_MXL862_8021Q,
 	.pl_mac_ops = &rtl8372n_phylink_mac_ops,
 	.chip_data_sz = sizeof(struct rtl8372n),
 };
