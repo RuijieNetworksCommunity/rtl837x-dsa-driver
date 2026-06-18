@@ -125,6 +125,7 @@ struct rtl8372n_pcs
 
 struct rtl8372n {
 	struct rtl8372n_pcs pcs[RTL8372N_NUM_PORTS];
+	netdev_features_t csum_feature_backup;
 	bool pvid_enabled[RTL8372N_NUM_PORTS];
 	bool dsa_tag_8021q_vid[RTL8372N_VLAN_MAX+1];
 };
@@ -621,9 +622,12 @@ static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 {
 	int ret;
     struct rtl837x_priv *priv = ds->priv;
+	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *dp, *cpu_dp = NULL;
+	struct net_device *master_dev = NULL;
 	dev_dbg(priv->dev, "[%s]\n", __func__);
 
+	// Only support one CPU port
 	dsa_switch_for_each_cpu_port(dp, ds) {
 		cpu_dp = dp;
 		break;
@@ -631,6 +635,18 @@ static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 
 	if (cpu_dp == NULL)
 		return -ENODEV;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,12,44)
+	master_dev = cpu_dp->master;
+#else
+	master_dev = cpu_dp->conduit;
+#endif
+
+	if (!master_dev)
+	{
+		dev_err(priv->dev, "Cannot get master netdev from cpu port\n");
+		return -ENODEV;
+	}
 
 	// Set external CPU port
 	ret = regmap_update_bits(priv->map, RTL8373_EXT_CPU_CTRL_ADDR,
@@ -661,14 +677,45 @@ static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 	if (ret)
 		return ret;
 
+	chip_data->csum_feature_backup = (master_dev->wanted_features & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM));
+	chip_data->csum_feature_backup |= (master_dev->wanted_features & NETIF_F_HW_CSUM);\
+
+    master_dev->wanted_features &= ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
+    master_dev->wanted_features &= ~NETIF_F_HW_CSUM;
+    netdev_update_features(master_dev);
+
 	return 0;
 }
 
 static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 {
+	int ret;
     struct rtl837x_priv *priv = ds->priv;
-	struct dsa_port *dp = NULL;
+	struct rtl8372n *chip_data = priv->chip_data;
+	struct dsa_port *dp, *cpu_dp = NULL;
+	struct net_device *master_dev = NULL;
 	dev_dbg(priv->dev, "[%s]\n", __func__);
+
+	// Only support one CPU port
+	dsa_switch_for_each_cpu_port(dp, ds) {
+		cpu_dp = dp;
+		break;
+	}
+
+	if (cpu_dp == NULL)
+		return -ENODEV;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,12,44)
+	master_dev = cpu_dp->master;
+#else
+	master_dev = cpu_dp->conduit;
+#endif
+
+	if (!master_dev)
+	{
+		dev_err(priv->dev, "Cannot get master netdev from cpu port\n");
+		return -ENODEV;
+	}
 
 	// Set external CPU DSA tag insert mode
 	regmap_update_bits(priv->map, RTL8373_CPU_TAG_CTRL_ADDR,
@@ -686,6 +733,9 @@ static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 	dsa_switch_for_each_cpu_port(dp, ds) {
 		regmap_clear_bits(priv->map, RTL8373_CPU_TAG_AWARE_CTRL_ADDR, BIT(dp->index));
 	}
+
+    master_dev->wanted_features |= chip_data->csum_feature_backup;
+    netdev_update_features(master_dev);
 
 	return 0;
 }
@@ -894,7 +944,6 @@ static int rtl8372n_change_tag_protocol(struct dsa_switch *ds,
 {
 	int ret;
     struct rtl837x_priv *priv = ds->priv;
-	struct rtl8372n *chip_data = priv->chip_data;
 
 	dev_dbg(priv->dev, "[%s]: proto: %d\n", __func__, proto);
 
@@ -1171,42 +1220,21 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		return -1;
 	}
 
+	rtnl_lock();
 	switch (priv->tag_proto) {
 	case DSA_TAG_PROTO_MXL862_8021Q:
-		rtnl_lock();
 		ret = rtl8372n_set_tag_8021q(ds);
-		rtnl_unlock();
-		if (ret)
-			return ret;
+
 		break;
 	case DSA_TAG_PROTO_RTL8_4:
 		ret = rtl8372n_set_tag_rtl(ds);
-		if (ret)
-			return ret;
 		break;
 	default:
-		return -EPROTONOSUPPORT;
+		ret = -EPROTONOSUPPORT;
 	}
-
-	struct net_device *master_dev = NULL;
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6,12,44)
-	master_dev = cpu_dp->master;
-#else
-	master_dev = cpu_dp->conduit;
-#endif
-
-	if (!master_dev)
-	{
-		dev_err(priv->dev, "cannot get master netdev from cpu port\n");
-		return -ENODEV;
-	}
-
-    rtnl_lock();
-    master_dev->wanted_features &= ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
-    master_dev->wanted_features &= ~NETIF_F_HW_CSUM;
-    netdev_update_features(master_dev);
-    rtnl_unlock();
+	rtnl_unlock();
+	if (ret)
+		return ret;
 
     return 0;
 }
