@@ -174,13 +174,12 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	}
 
 	if (priv->reset) {
-		gpiod_set_value(priv->reset, 1);
+		// This chip takes a long time to fully reset
 		dev_dbg(dev, "asserted RESET\n");
-		msleep(50);
-		gpiod_set_value(priv->reset, 0);
-		msleep(50);
-		gpiod_set_value(priv->reset, 1);
-		mdelay(50);
+		gpiod_set_value_cansleep(priv->reset, 0);
+		usleep_range(50000, 51100);
+		gpiod_set_value_cansleep(priv->reset, 1);
+		usleep_range(50000, 51100);
 		dev_dbg(dev, "deasserted RESET\n");
 	}
 

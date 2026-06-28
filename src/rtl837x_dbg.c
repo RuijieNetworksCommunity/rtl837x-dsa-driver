@@ -43,8 +43,7 @@ ssize_t _vlan_rw_write(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
 	char *buf;
-	uint32_t vlan_id, page;
-	u16 tmp16;
+	uint32_t vlan_id;
 	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
 

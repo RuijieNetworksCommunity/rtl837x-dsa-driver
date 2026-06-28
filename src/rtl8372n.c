@@ -137,7 +137,7 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
 	int ret;
 	u32 val;
 
-    switch_chip_t sw_chip;
+    switch_chip_t sw_chip = CHIP_END;
 	switch_probe(&sw_chip);
 
 	ret = regmap_read(priv->map, 0x4, &val);
@@ -400,52 +400,67 @@ static void rtl8372n_sds_pcs_get_state(struct phylink_pcs *pcs,
 				 struct phylink_link_state *state)
 #endif
 {
+	int ret;
+	u32 tmp;
 	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
 	struct rtl837x_priv *priv = _pcs->priv;
 	int port = _pcs->index;
-	int ret;
 
-	rtk_port_status_t port_status;
-	ret = rtk_port_macStatus_get(port, &port_status);
-	if(ret)
-	{
-		dev_err(priv->dev, "get port:%u MAC status Failed: %d", port, ret);
+	ret = regmap_test_bits(priv->map, RTL8373_MAC_LINK_STS_ADDR, BIT(port));
+	if (ret < 0)
 		return;
-	}
+	state->link = !!ret;
+	state->an_complete = !!ret;
 
-	state->link = !!(port_status.link);
-	state->an_complete = !!(port_status.link);
-	state->duplex = !!(port_status.duplex);
-
-	switch (port_status.speed) {
-		case 0:
-			state->speed = SPEED_10;
-			break;
-		case 1:
-			state->speed = SPEED_100;
-			break;
-		case 2:
-			state->speed = SPEED_1000;
-			break;
-		case 4:
-			state->speed = SPEED_10000;
-			break;
-		case 5:
-			state->speed = SPEED_2500;
-			break;
-		case 6:
-			state->speed = SPEED_5000;
-			break;
-		default:
-			state->speed = SPEED_UNKNOWN;
-			break;
-	}
+	ret = regmap_test_bits(priv->map, RTL8373_MAC_LINK_DUP_STS_ADDR, BIT(port));
+	if (ret < 0)
+		return;
+	state->duplex = !!ret;
 
 	state->pause &= ~(MLO_PAUSE_RX | MLO_PAUSE_TX);
-	if (port_status.rxpause)
+
+	ret = regmap_test_bits(priv->map, RTL8373_MAC_RX_PAUSE_STS_ADDR, BIT(port));
+	if (ret < 0)
+		return;
+	if (ret)
 		state->pause |= MLO_PAUSE_RX;
-	if (port_status.txpause)
+	
+	ret = regmap_test_bits(priv->map, RTL8373_MAC_TX_PAUSE_STS_ADDR, BIT(port));
+	if (ret < 0)
+		return;
+	if (ret)
 		state->pause |= MLO_PAUSE_TX;
+
+	ret = regmap_read(priv->map, RTL8373_MAC_LINK_SPD_STS_ADDR(port), &tmp);
+	if (ret)
+		return;
+	tmp = (tmp & RTL8373_MAC_LINK_SPD_STS_SPD_STS_9_0_MASK(port)) >> __ffs(RTL8373_MAC_LINK_SPD_STS_SPD_STS_9_0_MASK(port));
+	switch (tmp) {
+	case 0:
+		state->speed = SPEED_10;
+		break;
+	case 1:
+		state->speed = SPEED_100;
+		break;
+	case 2:
+		state->speed = SPEED_1000;
+		break;
+	case 4:
+		state->speed = SPEED_10000;
+		break;
+	case 5:
+		state->speed = SPEED_2500;
+		break;
+	case 6:
+		state->speed = SPEED_5000;
+		break;
+	default:
+		state->speed = SPEED_UNKNOWN;
+		break;
+	}
+
+    // dev_dbg(priv->dev, "[%s] port(%d) speed: %d, link: %d, duplex: %d\n", __func__,
+	// 				  port, state->speed, state->link, state->duplex);
 }
 
 static int rtl8372n_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
@@ -689,7 +704,6 @@ static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 
 static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 {
-	int ret;
     struct rtl837x_priv *priv = ds->priv;
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *dp, *cpu_dp = NULL;
@@ -1024,6 +1038,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		return -ENODEV;
 	}
 
+	// TODO: remove this
 	get_version_8373();
 
 	// set port 3 and port 8 as serdes port
@@ -1070,6 +1085,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		rtl837x_sds_reg_bits_write(priv, 1, 6, 2, 1 << 14, 1);
 	}
 
+	// TODO: refactor
 	msleep(5);
 	priv->pMapper->fw_reset_flow_tgr(1);
 	msleep(5);
@@ -1144,7 +1160,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		return ret;
 	}
 
-	// reset vlan table
+	// Reset vlan table
 	ret = regmap_set_bits(priv->map, RTL8373_VLAN_CTRL_ADDR, RTL8373_VLAN_CTRL_TABLE_RST_MASK);
 	if (ret)
 		return ret;
@@ -1155,74 +1171,83 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 
 		int port = dp->index;
 
-    	/* Disable per-port learning limits */
-        rtk_l2_limitLearningCnt_set(port, 0);
-        rtk_l2_limitLearningCntAction_set(port, LIMIT_LEARN_CNT_ACTION_FORWARD);
+    	// Disable per-port l2 learning
+		ret = regmap_write(priv->map, RTL8373_L2_LRN_PORT_CONSTRT_CTRL_ADDR(port), 0);
+		if (ret)
+			return ret;
+
+		// FORWARD:0, DROP:1, TO_CPU:2
+		ret = regmap_update_bits(priv->map, RTL8373_L2_LRN_PORT_CONSTRT_ACT_ADDR,
+			 RTL8373_L2_LRN_PORT_CONSTRT_ACT_LRN_ACT_MASK,
+			 FIELD_PREP(RTL8373_L2_LRN_PORT_CONSTRT_ACT_LRN_ACT_MASK, 0)
+			);
+		if (ret)
+			return ret;
 
 		// What fuck is this?
-		// rtk_vlan_tagMode_set(port, VLAN_EGRESS_TAG_MODE_ORIGINAL);
-		rtk_vlan_tagMode_set(port, VLAN_EGRESS_TAG_MODE_KEEP_FORMAT);
-
-		rtk_vlan_portAcceptFrameType_set(port, ACCEPT_FRAME_TYPE_ALL);
-		rtk_vlan_portIgrFilterEnable_set(port, DISABLED);
-		ret = rtk_eee_portTxRxEn_set(port, DISABLED, DISABLED);
+		ret = regmap_update_bits(priv->map, RTL8373_VLAN_PORT_EGR_TAG_ADDR(port),
+			 RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port),
+			 VLAN_EGRESS_TAG_MODE_KEEP_FORMAT << __ffs(RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port))
+			);
 		if (ret)
-		{
-			dev_err(priv->dev, "rtk_eee_portTxRxEn_set failed, error %d\n",ret);
-			return -EIO;
-		}
+			return ret;
 
-		rtk_port_backpressureEnable_set(port, ENABLED);
+		// Accept untaged Frame
+		ret = rtl8372n_drop_untagged(priv, port, false);
 		if (ret)
-		{
-			dev_err(priv->dev, "rtk_port_backpressureEnable_set failed, error %d\n",ret);
-			return -EIO;
-		}
+			return ret;
+		// Disable Ingress filter
+		ret = regmap_update_bits(priv->map, RTL8373_VLAN_PORT_IGR_FLTR_ADDR(port),
+			  RTL8373_VLAN_PORT_IGR_FLTR_IGR_FLTR_ACT_MASK(port),
+			  false << __ffs(RTL8373_VLAN_PORT_IGR_FLTR_IGR_FLTR_ACT_MASK(port))
+			);
+		if (ret)
+			return ret;
 
-		// skip cpu port
-		if(dsa_port_is_cpu(dp))
-			continue;
+		// Disable port EEE feature
+		ret = regmap_clear_bits(priv->map, RTL8373_EEE_CTRL_ADDR(port), 
+				  RTL8373_EEE_CTRL_EEE_PORT_TX_EN_MASK | RTL8373_EEE_CTRL_EEE_PORT_RX_EN_MASK
+				);
+		if (ret)
+			return ret;
 
-		rtk_port_t isolation_port_mask = BIT(cpu_dp->index);
-
-		ret = rtk_port_isolation_set(port, isolation_port_mask);
-		if (ret) {
-			dev_err(priv->dev, "port: %d rtk_port_isolation_set configure failed, error: %d\n", port, ret);
-			return -EIO;
-		}
+		// Enable backpressure
+		ret = regmap_set_bits(priv->map, RTL8373_MAC_PORT_CTRL_ADDR(port), RTL8373_MAC_PORT_CTRL_BKPRES_EN_MASK);
+		if (ret)
+			return ret;
 	}
 
-	ret = rtk_port_isolation_set(cpu_dp->index, dsa_user_ports(ds));
-	if (ret) {
-		dev_err(priv->dev, "port: %d rtk_port_isolation_set configure failed, error: %d\n", cpu_dp->index, ret);
-		return -EIO;
-	}
-
-    rtk_l2_limitSystemLearningCnt_set(0);
-    rtk_l2_limitSystemLearningCntAction_set(LIMIT_LEARN_CNT_ACTION_FORWARD);
-
-	rtk_vlan_egrFilterEnable_set(DISABLED);
-
-	ret = rtk_mirror_keep_set(MIRROR_KEEP_ORIGINAL);
+	// Disable l2 learning
+	ret = regmap_update_bits(priv->map, RTL8373_L2_LRN_CONSTRT_CTRL_ADDR,
+			RTL8373_L2_LRN_CONSTRT_CTRL_CONSTRT_NUM_MASK,
+			FIELD_PREP(RTL8373_L2_LRN_CONSTRT_CTRL_CONSTRT_NUM_MASK, 0)
+		);
 	if (ret)
-	{
-		dev_err(priv->dev, "rtk_mirror_keep_set failed, error %d\n", ret);
-		return -1;
-	}
+		return ret;
 
-	ret = rtk_mirror_vlanLeaky_set(DISABLED, DISABLED);
+	// FORWARD:0, DROP:1, TO_CPU:2
+	ret = regmap_update_bits(priv->map, RTL8373_L2_LRN_PORT_CONSTRT_ACT_ADDR,
+			RTL8373_L2_LRN_PORT_CONSTRT_ACT_LRN_ACT_MASK,
+			FIELD_PREP(RTL8373_L2_LRN_PORT_CONSTRT_ACT_LRN_ACT_MASK, 0)
+		);
 	if (ret)
-	{
-		dev_err(priv->dev, "rtk_mirror_vlanLeaky_set failed, error %d\n", ret);
-		
-		return -1;
-	}
+		return ret;
+
+	// Disable vlan egrFilter
+	ret = regmap_clear_bits(priv->map, RTL8373_VLAN_CTRL_ADDR, RTL8373_VLAN_CTRL_CVLAN_FILTER_MASK);
+	if (ret)
+		return ret;
+
+	// Disable vlan leaky
+	ret = regmap_clear_bits(priv->map, RTL8373_MIR_CTRL_ADDR,
+			  RTL8373_MIR_CTRL_MIR_TX_VLAN_LKY_MASK | RTL8373_MIR_CTRL_MIR_RX_VLAN_LKY_OFFSET);
+	if (ret)
+		return ret;
 
 	rtnl_lock();
 	switch (priv->tag_proto) {
 	case DSA_TAG_PROTO_MXL862_8021Q:
 		ret = rtl8372n_set_tag_8021q(ds);
-
 		break;
 	case DSA_TAG_PROTO_RTL8_4:
 		ret = rtl8372n_set_tag_rtl(ds);
