@@ -157,6 +157,7 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	priv->bus = mdiodev->bus;
 	priv->dev = dev;
 	priv->chip_data = (void *)priv + sizeof(*priv);
+	priv->tag_proto = var->def_tag_proto;
 
 	priv->ops = var->ops;
 
@@ -232,6 +233,12 @@ static void rtl837x_mdio_remove(struct mdio_device *mdiodev)
 		return;
 
 	rtl837x_debug_proc_deinit(priv);
+
+	if (priv->ds->tag_8021q_ctx) {
+		rtnl_lock();
+		dsa_tag_8021q_unregister(priv->ds);
+		rtnl_unlock();
+	}
 
 	dsa_unregister_switch(priv->ds);
 	

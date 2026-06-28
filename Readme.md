@@ -61,6 +61,9 @@ sfp0: sfp {
 				ethernet = <&gmac0>;
 				phy-mode = "10gbase-r";
 
+				// Default DSA tag is "rtl8_4"
+				// dsa-tag-protocol = "mxl862xx-8021q"; # Optional
+
 				fixed-link {
 					speed = <10000>;
 					full-duplex;

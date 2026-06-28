@@ -14,6 +14,7 @@
 #define RTL8372N_VLAN_UNTAG_MASK 0x3FF
 #define RTL8372N_VLAN_MEMBER_MASK 0x3FF
 #define RTL8372N_VLAN_FID_MASK 0xF
+#define RTL8372N_VLAN_MAX 4095
 
 static struct rtl837x_mib_counter rtl8372n_mib_counters[] ={
 	{ 0,  2, "ifInOctets"        },
@@ -124,7 +125,9 @@ struct rtl8372n_pcs
 
 struct rtl8372n {
 	struct rtl8372n_pcs pcs[RTL8372N_NUM_PORTS];
+	netdev_features_t csum_feature_backup;
 	bool pvid_enabled[RTL8372N_NUM_PORTS];
+	bool dsa_tag_8021q_vid[RTL8372N_VLAN_MAX+1];
 };
 
 static int rtl8372n_detect(struct rtl837x_priv *priv)
@@ -318,9 +321,9 @@ static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
 {
     struct rtl837x_priv *priv = ds->priv;
 	struct device *dev = priv->dev;
-    dev_info(dev, "get_DSA_PROTO port:%d\n", port);
+    dev_dbg(dev, "get_DSA_PROTO port:%d\n", port);
 
-	return DSA_TAG_PROTO_RTL8_4;
+	return priv->tag_proto;
 }
 
 static int rtl8372n_mdio_phy_read_c45(struct mii_bus *bus, int port, int devad, int regnum)
@@ -484,7 +487,7 @@ static void rtl8372n_phylink_get_caps(struct dsa_switch *ds, int port,
 	}
 }
 
-struct phylink_pcs *rtl8372n_phylink_mac_select_pcs(struct phylink_config *config,
+static struct phylink_pcs *rtl8372n_phylink_mac_select_pcs(struct phylink_config *config,
 						phy_interface_t interface)
 {
 	struct dsa_port *dp = dsa_phylink_to_port(config);
@@ -496,7 +499,7 @@ struct phylink_pcs *rtl8372n_phylink_mac_select_pcs(struct phylink_config *confi
 	return &(chip_data->pcs[dp->index].pcs);
 }
 
-void rtl8372n_phylink_mac_config(struct phylink_config *config, unsigned int mode,
+static void rtl8372n_phylink_mac_config(struct phylink_config *config, unsigned int mode,
 			const struct phylink_link_state *state)
 {
 	struct dsa_port *dp = dsa_phylink_to_port(config);
@@ -513,7 +516,7 @@ void rtl8372n_phylink_mac_config(struct phylink_config *config, unsigned int mod
 	rtk_sdsMode_set(port == UTP_PORT3 ? 0 : 1, phy_interface_to_rtk_sds_mode(state->interface));
 }
 
-void rtl8372n_phylink_mac_link_down(struct phylink_config *config, unsigned int mode,
+static void rtl8372n_phylink_mac_link_down(struct phylink_config *config, unsigned int mode,
 				phy_interface_t interface)
 {
 	struct dsa_port *dp = dsa_phylink_to_port(config);
@@ -546,7 +549,7 @@ void rtl8372n_phylink_mac_link_down(struct phylink_config *config, unsigned int 
 	}
 }
 
-void rtl8372n_phylink_mac_link_up(struct phylink_config *config,
+static void rtl8372n_phylink_mac_link_up(struct phylink_config *config,
 			struct phy_device *phy, unsigned int mode,
 			phy_interface_t interface, int speed, int duplex,
 			bool tx_pause, bool rx_pause)
@@ -615,6 +618,360 @@ static int of_extra_init(struct dsa_switch *ds)
 	return 0;
 }
 
+static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
+{
+	int ret;
+    struct rtl837x_priv *priv = ds->priv;
+	struct rtl8372n *chip_data = priv->chip_data;
+	struct dsa_port *dp, *cpu_dp = NULL;
+	struct net_device *master_dev = NULL;
+	dev_dbg(priv->dev, "[%s]\n", __func__);
+
+	// Only support one CPU port
+	dsa_switch_for_each_cpu_port(dp, ds) {
+		cpu_dp = dp;
+		break;
+	}
+
+	if (cpu_dp == NULL)
+		return -ENODEV;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,12,44)
+	master_dev = cpu_dp->master;
+#else
+	master_dev = cpu_dp->conduit;
+#endif
+
+	if (!master_dev)
+	{
+		dev_err(priv->dev, "Cannot get master netdev from cpu port\n");
+		return -ENODEV;
+	}
+
+	// Set external CPU port
+	ret = regmap_update_bits(priv->map, RTL8373_EXT_CPU_CTRL_ADDR,
+			  RTL8373_EXT_CPU_CTRL_PORT_MASK,
+			  FIELD_PREP(RTL8373_EXT_CPU_CTRL_PORT_MASK, cpu_dp->index)
+			);
+	if (ret)
+		return ret;
+
+	// Set external CPU DSA tag insert mode
+	ret = regmap_update_bits(priv->map, RTL8373_CPU_TAG_CTRL_ADDR,
+			  RTL8373_CPU_TAG_CTRL_EXT_CPUTAG_INSERTMOD_MASK,
+			  FIELD_PREP(RTL8373_CPU_TAG_CTRL_EXT_CPUTAG_INSERTMOD_MASK, CPU_INSERT_TO_ALL)
+			);
+	if (ret)
+		return ret;
+
+	// Enable CPU tag
+	ret = regmap_update_bits(priv->map, RTL8373_CPU_TAG_CTRL_ADDR,
+			  RTL8373_CPU_TAG_CTRL_EXT_CPUTAG_EN_MASK,
+			  FIELD_PREP(RTL8373_CPU_TAG_CTRL_EXT_CPUTAG_EN_MASK, 1)
+			);
+	if (ret)
+		return ret;
+
+	// Add cpu port to RTL8_4 TAG aware port
+	ret = regmap_set_bits(priv->map, RTL8373_CPU_TAG_AWARE_CTRL_ADDR, BIT(cpu_dp->index));
+	if (ret)
+		return ret;
+
+	chip_data->csum_feature_backup = (master_dev->wanted_features & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM));
+	chip_data->csum_feature_backup |= (master_dev->wanted_features & NETIF_F_HW_CSUM);
+
+    master_dev->wanted_features &= ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
+    master_dev->wanted_features &= ~NETIF_F_HW_CSUM;
+    netdev_update_features(master_dev);
+
+	return 0;
+}
+
+static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
+{
+	int ret;
+    struct rtl837x_priv *priv = ds->priv;
+	struct rtl8372n *chip_data = priv->chip_data;
+	struct dsa_port *dp, *cpu_dp = NULL;
+	struct net_device *master_dev = NULL;
+	dev_dbg(priv->dev, "[%s]\n", __func__);
+
+	// Only support one CPU port
+	dsa_switch_for_each_cpu_port(dp, ds) {
+		cpu_dp = dp;
+		break;
+	}
+
+	if (cpu_dp == NULL)
+		return -ENODEV;
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,12,44)
+	master_dev = cpu_dp->master;
+#else
+	master_dev = cpu_dp->conduit;
+#endif
+
+	if (!master_dev)
+	{
+		dev_err(priv->dev, "Cannot get master netdev from cpu port\n");
+		return -ENODEV;
+	}
+
+	// Set external CPU DSA tag insert mode
+	regmap_update_bits(priv->map, RTL8373_CPU_TAG_CTRL_ADDR,
+			  RTL8373_CPU_TAG_CTRL_EXT_CPUTAG_INSERTMOD_MASK,
+			  FIELD_PREP(RTL8373_CPU_TAG_CTRL_EXT_CPUTAG_INSERTMOD_MASK, CPU_INSERT_TO_NONE)
+			);
+
+	// Disable CPU tag
+	regmap_update_bits(priv->map, RTL8373_CPU_TAG_CTRL_ADDR,
+			  RTL8373_CPU_TAG_CTRL_EXT_CPUTAG_EN_MASK,
+			  FIELD_PREP(RTL8373_CPU_TAG_CTRL_EXT_CPUTAG_EN_MASK, 0)
+			);
+
+	// Remove cpu port from RTL8_4 TAG aware port
+	dsa_switch_for_each_cpu_port(dp, ds) {
+		regmap_clear_bits(priv->map, RTL8373_CPU_TAG_AWARE_CTRL_ADDR, BIT(dp->index));
+	}
+
+    master_dev->wanted_features |= chip_data->csum_feature_backup;
+    netdev_update_features(master_dev);
+
+	return 0;
+}
+
+static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
+{
+	int ret;
+    struct rtl837x_priv *priv = ds->priv;
+	struct dsa_port *dp = NULL;
+	dev_dbg(priv->dev, "[%s]\n", __func__);
+
+	u32 cpu_port_mask = 0;
+
+	dsa_switch_for_each_cpu_port(dp, ds) {
+		cpu_port_mask |= BIT(dp->index);
+	}
+
+	// Set S-VLAN upstream priority reference setting.
+	ret = regmap_update_bits(priv->map, RTL8373_VS_CTRL_ADDR,
+			  RTL8373_VS_CTRL_SPRISEL_MASK,
+			  FIELD_PREP(RTL8373_VS_CTRL_SPRISEL_MASK, REF_CTAG_PRI)
+			);
+	if (ret)
+		return ret;
+
+	// Drop package when recv a package with out s-tag from cpu port
+	ret = regmap_update_bits(priv->map, RTL8373_VS_CTRL_ADDR,
+			  RTL8373_VS_CTRL_UNTAG_MASK,
+			  FIELD_PREP(RTL8373_VS_CTRL_UNTAG_MASK, UNTAG_DROP)
+		);
+	if (ret)
+		return ret;
+
+	// Set Custome TPID
+	ret = regmap_write(priv->map, RTL8373_VS_GLB_CTRL_ADDR, ETH_P_8021Q);
+	if (ret)
+		return ret;
+
+	// Set cpu port as service port
+	ret = regmap_write(priv->map, RTL8373_VS_UPLINK_PORT_ADDR, cpu_port_mask);
+	if (ret)
+		return ret;
+
+	for (int idx = 0; idx <= RTL8373_C2SIDXMAX;  idx++)
+    {
+        ret = regmap_write(priv->map, RTL8373_VLAN_C2S_ENTRY_ADDR(idx)+4, 0);
+		if (ret)
+			return ret;
+
+        ret = regmap_write(priv->map, RTL8373_VLAN_C2S_ENTRY_ADDR(idx), 0);
+		if (ret)
+			return ret;
+    }
+
+	// Set Port Ingress Tag Action
+	ret = regmap_update_bits(priv->map, RTL8373_VS_CTRL_ADDR,
+			  RTL8373_VS_CTRL_UIFSEG_MASK,
+			  FIELD_PREP(RTL8373_VS_CTRL_UIFSEG_MASK, UNASSIGN_PBSVID)
+		);
+	if (ret)
+		return ret;
+
+	ret = dsa_tag_8021q_register(ds, htons(ETH_P_8021Q));
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static int rtl8372n_teardown_tag_8021q(struct dsa_switch *ds)
+{
+    struct rtl837x_priv *priv = ds->priv;
+    struct rtl8372n *chip_data = priv->chip_data;
+	struct dsa_port *dp = NULL;
+	dev_dbg(priv->dev, "[%s]\n", __func__);
+
+	if (ds->tag_8021q_ctx) {
+		dsa_tag_8021q_unregister(ds);
+	}
+
+	// Clean service port
+	regmap_write(priv->map, RTL8373_VS_UPLINK_PORT_ADDR, 0);
+
+	struct rtl837x_vlan_4k vlan4k;
+	memset(&vlan4k, 0, sizeof(vlan4k));
+	vlan4k.member = 0;
+	vlan4k.untag = 0;
+	vlan4k.fid = 0;
+
+	// Remove s-tag vlan entrys
+	for (int i=0; i<=RTL8372N_VLAN_MAX; i++)
+	{
+		if (chip_data->dsa_tag_8021q_vid[i])
+		{
+			vlan4k.vid = i;
+			chip_data->dsa_tag_8021q_vid[i] = false;
+			priv->ops->set_vlan_4k(priv, &vlan4k);
+		}
+	}
+
+	dsa_switch_for_each_user_port(dp, ds) {
+		regmap_update_bits(priv->map, RTL8373_VS_PORT_DFLT_SVID_ADDR(dp->index), 
+				  RTL8373_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(dp->index),
+				  0 << __ffs(RTL8373_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(dp->index))
+				);
+	}
+	return 0;
+}
+
+static int rtl8372n_tag_8021q_vlan_add(struct dsa_switch *ds, int port,
+				       u16 vid, u16 flags)
+{
+	int ret = 0;
+    struct rtl837x_priv *priv = ds->priv;
+	struct rtl8372n *chip_data = priv->chip_data;
+
+	dev_dbg(priv->dev, "[%s]: port: %d, vid:%u, flags: %u\n", __func__, port, vid, flags);
+
+	// Set Port SVID
+	if (flags & BRIDGE_VLAN_INFO_PVID)
+		ret = regmap_update_bits(priv->map, RTL8373_VS_PORT_DFLT_SVID_ADDR(port), 
+				  RTL8373_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(port),
+				  vid << __ffs(RTL8373_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(port))
+				);
+	if (ret)
+		return ret;
+
+	u32 member = 0, untag = 0;
+	member |= BIT(port);
+	if (dsa_is_user_port(ds, port))
+	{
+		untag |= BIT(port);
+	}
+
+	ret = rtl8372n_vlan_update(priv, vid, member, untag, 0);
+	if (ret)
+		goto fail_rollback;
+
+	chip_data->dsa_tag_8021q_vid[vid] = true;
+	return 0;
+
+fail_rollback:
+	dev_err(priv->dev, "failed to add 8021q tag for port(%d) vid: %u\n", port, vid);
+
+	if (flags & BRIDGE_VLAN_INFO_PVID)
+		regmap_update_bits(priv->map, RTL8373_VS_PORT_DFLT_SVID_ADDR(port), 
+				  RTL8373_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(port),
+				  0 << __ffs(RTL8373_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(port))
+				);
+	return ret;
+}
+
+static int rtl8372n_tag_8021q_vlan_del(struct dsa_switch *ds, int port,
+				       u16 vid)
+{
+	int ret;
+    struct rtl837x_priv *priv = ds->priv;
+	struct rtl8372n *chip_data = priv->chip_data;
+
+	struct rtl837x_vlan_4k vlan4k;
+	dev_dbg(priv->dev, "[%s]: port: %d, vid: %u\n", __func__, port, vid);
+
+	ret = priv->ops->get_vlan_4k(priv, vid, &vlan4k);
+	if (ret)
+		return ret;
+
+	vlan4k.member &= ~BIT(port);
+	vlan4k.untag &= ~BIT(port);
+
+	if (!vlan4k.member) {
+		vlan4k.vid = vid;
+		vlan4k.untag = 0;
+		vlan4k.fid = 0;
+	}
+
+	ret = priv->ops->set_vlan_4k(priv, &vlan4k);
+	if (ret) {
+		dev_err(priv->dev,
+			"failed to remove SVLAN %u\n",
+			vid);
+		return ret;
+	}
+
+	chip_data->dsa_tag_8021q_vid[vid] = false;
+
+	// Clean Port SVID
+	if (dsa_is_user_port(ds, port))
+		ret = regmap_update_bits(priv->map, RTL8373_VS_PORT_DFLT_SVID_ADDR(port), 
+				  RTL8373_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(port),
+				  0 << __ffs(RTL8373_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(port))
+				);
+	if (ret) {
+		dev_err(priv->dev,
+			"failed to clean port(%d) SVID %u\n",
+			port, vid);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int rtl8372n_change_tag_protocol(struct dsa_switch *ds,
+					enum dsa_tag_protocol proto)
+{
+	int ret;
+    struct rtl837x_priv *priv = ds->priv;
+
+	dev_dbg(priv->dev, "[%s]: proto: %d\n", __func__, proto);
+
+
+	switch (proto) {
+	case DSA_TAG_PROTO_MXL862_8021Q:
+		ret = rtl8372n_teardown_tag_rtl(ds);
+		if (ret)
+			return ret;
+		ret = rtl8372n_set_tag_8021q(ds);
+		if (ret)
+			return ret;
+		break;
+	case DSA_TAG_PROTO_RTL8_4:
+		ret = rtl8372n_teardown_tag_8021q(ds);
+		if (ret)
+			return ret;
+		ret = rtl8372n_set_tag_rtl(ds);
+		if (ret)
+			return ret;
+		break;
+	default:
+		return -EPROTONOSUPPORT;
+	}
+	priv->tag_proto = proto;
+
+	return 0;
+}
+
+
 static int rtl8372n_setup(struct dsa_switch *ds)
 {
     int ret;
@@ -625,11 +982,19 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	struct dsa_port *dp;
     rtl_gbl_priv = priv;
 
+	int cpu_dp_cnt = 0;
 	dsa_switch_for_each_port(dp, ds) {
 		if (dsa_port_is_cpu(dp)) {
 			cpu_dp = dp;
-			break;
+			cpu_dp_cnt++;
 		}
+	}
+
+	// TODO: muilt CPU port support
+	if (cpu_dp_cnt > 1)
+	{
+		dev_err(priv->dev,"We only support one cpu port now\n");
+		return -ENODEV;
 	}
 
 	if (!cpu_dp) {
@@ -784,9 +1149,11 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	if (ret)
 		return ret;
 
-	for(int port = 0;port < priv->num_ports;port++){
-		if (dsa_is_unused_port(priv->ds, port))
+	dsa_switch_for_each_port(dp, ds) {
+		if (dsa_port_is_unused(dp))
 			continue;
+
+		int port = dp->index;
 
     	/* Disable per-port learning limits */
         rtk_l2_limitLearningCnt_set(port, 0);
@@ -813,7 +1180,8 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		}
 
 		// skip cpu port
-		if(port == cpu_dp->index) continue;
+		if(dsa_port_is_cpu(dp))
+			continue;
 
 		rtk_port_t isolation_port_mask = BIT(cpu_dp->index);
 
@@ -838,66 +1206,33 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	ret = rtk_mirror_keep_set(MIRROR_KEEP_ORIGINAL);
 	if (ret)
 	{
-		dev_err(priv->dev, "rtk_mirror_keep_set failed, error %d\n",ret);
+		dev_err(priv->dev, "rtk_mirror_keep_set failed, error %d\n", ret);
 		return -1;
 	}
-
-	// ret = rtk_mirror_isolationLeaky_set(ENABLED, ENABLED);
-	// if (ret)
-	// {
-	// 	dev_err(priv->dev, "rtk_mirror_isolationLeaky_set failed, error %d\n",ret);
-		
-	// 	return -1;
-	// }
 
 	ret = rtk_mirror_vlanLeaky_set(DISABLED, DISABLED);
 	if (ret)
 	{
-		dev_err(priv->dev, "rtk_mirror_vlanLeaky_set failed, error %d\n",ret);
+		dev_err(priv->dev, "rtk_mirror_vlanLeaky_set failed, error %d\n", ret);
 		
 		return -1;
 	}
 
-	ret = rtk_cpu_externalCpuPort_set(cpu_dp->index);
+	rtnl_lock();
+	switch (priv->tag_proto) {
+	case DSA_TAG_PROTO_MXL862_8021Q:
+		ret = rtl8372n_set_tag_8021q(ds);
+
+		break;
+	case DSA_TAG_PROTO_RTL8_4:
+		ret = rtl8372n_set_tag_rtl(ds);
+		break;
+	default:
+		ret = -EPROTONOSUPPORT;
+	}
+	rtnl_unlock();
 	if (ret)
-	{
-		dev_err(priv->dev, "rtk_cpu_externalCpuPort_set failed, error %d\n",ret);
-		return -1;
-	}
-
-    ret = rtk_cpuTag_insertMode_set(EXTERNAL_CPU, CPU_INSERT_TO_ALL);
-	if (ret)
-	{
-		dev_err(priv->dev, "rtk_cpuTag_insertMode_set failed, error %d\n",ret);
-		return -1;
-	}
-
-    ret = rtk_cpuTag_enable_set(EXTERNAL_CPU, ENABLED);
-	if (ret)
-	{
-		dev_err(priv->dev, "rtk_cpuTag_enable_set failed, error %d\n",ret);
-		return -1;
-	}
-
-	struct net_device *master_dev = NULL;
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6,12,44)
-	master_dev = cpu_dp->master;
-#else
-	master_dev = cpu_dp->conduit;
-#endif
-
-	if (!master_dev)
-	{
-		dev_err(priv->dev, "cannot get master netdev from cpu port\n");
-		return -ENODEV;
-	}
-
-    rtnl_lock();
-    master_dev->wanted_features &= ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
-    master_dev->wanted_features &= ~NETIF_F_HW_CSUM;
-    netdev_update_features(master_dev);
-    rtnl_unlock();
+		return ret;
 
     return 0;
 }
@@ -987,16 +1322,21 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 	bool untagged = !!(vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED);
 	bool pvid = !!(vlan->flags & BRIDGE_VLAN_INFO_PVID);
     struct rtl837x_priv *priv = ds->priv;
+	struct rtl8372n *chip_data = priv->chip_data;
 
     u16 vid = vlan->vid;
 	u32 member = 0;
 	u32 untag = 0;
 
-	dev_dbg(priv->dev, "rtl8372n_vlan_add port (%d) vid (%d)\n", port, vid);
-
-    if (vid >= 4095)
+    if (vid > RTL8372N_VLAN_MAX)
     {
         NL_SET_ERR_MSG_MOD(extack, "VLAN ID not valid");
+        return -EINVAL;
+    }
+
+	if (chip_data->dsa_tag_8021q_vid[vid])
+    {
+        NL_SET_ERR_MSG_MOD(extack, "VLAN ID is used by DSA tag");
         return -EINVAL;
     }
 
@@ -1004,6 +1344,9 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 
 	if (untagged)
 		untag |= BIT(port);
+
+	dev_dbg(priv->dev, "rtl8372n_vlan_add port (%d) vid (%d) is_untagged(%d)\n",
+						  port, vid, untagged == true);
 
 	ret = rtl8372n_vlan_update(priv, vid, member, untag, 0);
 	if (ret) {
@@ -1023,8 +1366,6 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 
     return 0;
 }
-
-
 
 static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
                                  const struct switchdev_obj_port_vlan *vlan)
@@ -1203,6 +1544,7 @@ static void rtl8372n_port_stp_state_set(struct dsa_switch *ds, int port, u8 stat
 
 static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.get_tag_protocol = rtl8372n_get_tag_protocol,
+	.change_tag_protocol = rtl8372n_change_tag_protocol,
 	.setup = rtl8372n_setup,
 
 	.phylink_get_caps = rtl8372n_phylink_get_caps,
@@ -1219,6 +1561,9 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 
 	.port_bridge_join = rtl8372n_port_bridge_join,
 	.port_bridge_leave = rtl8372n_port_bridge_leave,
+
+	.tag_8021q_vlan_add = rtl8372n_tag_8021q_vlan_add,
+	.tag_8021q_vlan_del = rtl8372n_tag_8021q_vlan_del,
 
 	.port_enable = rtl8372n_port_enable,
 	.port_disable = rtl8372n_port_disable
@@ -1238,6 +1583,7 @@ static const struct rtl837x_ops rtl8372n_ops = {
 const struct rtl837x_variant rtl8372n_variant = {
 	.ds_ops_mdio = &rtl8372n_switch_ops_mdio,
 	.ops = &rtl8372n_ops,
+	.def_tag_proto = DSA_TAG_PROTO_RTL8_4,
 	.pl_mac_ops = &rtl8372n_phylink_mac_ops,
 	.chip_data_sz = sizeof(struct rtl8372n),
 };
