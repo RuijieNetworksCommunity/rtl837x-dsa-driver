@@ -70,15 +70,59 @@ out_unlock:
 static void rtl837x_mdio_lock(void *ctx)
 {
 	struct rtl837x_priv *priv = ctx;
-
 	mutex_lock(&priv->map_lock);
 }
 
 static void rtl837x_mdio_unlock(void *ctx)
 {
 	struct rtl837x_priv *priv = ctx;
-
 	mutex_unlock(&priv->map_lock);
+}
+
+static int rtl837x_rtl8224_write(void *ctx, u32 reg, u32 val)
+{
+	struct rtl837x_priv *priv = ctx;
+	int ret;
+	u16 vall = val & 0xffff;
+	u16 valh = (val >> 16) & 0xffff;
+
+	ret = rtl837x_phy_write_c45(priv, 0, 30, reg, vall);
+	if (ret)
+		return ret;
+
+	ret = rtl837x_phy_write_c45(priv, 0, 30, reg+1, valh);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static int rtl837x_rtl8224_read(void *ctx, u32 reg, u32 *val)
+{
+	struct rtl837x_priv *priv = ctx;
+	int ret;
+	u16 vall, valh;
+
+	ret = rtl837x_phy_read_c45(priv, 0, 30, reg, &vall);
+	if (ret)
+		return ret;
+	ret = rtl837x_phy_read_c45(priv, 0, 30, reg+1, &valh);
+	if (ret)
+		return ret;
+	*val = (vall & 0xffff) | ((valh &0xffff) << 16);
+
+	return 0;
+}
+
+static void rtl837x_rtl8224_lock(void *ctx)
+{
+	struct rtl837x_priv *priv = ctx;
+	mutex_lock(&priv->map_8224_lock);
+}
+static void rtl837x_rtl8224_unlock(void *ctx)
+{
+	struct rtl837x_priv *priv = ctx;
+	mutex_unlock(&priv->map_8224_lock);
 }
 
 static const struct regmap_config rtl837x_mdio_regmap_config = {
@@ -95,17 +139,18 @@ static const struct regmap_config rtl837x_mdio_regmap_config = {
 	.unlock = rtl837x_mdio_unlock,
 };
 
-static const struct regmap_config rtl837x_mdio_nolock_regmap_config = {
+static const struct regmap_config rtl837x_rtl8224_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 32,
 	.reg_stride = 4,
 
 	.max_register = 0xffff,
 	.reg_format_endian = REGMAP_ENDIAN_BIG,
-	.reg_read = rtl837x_mdio_read,
-	.reg_write = rtl837x_mdio_write,
+	.reg_read = rtl837x_rtl8224_read,
+	.reg_write = rtl837x_rtl8224_write,
 	.cache_type = REGCACHE_NONE,
-	.disable_locking = true,
+	.lock = rtl837x_rtl8224_lock,
+	.unlock = rtl837x_rtl8224_unlock,
 };
 
 static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
@@ -142,12 +187,20 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 		goto err;
 	}
 
-	rc = rtl837x_mdio_nolock_regmap_config;
-	priv->map_nolock = devm_regmap_init(dev, NULL, priv, &rc);
-	if (IS_ERR(priv->map_nolock)) {
-		ret = PTR_ERR(priv->map_nolock);
-		dev_err(dev, "regmap init failed: %d\n", ret);
-		goto err;
+	if (var->have_8224)
+	{
+		mutex_init(&priv->map_8224_lock);
+
+		rc = rtl837x_rtl8224_regmap_config;
+		priv->map_8224 = devm_regmap_init(dev, NULL, priv, &rc);
+		if (IS_ERR(priv->map_8224)) {
+			ret = PTR_ERR(priv->map_8224);
+			dev_err(dev, "regmap 8224 init failed: %d\n", ret);
+			goto err;
+		}
+	}else
+	{
+		priv->map_8224 = NULL;
 	}
 
 	priv->mdio_addr = mdiodev->addr;

@@ -53,6 +53,24 @@ rtk_sds_mode_t phy_interface_to_rtk_sds_mode(phy_interface_t interface)
 	}
 }
 
+int rtl837x_reg_bits_read(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 *pval)
+{
+	int ret;
+	u32 tmp;
+
+    ret = rtl837x_reg_read(priv, reg, &tmp);
+	if (ret)
+		return ret;
+
+    *pval = (tmp & mask) >> __ffs(mask);
+	return 0;
+}
+
+int rtl837x_reg_bits_write(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 val)
+{
+    return regmap_update_bits(priv->map, reg, mask, (val << __ffs(mask)) & mask);
+}
+
 int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 *pval)
 {
 	int ret;
@@ -128,6 +146,41 @@ int rtl837x_phy_write_c45(struct rtl837x_priv *priv, int phy, int devad, int reg
 	return rtl837x_phys_write_c45(priv, BIT(phy), devad, regnum, val);
 }
 
+int rtl837x_sds_reg_read(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page, u16 sds_reg, u16 *pdata)
+{
+	int ret;
+	u32 val, tmp;
+
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_SDS_INDACS_CMD_ADDR, tmp,
+		  ((tmp & RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
+		  0, 1000);
+	if (ret)
+		return ret;
+
+	tmp = FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_INDEX_MASK, sds_index) |
+				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_PAGE_MASK, sds_page) |
+				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_REGAD_MASK, sds_reg) |
+				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_RWOP_MASK, 0) |
+				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK, 1);
+
+	ret = regmap_write(priv->map, RTL8373_SDS_INDACS_CMD_ADDR, tmp);
+	if (ret)
+		return ret;
+
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_SDS_INDACS_CMD_ADDR, tmp,
+		  ((tmp & RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
+		  0, 1000);
+	if (ret)
+		return ret;
+
+	ret = regmap_read(priv->map, RTL8373_SDS_INDACS_RD_ADDR, &val);
+	if (ret)
+		return ret;
+
+	*pdata = val & 0xFFFF;
+	return 0;
+}
+
 int rtl837x_sds_reg_write(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page, u16 sds_reg, u16 data)
 {
 	int ret;
@@ -160,39 +213,16 @@ int rtl837x_sds_reg_write(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page,
 	return 0;
 }
 
-int rtl837x_sds_reg_read(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page, u16 sds_reg, u16 *pdata)
+int rtl837x_sds_reg_bits_read(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page, u16 sds_reg, u16 mask, u16 *pdata)
 {
 	int ret;
-	u32 val, tmp;
+	u16 val;
 
-	ret = regmap_read_poll_timeout(priv->map, RTL8373_SDS_INDACS_CMD_ADDR, tmp,
-		  ((tmp & RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
-		  0, 1000);
+	ret = rtl837x_sds_reg_read(priv, sds_index, sds_page, sds_reg, &val);
 	if (ret)
 		return ret;
 
-	tmp = FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_INDEX_MASK, sds_index) |
-				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_PAGE_MASK, sds_page) |
-				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_REGAD_MASK, sds_reg) |
-				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_RWOP_MASK, 0) |
-				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK, 1);
-
-	ret = regmap_write(priv->map, RTL8373_SDS_INDACS_CMD_ADDR, tmp);
-	if (ret)
-		return ret;
-
-	ret = regmap_read_poll_timeout(priv->map, RTL8373_SDS_INDACS_CMD_ADDR, tmp,
-		  ((tmp & RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
-		  0, 1000);
-	if (ret)
-		return ret;
-
-
-	ret = regmap_read(priv->map, RTL8373_SDS_INDACS_RD_ADDR, &val);
-	if (ret)
-		return ret;
-
-	*pdata = val & 0xFFFF;
+	*pdata = (val & mask) >> __ffs(mask);
 	return 0;
 }
 
@@ -211,16 +241,88 @@ int rtl837x_sds_reg_bits_write(struct rtl837x_priv *priv, u8 sds_index, u16 sds_
 	return rtl837x_sds_reg_write(priv, sds_index, sds_page, sds_reg, val);
 }
 
-int rtl837x_sds_reg_bits_read(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page, u16 sds_reg, u16 mask, u16 *pdata)
+int rtl837x_rtl8224_reg_bits_read(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 *pval)
 {
 	int ret;
-	u16 val;
+	u32 tmp;
 
-	ret = rtl837x_sds_reg_read(priv, sds_index, sds_page, sds_reg, &val);
+	ret = rtl837x_rtl8224_reg_read(priv, reg, &tmp);
 	if (ret)
 		return ret;
 
-	*pdata = (val & mask) >> __ffs(mask);
+	*pval = (tmp & mask) >> __ffs(mask);
+	return 0;
+}
+
+int rtl837x_rlt8224_reg_bits_write(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 val)
+{
+    return regmap_update_bits(priv->map_8224, reg, mask, (val << __ffs(mask)) & mask);
+}
+
+int rtl837x_rtl8224_sds_reg_read(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page, u16 sds_reg, u16 *pdata)
+{
+	int ret;
+	u32 val, tmp;
+
+	ret = regmap_read_poll_timeout(priv->map_8224, RTL8373_SDS_INDACS_CMD_ADDR, tmp,
+		  ((tmp & RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
+		  0, 1000);
+	if (ret)
+		return ret;
+
+	tmp = FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_INDEX_MASK, sds_index) |
+				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_PAGE_MASK, sds_page) |
+				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_REGAD_MASK, sds_reg) |
+				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_RWOP_MASK, 0) |
+				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK, 1);
+
+	ret = regmap_write(priv->map_8224, RTL8373_SDS_INDACS_CMD_ADDR, tmp);
+	if (ret)
+		return ret;
+
+	ret = regmap_read_poll_timeout(priv->map_8224, RTL8373_SDS_INDACS_CMD_ADDR, tmp,
+		  ((tmp & RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
+		  0, 1000);
+	if (ret)
+		return ret;
+
+	ret = regmap_read(priv->map_8224, RTL8373_SDS_INDACS_RD_ADDR, &val);
+	if (ret)
+		return ret;
+
+	*pdata = val & 0xFFFF;
+	return 0;
+}
+
+int rtl837x_rtl8224_sds_reg_write(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page, u16 sds_reg, u16 data)
+{
+	int ret;
+	u32 tmp;
+
+	ret = regmap_read_poll_timeout(priv->map_8224, RTL8373_SDS_INDACS_CMD_ADDR, tmp,
+			  ((tmp & RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
+			  0, 1000);
+	if (ret)
+		return ret;
+
+	ret = regmap_write(priv->map_8224, RTL8373_SDS_INDACS_WD_ADDR, data);
+
+	tmp = FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_INDEX_MASK, sds_index) |
+				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_PAGE_MASK, sds_page) |
+				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_REGAD_MASK, sds_reg) |
+				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_RWOP_MASK, 1) |
+				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK, 1);
+
+	ret = regmap_write(priv->map_8224, RTL8373_SDS_INDACS_CMD_ADDR, tmp);
+	if (ret)
+		return ret;
+
+	ret = regmap_read_poll_timeout(priv->map_8224, RTL8373_SDS_INDACS_CMD_ADDR, tmp,
+		  ((tmp & RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
+		  0, 1000);
+	if (ret)
+		return ret;
+
 	return 0;
 }
 

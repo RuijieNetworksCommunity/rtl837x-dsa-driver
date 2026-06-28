@@ -1613,6 +1613,7 @@ const struct rtl837x_variant rtl8372n_variant = {
 	.ops = &rtl8372n_ops,
 	.def_tag_proto = DSA_TAG_PROTO_RTL8_4,
 	.pl_mac_ops = &rtl8372n_phylink_mac_ops,
+	.have_8224 = false,
 	.chip_data_sz = sizeof(struct rtl8372n),
 };
 EXPORT_SYMBOL_GPL(rtl8372n_variant);
