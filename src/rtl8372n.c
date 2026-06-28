@@ -678,7 +678,7 @@ static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 		return ret;
 
 	chip_data->csum_feature_backup = (master_dev->wanted_features & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM));
-	chip_data->csum_feature_backup |= (master_dev->wanted_features & NETIF_F_HW_CSUM);\
+	chip_data->csum_feature_backup |= (master_dev->wanted_features & NETIF_F_HW_CSUM);
 
     master_dev->wanted_features &= ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
     master_dev->wanted_features &= ~NETIF_F_HW_CSUM;
