@@ -86,6 +86,21 @@ struct rtl837x_vlan_4k {
 	u8	fid;
 };
 
+struct rtl837x_vlan_data {
+	u16 vid;
+	union {
+		struct {
+			u32 mbr  : 10;
+			u32 untag: 10;
+			u32 fid  : 4 ;
+			u32 svlan_chk_ivl_svl: 1;
+			u32 ivl_svl: 1;
+			u32 resv : 6;
+		};
+		u32 val;
+	};
+};
+
 struct rtl837x_variant {
 	const struct dsa_switch_ops *ds_ops_mdio;
 	const struct rtl837x_ops *ops;
@@ -132,6 +147,9 @@ extern int rtl837x_sds_reg_read(struct rtl837x_priv *priv, u8 sds_index, u16 sds
 extern int rtl837x_sds_reg_write(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page, u16 sds_reg, u16 data);
 extern int rtl837x_sds_reg_bits_write(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page, u16 sds_reg, u16 mask, u16 data);
 extern int rtl837x_sds_reg_bits_read(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page, u16 sds_reg, u16 mask, u16 *pdata);
+
+extern int rtl837x_vlan_set(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan);
+extern int rtl837x_vlan_get(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan);
 
 extern const struct rtl837x_variant rtl8372n_variant;
 

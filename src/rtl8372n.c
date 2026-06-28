@@ -189,38 +189,43 @@ static int rtl8372n_drop_untagged(struct rtl837x_priv *priv, int port, bool drop
 static int rtl8372n_get_vlan_4k(struct rtl837x_priv *priv, u32 vid,
 				 struct rtl837x_vlan_4k *vlan4k)
 {
-	ret_t ret;
-    rtk_vlan_entry_t vlanCfg;
-	memset(vlan4k, 0, sizeof(struct rtl837x_vlan_4k));
-    if ((ret = rtk_vlan_get(vid, &vlanCfg)) != RT_ERR_OK)
+	int ret;
+
+	struct rtl837x_vlan_data vlan;
+	vlan.vid = vid;
+
+	ret = rtl837x_vlan_get(priv, &vlan);
+	if (ret)
 	{
-		dev_dbg(priv->dev, "rtl8372n_get_vlan_4k: failed: ret: %d\n", ret);
-		return -EINVAL;
+		dev_dbg(priv->dev, "rtl837x_vlan_get: failed: ret: %d\n", ret);
+		return ret;
 	}
 
-	vlan4k->vid = vid;
-	vlan4k->member = vlanCfg.mbr.bits[0] & RTL8372N_VLAN_MEMBER_MASK;
-	vlan4k->untag = vlanCfg.untag.bits[0] & RTL8372N_VLAN_UNTAG_MASK;
-	vlan4k->fid = vlanCfg.fid_msti & RTL8372N_VLAN_FID_MASK;
+	vlan4k->vid = vlan.vid;
+	vlan4k->member = vlan.mbr;
+	vlan4k->untag = vlan.untag;
+	vlan4k->fid = vlan.fid;
 
 	return 0;
 }
 static int rtl8372n_set_vlan_4k(struct rtl837x_priv *priv,
 			       const struct rtl837x_vlan_4k *vlan4k)
 {
-	ret_t ret;
-    rtk_vlan_entry_t vlanCfg;
-	memset(&vlanCfg, 0, sizeof(rtk_vlan_entry_t));
+	int ret;
+	
+	struct rtl837x_vlan_data vlan;
+	vlan.vid = vlan4k->vid;
+	vlan.val = 0;
+	vlan.mbr = vlan4k->member;
+	vlan.untag = vlan4k->untag;
+    vlan.fid = vlan4k->fid;
+    vlan.ivl_svl = 1;
 
-    vlanCfg.mbr.bits[0] = vlan4k->member;
-    vlanCfg.untag.bits[0] = vlan4k->untag;
-    vlanCfg.fid_msti = vlan4k->fid;
-    vlanCfg.ivl_svl = 1;
-
-	if ((ret = rtk_vlan_set(vlan4k->vid, &vlanCfg)) != RT_ERR_OK)
+	ret = rtl837x_vlan_set(priv, &vlan);
+	if (ret)
 	{
-		dev_dbg(priv->dev, "rtl8372n_set_vlan_4k: failed: ret: %d\n", ret);
-		return -EINVAL;
+		dev_dbg(priv->dev, "rtl837x_vlan_set: failed: ret: %d\n", ret);
+		return ret;
 	}
 	return 0;
 }
