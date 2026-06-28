@@ -813,9 +813,7 @@ static int rtl8372n_teardown_tag_8021q(struct dsa_switch *ds)
 	dev_dbg(priv->dev, "[%s]\n", __func__);
 
 	if (ds->tag_8021q_ctx) {
-		rtnl_lock();
 		dsa_tag_8021q_unregister(ds);
-		rtnl_unlock();
 	}
 
 	// Clean service port
