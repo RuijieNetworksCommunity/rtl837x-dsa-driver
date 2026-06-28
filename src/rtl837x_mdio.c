@@ -1,12 +1,9 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/init.h>
 #include <linux/device.h>
-#include <linux/delay.h>
 #include <linux/of.h>
-#include <linux/gpio/consumer.h>
 #include <linux/mutex.h>
-#include <linux/gpio/driver.h>
+#include <linux/gpio/consumer.h>
 
 #include "./rtl837x.h"
 

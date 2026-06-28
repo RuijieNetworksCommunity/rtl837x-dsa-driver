@@ -1,35 +1,15 @@
 #ifndef __RTL8372_COMMON_H__
 #define __RTL8372_COMMON_H__
 
-#include <linux/switch.h>
 #include <linux/of_mdio.h>
-#include <linux/phy.h>
 #include <linux/regmap.h>
-#include <linux/platform_device.h>
 #include <linux/debugfs.h>
-#include <net/dsa.h>
 #include <linux/dsa/8021q.h>
+#include <net/dsa.h>
 
-#include "./rtk-api/rtk_error.h"
-#include "./rtk-api/rtk_types.h"
-#include "./rtk-api/rtk_switch.h"
-#include "./rtk-api/phy.h"
-#include "./rtk-api/port.h"
-#include "./rtk-api/vlan.h"
-#include "./rtk-api/svlan.h"
-#include "./rtk-api/chip.h"
-#include "./rtk-api/eee.h"
-#include "./rtk-api/rma.h"
-#include "./rtk-api/cpuTag.h"
-#include "./rtk-api/mib.h"
-#include "./rtk-api/isolation.h"
-#include "./rtk-api/l2.h"
-#include "./rtk-api/mirror.h"
 #include "./rtk-api/dal/rtl8373/rtl8373_asicdrv.h"
 #include "./rtk-api/dal/rtl8373/dal_rtl8373_mapper.h"
 #include "./rtk-api/dal/rtl8373/dal_rtl8373_switch.h"
-
-#include <linux/printk.h>
 
 #define MDC_MDIO_CTRL_REG           21
 #define MDC_MDIO_ADDR_REG           22

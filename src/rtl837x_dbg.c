@@ -3,11 +3,8 @@
  * Copyright (C) 2025 StarField Xu <air_jinkela@163.com>
  */
 
-#include <linux/uaccess.h>
-#include <linux/trace_seq.h>
-#include <linux/seq_file.h>
-#include <linux/proc_fs.h>
-#include <linux/u64_stats_sync.h>
+#include <linux/debugfs.h>
+#include <linux/regmap.h>
 
 #include "./rtl837x.h"
 

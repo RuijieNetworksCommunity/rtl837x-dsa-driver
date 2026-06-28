@@ -1,12 +1,6 @@
-#include <linux/bitops.h>
-#include <linux/bitfield.h>
-#include <linux/etherdevice.h>
-#include <linux/if_bridge.h>
-#include <linux/interrupt.h>
-#include <linux/irqdomain.h>
-#include <linux/irqchip/chained_irq.h>
-#include <linux/regmap.h>
 #include <linux/version.h>
+#include <linux/regmap.h>
+#include <linux/if_bridge.h>
 
 #include "rtl837x.h"
 
