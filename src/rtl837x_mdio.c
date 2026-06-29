@@ -239,6 +239,29 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 		goto err;
 	}
 
+	ret = rtl837x_reg_bits_write(priv, RTL8373_CHIP_INFO_ADDR,
+			  RTL8373_CHIP_INFO_CHIP_INFO_EN_MASK, 0xa);
+	if (ret) return ret;
+	ret = rtl837x_reg_bits_read(priv, RTL8373_CHIP_INFO_ADDR,
+			  RTL8373_CHIP_INFO_RL_VID_MASK, &priv->chip_ver);
+	if (ret) return ret;
+	ret = rtl837x_reg_bits_write(priv, RTL8373_CHIP_INFO_ADDR,
+			  RTL8373_CHIP_INFO_CHIP_INFO_EN_MASK, 0);
+	if (ret) return ret;
+
+	if (var->have_8224)
+	{
+		ret = rtl837x_rtl8224_reg_bits_write(priv, RTL8373_CHIP_INFO_ADDR,
+				  RTL8373_CHIP_INFO_CHIP_INFO_EN_MASK, 0xa);
+		if (ret) return ret;
+		ret = rtl837x_rtl8224_reg_bits_read(priv, RTL8373_CHIP_INFO_ADDR,
+				  RTL8373_CHIP_INFO_RL_VID_MASK, &priv->chip_ver);
+		if (ret) return ret;
+		ret = rtl837x_rtl8224_reg_bits_write(priv, RTL8373_CHIP_INFO_ADDR,
+				  RTL8373_CHIP_INFO_CHIP_INFO_EN_MASK, 0);
+		if (ret) return ret;
+	}
+
 	priv->ds = devm_kzalloc(dev, sizeof(*priv->ds), GFP_KERNEL);
 	if (!priv->ds){
 		ret =  -ENOMEM;

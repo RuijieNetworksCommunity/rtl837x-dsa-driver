@@ -531,7 +531,7 @@ static void rtl8372n_phylink_mac_config(struct phylink_config *config, unsigned 
 	dev_info(priv->dev, "MAC config serdes port(%d) mode (%x)\n", 
 			  port == UTP_PORT3 ? 0 : 1, 
 			  phy_interface_to_rtk_sds_mode(state->interface));
-	rtk_sdsMode_set(port == UTP_PORT3 ? 0 : 1, phy_interface_to_rtk_sds_mode(state->interface));
+	rtl837x_serdes_set_mode(priv, port == UTP_PORT3 ? 0 : 1, phy_interface_to_rtk_sds_mode(state->interface));
 }
 
 static void rtl8372n_phylink_mac_link_down(struct phylink_config *config, unsigned int mode,
@@ -591,7 +591,7 @@ static void rtl8372n_phylink_mac_link_up(struct phylink_config *config,
 							port == UTP_PORT3 ? 0 : 1, 
 							phy_interface_to_rtk_sds_mode(interface),
 							speed);
-		ret = rtk_sdsMode_set(port == UTP_PORT3 ? 0 : 1, phy_interface_to_rtk_sds_mode(interface));
+		ret = rtl837x_serdes_set_mode(priv, port == UTP_PORT3 ? 0 : 1, phy_interface_to_rtk_sds_mode(interface));
 		break;
 	}
 
@@ -1035,6 +1035,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 
     dev_info(priv->dev,"Start init RTL8372N Switch\n");
 
+	// TODO: remove this
 	ret = rtk_hal_init();
 	if(ret){
 		dev_err(priv->dev, "Fail init hal, error:%d\n", ret);
