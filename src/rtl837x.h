@@ -144,9 +144,15 @@ extern int rtl837x_rtl8224_reg_bits_read(struct rtl837x_priv *priv, u32 reg, u32
 extern int rtl837x_rlt8224_reg_bits_write(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 val);
 extern int rtl837x_rtl8224_sds_reg_read(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page, u16 sds_reg, u16 *pdata);
 extern int rtl837x_rtl8224_sds_reg_write(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page, u16 sds_reg, u16 data);
+extern int rtl837x_rtl8224_sds_reg_bits_read(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page, u16 sds_reg, u16 mask, u16 *pdata);
+extern int rtl837x_rtl8224_sds_reg_bits_write(struct rtl837x_priv *priv, u8 sds_index, u16 sds_page, u16 sds_reg, u16 mask, u16 data);
 
 extern int rtl837x_vlan_set(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan);
 extern int rtl837x_vlan_get(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan);
+
+extern int rtl837x_sds_reset_X(struct rtl837x_priv *priv, u16 sds_idx);
+extern int rtl837x_sds_reset_R(struct rtl837x_priv *priv, u16 sds_idx);
+extern int rtl837x_rtl8224_sds_reset_R(struct rtl837x_priv *priv, u16 sds_idx);
 
 extern const struct rtl837x_variant rtl8372n_variant;
 

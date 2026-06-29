@@ -1088,11 +1088,10 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		rtl837x_sds_reg_bits_write(priv, 1, 6, 2, 1 << 14, 1);
 	}
 
-	// TODO: refactor
+	rtl837x_sds_reset_R(priv, 1);
 	msleep(5);
-	priv->pMapper->fw_reset_flow_tgr(1);
+	rtl837x_sds_reset_R(priv, 0);
 	msleep(5);
-	priv->pMapper->fw_reset_flow_tgr(0);
 
     // ##MDI reverse configuration for Demo Tap UP RJ45, RTL8366U/RTL8373N/RTL8372N
 	if (of_property_read_bool(np, "phy-mdi-reverse"))
