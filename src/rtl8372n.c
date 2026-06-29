@@ -328,8 +328,12 @@ static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
 static int rtl8372n_mdio_phy_read_c45(struct mii_bus *bus, int port, int devad, int regnum)
 {
 	struct rtl837x_priv *priv = bus->priv;
+	u16 val;
+	int ret = priv->ops->phy_read_c45(priv, port, devad, regnum, &val);
+	if (ret)
+		return ret;
 
-	return priv->ops->phy_read_c45(priv, port, devad, regnum);
+	return val;
 }
 
 static int rtl8372n_mdio_phy_write_c45(struct mii_bus *bus, int port, int devad, int regnum, u16 val)

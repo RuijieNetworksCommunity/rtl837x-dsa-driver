@@ -71,7 +71,7 @@ ssize_t _sdsreg_rw_write(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
 	char *buf;
-	uint32_t sds_id, page, reg, val;
+	u32 sds_id, page, reg, val;
 	u16 tmp16;
 	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
@@ -108,7 +108,8 @@ ssize_t _phyreg_mmd_rw_write(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
 	char *buf;
-	uint32_t port, devad, reg, val;
+	u32 port, devad, reg, val;
+	u16 tmp16;
 	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
 
@@ -131,10 +132,9 @@ ssize_t _phyreg_mmd_rw_write(struct file *filep, const char __user *ubuf,
 		if(sscanf(buf, "r %d %x %x", &port, &devad, &reg) == -1)
 			return -EFAULT;
 		else {
-			val = priv->ops->phy_read_c45(priv, port, devad, reg);
-			if (val < 0)
+			if (priv->ops->phy_read_c45(priv, port, devad, reg, &tmp16))
 				return -EIO;
-			snprintf(_buf_rd_phyreg_mmd, 64, "port: %d, devad: 0x%08x, reg: 0x%08x, val: 0x%08x\n", port, devad, reg, val);
+			snprintf(_buf_rd_phyreg_mmd, 64, "port: %d, devad: 0x%08x, reg: 0x%08x, val: 0x%08x\n", port, devad, reg, tmp16);
 		}
 	} else {
 		snprintf(_buf_rd_phyreg_mmd, 64, "echo \"w/r <real_port_index> <devad> <reg> [<val>]\" > phyreg_mmd\n");

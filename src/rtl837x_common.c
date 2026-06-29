@@ -53,7 +53,7 @@ rtk_sds_mode_t phy_interface_to_rtk_sds_mode(phy_interface_t interface)
 	}
 }
 
-int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum)
+int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 *pval)
 {
 	int ret;
     u32 tmp;
@@ -85,7 +85,8 @@ int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regn
 	if (ret)
 		return ret;
 
-	return (tmp & RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK) >> __ffs(RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK);
+	*pval = (tmp & RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK) >> __ffs(RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK); 
+	return 0;
 }
 
 int rtl837x_phys_write_c45(struct rtl837x_priv *priv, u16 phy_mask, int devad, int regnum, u16 val)
