@@ -49,8 +49,6 @@ struct rtl837x_priv {
 
 	unsigned int num_ports;
 
-	dal_mapper_t *pMapper;
-
 	struct dsa_switch	*ds;
 
     const struct rtl837x_mib_counter *mib_counters;

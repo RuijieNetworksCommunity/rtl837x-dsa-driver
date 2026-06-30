@@ -157,7 +157,7 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
                 val);
             return -ENODEV;
 	}
-	priv->pMapper = dal_rtl8373_mapper_get();
+
 	return 0;
 }
 
