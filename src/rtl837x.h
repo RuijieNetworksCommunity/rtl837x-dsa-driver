@@ -7,9 +7,8 @@
 #include <linux/dsa/8021q.h>
 #include <net/dsa.h>
 
-#include "./rtk-api/dal/rtl8373/rtl8373_asicdrv.h"
-#include "./rtk-api/dal/rtl8373/dal_rtl8373_mapper.h"
-#include "./rtk-api/dal/rtl8373/dal_rtl8373_switch.h"
+// TODO: copy to src
+#include "rtk-api/dal/rtl8373/rtl8373_reg_definition.h"
 
 #define MDC_MDIO_CTRL_REG           21
 #define MDC_MDIO_ADDR_REG           22
@@ -17,6 +16,61 @@
 #define MDC_MDIO_DATA_HIGH          24
 #define MDC_MDIO_READ_CMD           0x1B
 #define MDC_MDIO_WRITE_CMD          0x19
+
+#define RTL837x_C2SIDXMAX (127)
+#define RTL837x_FIDMAX    (15)
+
+typedef enum
+{
+    SERDES_10GQXG,
+    SERDES_10GUSXG = 0xD,
+    SERDES_10GR = 0x1A,
+    SERDES_HSG = 0x12,
+    SERDES_2500BASEX = 0x16,
+    SERDES_SG = 2,
+    SERDES_1000BASEX = 4,
+    SERDES_100FX = 5,  
+    SERDES_OFF = 0x1F,
+    SERDES_8221B = 0x21,
+    SERDES_ON = 0x22,
+    SERDES_END
+} rtk_sds_mode_t;
+
+enum _rtk_tb_op
+{
+    TB_OP_READ = 0,
+    TB_OP_WRITE
+};
+
+enum _rtk_tb_access_execute
+{
+    TB_NOT_EXECUTE = 0,
+    TB_EXECUTE,
+};
+
+enum _rtk_tb_access_target
+{
+    TB_TARGET_ACLRULE = 1,
+    TB_TARGET_ACLACT,
+    TB_TARGET_CVLAN,
+    TB_TARGET_L2,
+    TB_TARGET_IGMP_GROUP,
+    TB_TARGET_HSA,
+    TB_TARGET_HSB
+};
+
+typedef enum switch_chip_e
+{
+    CHIP_RTL8373 = 0,
+    CHIP_RTL8224 = 1,
+	CHIP_RTL8372,
+	CHIP_RTL8373N,
+	CHIP_RTL8221B,
+	CHIP_RTL8366U,
+	CHIP_RTL8372N,
+	CHIP_RTL8224N,
+    CHIP_END
+}switch_chip_t;
 
 struct rtl837x_mib_counter {
 	unsigned int	offset;
@@ -114,8 +168,6 @@ struct rtl837x_ops {
 };
 
 char* chipid_to_chip_name(switch_chip_t id);
-
-extern rtk_api_ret_t rtk_hal_init(void);
 
 #define rtl837x_reg_read(priv, reg, pval) regmap_read(priv->map, reg, pval)
 #define rtl837x_reg_write(priv, reg, val) regmap_write(priv->map, reg, val)

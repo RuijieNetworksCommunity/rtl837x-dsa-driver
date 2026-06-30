@@ -10,6 +10,11 @@
 #define RTL8372N_VLAN_FID_MASK 0xF
 #define RTL8372N_VLAN_MAX 4095
 
+// TODO: this should check port is set serdes mode or port mode
+#define IS_SERDES_PORT(port) (((port)==3)||((port)==8))
+
+#define PORT_TO_SERDES_IDX(port) ((port==3)?0:1)
+
 static const struct rtl837x_mib_counter rtl8372n_mib_counters[] ={
 	{ 0,  2, "ifInOctets"        },
 	{ 2,  2, "ifOutOctets"       },
@@ -127,15 +132,42 @@ struct rtl8372n {
 static int rtl8372n_detect(struct rtl837x_priv *priv)
 {
 	struct device *dev = priv->dev;
-    rtl_gbl_priv = priv;
 	int ret;
 	u32 val;
 
-    switch_chip_t sw_chip = CHIP_END;
-	switch_probe(&sw_chip);
+    switch_chip_t sw_chip;
 
 	ret = regmap_read(priv->map, 0x4, &val);
-    dev_info(dev, "CHIP_ID: 0x%x \n", val);
+    dev_info(dev, "CHIP_ID: 0x%08x \n", val);
+
+	switch (val >> 8)
+	{
+		case 0x837300:
+			sw_chip = CHIP_RTL8373;
+			break;
+		case 0x837200:
+			sw_chip = CHIP_RTL8372;
+			break;
+		case 0x822400:
+			sw_chip = CHIP_RTL8224;
+			break;
+		case 0x837370:
+			sw_chip = CHIP_RTL8373N;
+			break;
+		case 0x837270:
+			sw_chip = CHIP_RTL8372N;
+			break;
+		case 0x822470:
+			sw_chip = CHIP_RTL8224N;
+			break;
+		case 0x8366A8:
+			sw_chip = CHIP_RTL8366U;
+			break;
+		default:
+			sw_chip = CHIP_END;
+			break;
+	}
+
 	switch (sw_chip) {
         case CHIP_RTL8372N:
             dev_info(dev, "found an %s switch\n", chipid_to_chip_name(sw_chip));
@@ -150,7 +182,7 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
         case CHIP_RTL8221B:
         case CHIP_RTL8224N:
             dev_info(dev, "found an %s switch\n", chipid_to_chip_name(sw_chip));
-            dev_err(dev, "this switch is not yet supported!\n");
+            dev_err(dev, "This switch is not yet supported!\n");
             return -ENODEV;
         default:
             dev_info(dev, "found an Unknown Realtek switch (id=0x%04x)\n",
@@ -488,7 +520,7 @@ static const struct phylink_pcs_ops rtl8372n_sds_pcs_ops = {
 static void rtl8372n_phylink_get_caps(struct dsa_switch *ds, int port,
 				       struct phylink_config *config)
 {
-	if ((port == UTP_PORT3) || (port == UTP_PORT8)) {
+	if ((port == 3) || (port == 8)) {
 		__set_bit(PHY_INTERFACE_MODE_10GKR, config->supported_interfaces);
 		__set_bit(PHY_INTERFACE_MODE_10GBASER, config->supported_interfaces);
         __set_bit(PHY_INTERFACE_MODE_5GBASER, config->supported_interfaces);
@@ -512,9 +544,9 @@ static struct phylink_pcs *rtl8372n_phylink_mac_select_pcs(struct phylink_config
 	struct rtl837x_priv *priv = dp->ds->priv;
 	struct rtl8372n *chip_data = priv->chip_data;
 
-	if (dp->index != UTP_PORT3 && dp->index != UTP_PORT8)
-		return NULL;
-	return &(chip_data->pcs[dp->index].pcs);
+	if (IS_SERDES_PORT(dp->index))
+		return &(chip_data->pcs[dp->index].pcs);
+	return NULL;
 }
 
 static void rtl8372n_phylink_mac_config(struct phylink_config *config, unsigned int mode,
@@ -526,13 +558,13 @@ static void rtl8372n_phylink_mac_config(struct phylink_config *config, unsigned 
 
 	// dev_info(priv->dev, "\n\ncalled rtl8372n_phylink_mac_config: port: %d, mode: %s\n\n\n", port, phy_modes(interface));
 
-	if (port != UTP_PORT8 && port != UTP_PORT3)
+	if (!IS_SERDES_PORT(port))
 		return;
 	dev_info(priv->dev, "MAC config serdes port(%d) mode (%x)\n", 
-			  port == UTP_PORT3 ? 0 : 1, 
+			  PORT_TO_SERDES_IDX(port), 
 			  phy_interface_to_rtk_sds_mode(state->interface));
 
-	if (rtl837x_serdes_set_mode(priv, port == UTP_PORT3 ? 0 : 1, phy_interface_to_rtk_sds_mode(state->interface)))
+	if (rtl837x_serdes_set_mode(priv, PORT_TO_SERDES_IDX(port), phy_interface_to_rtk_sds_mode(state->interface)))
 		dev_err(priv->dev, "[%s] Failed to set serdes mode\n", __func__);
 }
 
@@ -542,27 +574,23 @@ static void rtl8372n_phylink_mac_link_down(struct phylink_config *config, unsign
 	struct dsa_port *dp = dsa_phylink_to_port(config);
 	struct rtl837x_priv *priv = dp->ds->priv;
 	int port = dp->index;
-	int ret;
+	int ret = 0;
 
 	switch (port)
 	{
-	case UTP_PORT4:
-	case UTP_PORT5:
-	case UTP_PORT6:
-	case UTP_PORT7:
+	case 4 ... 7:
 		dev_info(priv->dev, "MAC link down on phy port (%d)\n", port);
-		ret = 0;
 		break;
-	case UTP_PORT3:
+	case 3:
 		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 0);
 		// ret = rtk_sdsMode_set(0, SERDES_OFF);
 		break;
-	case UTP_PORT8:
+	case 8:
 		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 1);
 		// ret = rtk_sdsMode_set(1, SERDES_OFF);
 		break;
 	}
-	
+
 	if (ret) {
 		dev_err(priv->dev, "failed to disable the port(%d)\n", port);
 		return;
@@ -581,19 +609,16 @@ static void rtl8372n_phylink_mac_link_up(struct phylink_config *config,
 
 	switch (port)
 	{
-	case UTP_PORT4:
-	case UTP_PORT5:
-	case UTP_PORT6:
-	case UTP_PORT7:
+	case 4 ... 7:
 		dev_info(priv->dev, "MAC link up on phy port(%d)\n", port);
 		break;
-	case UTP_PORT3:
-	case UTP_PORT8:
+	case 3:
+	case 8:
 		dev_info(priv->dev, "MAC link up on serdes port(%d) mode (%x), speed (%d)\n", 
-							port == UTP_PORT3 ? 0 : 1, 
+							PORT_TO_SERDES_IDX(port), 
 							phy_interface_to_rtk_sds_mode(interface),
 							speed);
-		ret = rtl837x_serdes_set_mode(priv, port == UTP_PORT3 ? 0 : 1, phy_interface_to_rtk_sds_mode(interface));
+		ret = rtl837x_serdes_set_mode(priv, PORT_TO_SERDES_IDX(port), phy_interface_to_rtk_sds_mode(interface));
 		break;
 	}
 
@@ -677,9 +702,15 @@ static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 		return ret;
 
 	// Set external CPU DSA tag insert mode
+	/*
+     *	CPU_INSERT_TO_ALL = 0,
+     *	CPU_INSERT_TO_TRAPPING,
+     *	CPU_INSERT_TO_NONE,
+     *	CPU_INSERT_END
+	*/
 	ret = regmap_update_bits(priv->map, RTL8373_CPU_TAG_CTRL_ADDR,
 			  RTL8373_CPU_TAG_CTRL_EXT_CPUTAG_INSERTMOD_MASK,
-			  FIELD_PREP(RTL8373_CPU_TAG_CTRL_EXT_CPUTAG_INSERTMOD_MASK, CPU_INSERT_TO_ALL)
+			  FIELD_PREP(RTL8373_CPU_TAG_CTRL_EXT_CPUTAG_INSERTMOD_MASK, 0)
 			);
 	if (ret)
 		return ret;
@@ -737,9 +768,15 @@ static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 	}
 
 	// Set external CPU DSA tag insert mode
+	/*
+     *	CPU_INSERT_TO_ALL = 0,
+     *	CPU_INSERT_TO_TRAPPING,
+     *	CPU_INSERT_TO_NONE,
+     *	CPU_INSERT_END
+	*/
 	regmap_update_bits(priv->map, RTL8373_CPU_TAG_CTRL_ADDR,
 			  RTL8373_CPU_TAG_CTRL_EXT_CPUTAG_INSERTMOD_MASK,
-			  FIELD_PREP(RTL8373_CPU_TAG_CTRL_EXT_CPUTAG_INSERTMOD_MASK, CPU_INSERT_TO_NONE)
+			  FIELD_PREP(RTL8373_CPU_TAG_CTRL_EXT_CPUTAG_INSERTMOD_MASK, 2)
 			);
 
 	// Disable CPU tag
@@ -773,17 +810,30 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 	}
 
 	// Set S-VLAN upstream priority reference setting.
+	/*
+     *	REF_INTERNAL_PRI = 0,
+     *	REF_CTAG_PRI,
+     *	REF_SVLAN_PRI,
+     *	REF_PB_PRI,
+     *	REF_PRI_END
+	*/
 	ret = regmap_update_bits(priv->map, RTL8373_VS_CTRL_ADDR,
 			  RTL8373_VS_CTRL_SPRISEL_MASK,
-			  FIELD_PREP(RTL8373_VS_CTRL_SPRISEL_MASK, REF_CTAG_PRI)
+			  FIELD_PREP(RTL8373_VS_CTRL_SPRISEL_MASK, 1)
 			);
 	if (ret)
 		return ret;
 
 	// Drop package when recv a package with out s-tag from cpu port
+	/*
+     *	UNTAG_DROP = 0,
+     *	UNTAG_TRAP,
+     *	UNTAG_ASSIGN,
+     *	UNTAG_END
+	*/
 	ret = regmap_update_bits(priv->map, RTL8373_VS_CTRL_ADDR,
 			  RTL8373_VS_CTRL_UNTAG_MASK,
-			  FIELD_PREP(RTL8373_VS_CTRL_UNTAG_MASK, UNTAG_DROP)
+			  FIELD_PREP(RTL8373_VS_CTRL_UNTAG_MASK, 0)
 		);
 	if (ret)
 		return ret;
@@ -798,7 +848,7 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 	if (ret)
 		return ret;
 
-	for (int idx = 0; idx <= RTL8373_C2SIDXMAX;  idx++)
+	for (int idx = 0; idx <= RTL837x_C2SIDXMAX;  idx++)
     {
         ret = regmap_write(priv->map, RTL8373_VLAN_C2S_ENTRY_ADDR(idx)+4, 0);
 		if (ret)
@@ -810,9 +860,14 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
     }
 
 	// Set Port Ingress Tag Action
+	/*
+	 *	UNASSIGN_PBSVID = 0,
+	 *	UNASSIGN_TRAP,
+	 *	UNASSIGN_END
+	*/
 	ret = regmap_update_bits(priv->map, RTL8373_VS_CTRL_ADDR,
 			  RTL8373_VS_CTRL_UIFSEG_MASK,
-			  FIELD_PREP(RTL8373_VS_CTRL_UIFSEG_MASK, UNASSIGN_PBSVID)
+			  FIELD_PREP(RTL8373_VS_CTRL_UIFSEG_MASK, 0)
 		);
 	if (ret)
 		return ret;
@@ -999,7 +1054,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *cpu_dp = NULL;
 	struct dsa_port *dp;
-    rtl_gbl_priv = priv;
 
 	int cpu_dp_cnt = 0;
 	dsa_switch_for_each_port(dp, ds) {
@@ -1036,16 +1090,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	chip_data->pcs[8].index = 8;
 
     dev_info(priv->dev,"Start init RTL8372N Switch\n");
-
-	// TODO: remove this
-	ret = rtk_hal_init();
-	if(ret){
-		dev_err(priv->dev, "Fail init hal, error:%d\n", ret);
-		return -ENODEV;
-	}
-
-	// TODO: remove this
-	get_version_8373();
 
 	// set port 3 and port 8 as serdes port
 	regmap_update_bits(priv->map, RTL8373_SMI_MAC_TYPE_CTRL_ADDR, 
@@ -1145,8 +1189,8 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 			 FIELD_PREP(RTL8373_DW8051_CFG_DW8051_READY_MASK, 1));
 
 	// TODO: refactor
-	RL6818C_pwr_on_patch_phy_v008(0xf0);
-	RL6818C_pwr_on_patch_phy_v008_rls_lockmain(0xf0);
+	// RL6818C_pwr_on_patch_phy_v008(0xf0);
+	// RL6818C_pwr_on_patch_phy_v008_rls_lockmain(0xf0);
 
 	//  puts "Power up PHY 4~7"
     rtl837x_phys_write_c45(priv, 0xF0 ,31,0xa610,0x2058);
@@ -1190,9 +1234,16 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 			return ret;
 
 		// What fuck is this?
+		/*
+		 *	VLAN_EGRESS_TAG_MODE_ORIGINAL = 0,
+		 *	VLAN_EGRESS_TAG_MODE_KEEP_FORMAT,
+		 *	VLAN_EGRESS_TAG_MODE_PRI,
+		 *	VLAN_EGRESS_TAG_MODE_REAL_KEEP,
+		 *	VLAN_EGRESS_TAG_MODE_END
+		*/
 		ret = regmap_update_bits(priv->map, RTL8373_VLAN_PORT_EGR_TAG_ADDR(port),
 			 RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port),
-			 VLAN_EGRESS_TAG_MODE_KEEP_FORMAT << __ffs(RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port))
+			 1 << __ffs(RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port))
 			);
 		if (ret)
 			return ret;
@@ -1505,12 +1556,12 @@ static int rtl8372n_port_enable(struct dsa_switch *ds, int port,
     struct rtl837x_priv *priv = ds->priv;
 	int ret;
 
-	if (port==UTP_PORT3 || port==UTP_PORT8)
+	if (IS_SERDES_PORT(port))
 		return 0;
 
 	ret = priv->ops->phy_write_c45(priv, port, 31, 0xa610, 0x2058);
-	if (ret != RT_ERR_OK)
-		return -EIO;
+	if (ret)
+		return ret;
 
 	return 0;
 }
@@ -1519,7 +1570,7 @@ static void rtl8372n_port_disable(struct dsa_switch *ds, int port)
 {
     struct rtl837x_priv *priv = ds->priv;
 
-	if (port==UTP_PORT3 || port==UTP_PORT8)
+	if (IS_SERDES_PORT(port))
 		return;
 
 	priv->ops->phy_write_c45(priv, port, 31, 0xa610, 0x2858);
@@ -1565,7 +1616,7 @@ static void rtl8372n_port_stp_state_set(struct dsa_switch *ds, int port, u8 stat
 	}
 
 	/* Set the same status for the port on all the FIDs */
-	for (i = 0; i < RTL8373_FIDMAX; i++) {
+	for (i = 0; i < RTL837x_FIDMAX; i++) {
 		regmap_update_bits(priv->map, RTL8373_MSPT_STATE_ADDR(i),
 				   RTL8373_STP_STATE_MASK(port),
 				   RTL8373_STP_STATE(port, val));

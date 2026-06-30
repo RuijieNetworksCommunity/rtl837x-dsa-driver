@@ -1,5 +1,5 @@
 ccflags-y += -Wall
-ccflags-y += -I$(src)/rtk-api -I$(src)/rtk-api/dal/rtl8373 -Iinclude/linux/
+ccflags-y += -Iinclude/linux/
 
 ifeq ($(CONFIG_RTL8372N_DSA_DEBUG),y)
 ccflags-y += -DDEBUG
@@ -16,6 +16,9 @@ endif
 rtl8372n_dsa-objs += rtl837x_dbg.o
 rtl8372n_dsa-objs += rtl837x_mdio.o
 rtl8372n_dsa-objs += rtl837x_common.o
+
+ifeq (n,y)
+ccflags-y += -I$(src)/rtk-api -I$(src)/rtk-api/dal/rtl8373
 
 rtl8372n_dsa-objs += rtk-api/dal/dal_mgmt.o
 rtl8372n_dsa-objs += rtk-api/dal/rtl8373/dal_rtl8373_acl.o
@@ -92,3 +95,4 @@ rtl8372n_dsa-objs += rtk-api/storm.o
 rtl8372n_dsa-objs += rtk-api/svlan.o
 rtl8372n_dsa-objs += rtk-api/trunk.o
 rtl8372n_dsa-objs += rtk-api/vlan.o
+endif
