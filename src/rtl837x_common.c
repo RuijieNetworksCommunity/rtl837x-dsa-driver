@@ -424,6 +424,8 @@ int rtl837x_rtl8224_reg_bits_read(struct rtl837x_priv *priv, u32 reg, u32 mask, 
 
 int rtl837x_rtl8224_reg_bits_write(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 val)
 {
+	if (!priv->map_8224)
+		return -ENODEV;
     return regmap_update_bits(priv->map_8224, reg, mask, (val << __ffs(mask)) & mask);
 }
 
@@ -431,6 +433,9 @@ int rtl837x_rtl8224_sds_reg_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_
 {
 	int ret;
 	u32 val, tmp;
+
+	if (!priv->map_8224)
+		return -ENODEV;
 
 	ret = regmap_read_poll_timeout(priv->map_8224, RTL8373_SDS_INDACS_CMD_ADDR, tmp,
 		  ((tmp & RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
@@ -466,6 +471,9 @@ int rtl837x_rtl8224_sds_reg_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds
 {
 	int ret;
 	u32 tmp;
+
+	if (!priv->map_8224)
+		return -ENODEV;
 
 	ret = regmap_read_poll_timeout(priv->map_8224, RTL8373_SDS_INDACS_CMD_ADDR, tmp,
 			  ((tmp & RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
@@ -611,7 +619,7 @@ int rtl837x_vlan_get(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan)
 	             rtl837x_sds_reg_bits_write(priv, sds_idx, page, reg, mask, val))
 
 // 10G reset
-static int _rtl837x_sds_reset_R(bool is_8224, struct rtl837x_priv *priv, u8 sds_idx)
+static inline int _rtl837x_sds_reset_R(bool is_8224, struct rtl837x_priv *priv, u8 sds_idx)
 {
 	int ret;
 	u16 rx_sts, tmp;
@@ -828,6 +836,7 @@ static inline int rtl837x_serdes_patch(struct rtl837x_priv *priv, bool is_8224, 
 	int ret;
 	const u16 (*an_patch)[3];
 	int an_patch_len;
+	dev_dbg(priv->dev, "[%s] patch Serdes(%d); is_8224(%d); mode(0x%02X)\n", __func__, sds_idx, is_8224, mode);
 
 	switch (mode)
 	{
@@ -910,6 +919,7 @@ static int _set_serdes_mode(struct rtl837x_priv *priv, bool is_8224, u8 sds_idx,
 {
 	int ret;
 	
+	dev_dbg(priv->dev, "[%s] is_8224: %d\n", __func__, is_8224);
 	u32 SDS_USX_SUB_MODE = mode==SERDES_10GQXG ? 2 : 0;
 
 	if(sds_idx == 0)
@@ -1103,9 +1113,11 @@ int rtl837x_serdes_set_mode(struct rtl837x_priv *priv, u8 sds_idx, rtk_sds_mode_
 		case SERDES_10GQXG:
 		case SERDES_10GR:
 		case SERDES_10GUSXG:
+			dev_dbg(priv->dev, "[%s]Reset Serdes RX R\n", __func__);
 			ret = rtl837x_sds_reset_R(priv, sds_idx);
 			break;
 		default:
+			dev_dbg(priv->dev, "[%s]Reset Serdes RX X\n", __func__);
 			ret = rtl837x_sds_reset_X(priv, sds_idx);
 			break;
 	}

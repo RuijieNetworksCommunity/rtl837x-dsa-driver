@@ -10,7 +10,7 @@
 #define RTL8372N_VLAN_FID_MASK 0xF
 #define RTL8372N_VLAN_MAX 4095
 
-static struct rtl837x_mib_counter rtl8372n_mib_counters[] ={
+static const struct rtl837x_mib_counter rtl8372n_mib_counters[] ={
 	{ 0,  2, "ifInOctets"        },
 	{ 2,  2, "ifOutOctets"       },
 	{ 4,  2, "ifInUcastPkts"     },
@@ -531,7 +531,9 @@ static void rtl8372n_phylink_mac_config(struct phylink_config *config, unsigned 
 	dev_info(priv->dev, "MAC config serdes port(%d) mode (%x)\n", 
 			  port == UTP_PORT3 ? 0 : 1, 
 			  phy_interface_to_rtk_sds_mode(state->interface));
-	rtl837x_serdes_set_mode(priv, port == UTP_PORT3 ? 0 : 1, phy_interface_to_rtk_sds_mode(state->interface));
+
+	if (rtl837x_serdes_set_mode(priv, port == UTP_PORT3 ? 0 : 1, phy_interface_to_rtk_sds_mode(state->interface)))
+		dev_err(priv->dev, "[%s] Failed to set serdes mode\n", __func__);
 }
 
 static void rtl8372n_phylink_mac_link_down(struct phylink_config *config, unsigned int mode,
@@ -596,7 +598,7 @@ static void rtl8372n_phylink_mac_link_up(struct phylink_config *config,
 	}
 
 	if (ret) {
-		dev_err(priv->dev, "failed to enable the port(%d)\n", port);
+		dev_err(priv->dev, "[%s]failed to enable the port(%d)\n", __func__, port);
 		return;
 	}
 }
