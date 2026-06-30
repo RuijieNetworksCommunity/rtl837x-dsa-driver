@@ -274,7 +274,7 @@ static int rtl8372n_set_pvid(struct rtl837x_priv *priv, int port,
 
 static int rtl8372n_get_mib_counter(struct rtl837x_priv *priv,
                 int port,
-                struct rtl837x_mib_counter *mib,
+                const struct rtl837x_mib_counter *mib,
                 u64 *mibvalue)
 {
     int ret;
@@ -1271,7 +1271,7 @@ static void rtl8372n_get_strings(struct dsa_switch *ds, int port, u32 stringset,
 			 uint8_t *data)
 {
 	struct rtl837x_priv *priv = ds->priv;
-	struct rtl837x_mib_counter *mib;
+	const struct rtl837x_mib_counter *mib;
 	int i;
 
 	if (port >= priv->num_ports)
@@ -1289,12 +1289,12 @@ static void rtl8372n_get_ethtool_stats(struct dsa_switch *ds, int port, uint64_t
 	struct rtl837x_priv *priv = ds->priv;
 	int i;
 	int ret;
+	const struct rtl837x_mib_counter *mib;
 
 	if (port >= priv->num_ports)
 		return;
 
 	for (i = 0; i < priv->num_mib_counters; i++) {
-		struct rtl837x_mib_counter *mib;
 		u64 mibvalue = 0;
 
 		mib = &priv->mib_counters[i];

@@ -53,7 +53,7 @@ struct rtl837x_priv {
 
 	struct dsa_switch	*ds;
 
-    struct rtl837x_mib_counter *mib_counters;
+    const struct rtl837x_mib_counter *mib_counters;
 	unsigned int num_mib_counters;
 
 	const struct rtl837x_ops *ops;
@@ -99,7 +99,7 @@ struct rtl837x_ops {
 
 	int	(*get_mib_counter)(struct rtl837x_priv *priv,
 					int port,
-					struct rtl837x_mib_counter *mib,
+					const struct rtl837x_mib_counter *mib,
 					u64 *mibvalue);
 
 	int	(*get_vlan_4k)(struct rtl837x_priv *priv, u32 vid,
