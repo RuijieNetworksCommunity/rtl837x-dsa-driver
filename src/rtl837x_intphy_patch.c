@@ -883,6 +883,7 @@ int patch_phy_v008(struct rtl837x_priv *priv, int phy)
 	ret = uc1_sram_read_16b(priv, phy, 0x801e, &fw_ver);
 	if (ret) return ret;
 
+	dev_dbg(priv->dev, "[%s]: fw_ver read: 0x%04X want: 0x%04x\n", __func__, fw_ver, fw_ver_want);
 	if (fw_ver == fw_ver_want)
 		return 0;
 
@@ -1116,9 +1117,7 @@ int patch_phy_v008_rls_lockmain(struct rtl837x_priv *priv, int phy)
 	if (ret) return ret;
 	if (ret1) return ret1;
 
-	ret = rtl837x_phy_write_c45(priv, phy, 31, 0xa436, 0x801e);
-	if (ret) return ret;
-	ret = rtl837x_phy_write_c45(priv, phy, 31, 0xa438, fw_ver_want);
+	ret = uc1_sram_write_16b(priv, phy, 0x801e, fw_ver_want);
 	if (ret) return ret;
 
 	return 0;
@@ -1170,6 +1169,7 @@ int patch_phy_v009(struct rtl837x_priv *priv, int phy)
 	ret = uc1_sram_read_16b(priv, phy, 0x801e, &fw_ver);
 	if (ret) return ret;
 
+	dev_dbg(priv->dev, "[%s]: fw_ver read: 0x%04X want: 0x%04x\n", __func__, fw_ver, fw_ver_want);
 	if (fw_ver == fw_ver_want)
 		return 0;
 
@@ -1439,9 +1439,7 @@ int patch_phy_v009_rls_lockmain(struct rtl837x_priv *priv, int phy)
 	if (ret) return ret;
 	if (ret1) return ret1;
 
-	ret = rtl837x_phy_write_c45(priv, phy, 31, 0xa436, 0x801e);
-	if (ret) return ret;
-	ret = rtl837x_phy_write_c45(priv, phy, 31, 0xa438, fw_ver_want);
+	ret = uc1_sram_write_16b(priv, phy, 0x801e, fw_ver_want);
 	if (ret) return ret;
 
 	return 0;
