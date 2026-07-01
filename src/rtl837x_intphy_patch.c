@@ -1261,6 +1261,8 @@ int patch_phy_v009(struct rtl837x_priv *priv, int phy)
 	}
 	ret= rtl837x_phy_bits_write_c45(priv, phy, 31, 0xb896 , 0x01, 1); // enable data_mem_auto_inc
 	if (ret) return ret;
+	ret = uc2_sram_write_8b(priv, phy, 0x8217, 0x1e);
+	if (ret) return ret;
 	// data_ram_patch_6818B_220714 stop
 
 	// Looks so weird, Is realtek write wrone?
