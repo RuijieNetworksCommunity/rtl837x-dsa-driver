@@ -7,8 +7,7 @@
 #include <linux/dsa/8021q.h>
 #include <net/dsa.h>
 
-// TODO: copy to src
-#include "rtk-api/dal/rtl8373/rtl8373_reg_definition.h"
+#include "rtl8373_reg_definition.h"
 
 #define MDC_MDIO_CTRL_REG           21
 #define MDC_MDIO_ADDR_REG           22
