@@ -196,20 +196,16 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
 // Set Ingress frame type
 static int rtl8372n_drop_untagged(struct rtl837x_priv *priv, int port, bool drop)
 {
-	// typedef enum rtk_vlan_acceptFrameType_e
-	// {
-	//     ACCEPT_FRAME_TYPE_ALL = 0,             /* untagged, priority-tagged and tagged */
-	//     ACCEPT_FRAME_TYPE_TAG_ONLY,         /* tagged */
-	//     ACCEPT_FRAME_TYPE_UNTAG_ONLY,     /* untagged and priority-tagged */
-	//     ACCEPT_FRAME_TYPE_END
-	// } rtk_vlan_acceptFrameType_t;
-	dev_dbg(priv->dev, "rtl8372n_drop_untagged port (%d), (%s)\n", port, drop ? "drop" : "keep");
+	// ACCEPT_FRAME_TYPE_ALL = 0,             /* untagged, priority-tagged and tagged */
+	// ACCEPT_FRAME_TYPE_TAG_ONLY,         /* tagged */
+	// ACCEPT_FRAME_TYPE_UNTAG_ONLY,     /* untagged and priority-tagged */
+	// ACCEPT_FRAME_TYPE_END
+	dev_dbg(priv->dev, "[%s]: port (%d), (%s)\n", __func__, port, drop ? "drop" : "keep");
 
-	u32 tmp = drop ? 1 : 0;
-	return regmap_update_bits(priv->map, RTL8373_VLAN_PORT_AFT_ADDR(port), 
-		  RTL8373_VLAN_PORT_AFT_CTAG_ACCEPT_TYPE_MASK(port),
-		  tmp << __ffs(RTL8373_VLAN_PORT_AFT_CTAG_ACCEPT_TYPE_MASK(port))
-		);
+	return rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_AFT_ADDR(port),
+			  RTL8373_VLAN_PORT_AFT_CTAG_ACCEPT_TYPE_MASK(port),
+			  drop ? 1 : 0
+			);
 }
 
 static int rtl8372n_get_vlan_4k(struct rtl837x_priv *priv, u32 vid,
@@ -223,7 +219,7 @@ static int rtl8372n_get_vlan_4k(struct rtl837x_priv *priv, u32 vid,
 	ret = rtl837x_vlan_get(priv, &vlan);
 	if (ret)
 	{
-		dev_dbg(priv->dev, "rtl837x_vlan_get: failed: ret: %d\n", ret);
+		dev_dbg(priv->dev, "[%s]: failed: ret: %d\n", __func__, ret);
 		return ret;
 	}
 
@@ -283,7 +279,7 @@ static int rtl8372n_set_pvid(struct rtl837x_priv *priv, int port,
 	struct dsa_switch *ds = priv->ds;
 	bool pvid_enabled;
 
-	dev_dbg(priv->dev, "rtl8372n_set_pvid port (%d), vid (%d)\n", port, vid);
+	dev_dbg(priv->dev, "[%s]: port (%d), vid (%d)\n", __func__, port, vid);
 	pvid_enabled = !!vid;
 
 	ret = regmap_update_bits(priv->map, RTL8373_VLAN_PORT_PB_VLAN_ADDR(port),
@@ -565,7 +561,7 @@ static void rtl8372n_phylink_mac_config(struct phylink_config *config, unsigned 
 			  phy_interface_to_rtk_sds_mode(state->interface));
 
 	if (rtl837x_serdes_set_mode(priv, PORT_TO_SERDES_IDX(port), phy_interface_to_rtk_sds_mode(state->interface)))
-		dev_err(priv->dev, "[%s] Failed to set serdes mode\n", __func__);
+		dev_err(priv->dev, "[%s]: Failed to set serdes mode\n", __func__);
 }
 
 static void rtl8372n_phylink_mac_link_down(struct phylink_config *config, unsigned int mode,
@@ -623,7 +619,7 @@ static void rtl8372n_phylink_mac_link_up(struct phylink_config *config,
 	}
 
 	if (ret) {
-		dev_err(priv->dev, "[%s]failed to enable the port(%d)\n", __func__, port);
+		dev_err(priv->dev, "[%s]: failed to enable the port(%d)\n", __func__, port);
 		return;
 	}
 }
@@ -1355,7 +1351,7 @@ static void rtl8372n_get_ethtool_stats(struct dsa_switch *ds, int port, uint64_t
 		mib = &priv->mib_counters[i];
 		ret = priv->ops->get_mib_counter(priv, port, mib, &mibvalue);
 		if (ret) {
-			dev_err(priv->dev, "error reading MIB counter %s\n",
+			dev_err(priv->dev, "[%s]: Error reading MIB counter %s\n", __func__,
 				mib->name);
 		}
 		data[i] = mibvalue;
@@ -1382,13 +1378,13 @@ static int rtl8372n_vlan_filtering(struct dsa_switch *ds, int port,
     struct rtl837x_priv *priv = ds->priv;
 	struct rtl8372n *chip_data = priv->chip_data;
     
-	dev_dbg(priv->dev, "rtl8372n_vlan_filtering port (%d), filtering: %s\n",
+	dev_dbg(priv->dev, "[%s]: port (%d), filtering: %s\n", __func__,
 				  port, !!vlan_filtering ? "true" : "false");
 
 	// Set Ingress filter
-	ret = regmap_update_bits(priv->map, RTL8373_VLAN_PORT_IGR_FLTR_ADDR(port),
+	ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_IGR_FLTR_ADDR(port),
 			  RTL8373_VLAN_PORT_IGR_FLTR_IGR_FLTR_ACT_MASK(port),
-			  (!!vlan_filtering) << __ffs(RTL8373_VLAN_PORT_IGR_FLTR_IGR_FLTR_ACT_MASK(port))
+			  vlan_filtering ? 1 : 0
 			);
 
 	if (vlan_filtering)
@@ -1430,12 +1426,14 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 	if (untagged)
 		untag |= BIT(port);
 
-	dev_dbg(priv->dev, "rtl8372n_vlan_add port (%d) vid (%d) is_untagged(%d)\n",
-						  port, vid, untagged == true);
+	dev_dbg(priv->dev, "[%s] add VLAN %d on port %d, %s, %s\n", __func__,
+		vlan->vid, port, untagged ? "untagged" : "tagged",
+		pvid ? "PVID" : "no PVID");
 
 	ret = rtl8372n_vlan_update(priv, vid, member, untag, 0);
 	if (ret) {
-		dev_err(priv->dev, "failed to set up VLAN %04x", vid);
+		dev_err(priv->dev, "[%s]: Failed to set up VLAN %04x", __func__,
+										  vid);
 		return ret;
 	}
 
@@ -1444,7 +1442,7 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 
 	ret = rtl8372n_set_pvid(priv, port, vid);
 	if (ret) {
-		dev_err(priv->dev, "failed to set PVID on port %d to VLAN %04x",
+		dev_err(priv->dev, "[%s]: Failed to set PVID on port %d to VLAN %04x", __func__,
 			port, vid);
 		return ret;
 	}
@@ -1458,7 +1456,8 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 	int ret;
 	struct rtl837x_priv *priv = ds->priv;
 
-	dev_dbg(priv->dev, "rtl8372n_vlan_del port (%d) vid (%d)\n", port, vlan->vid);
+	dev_dbg(priv->dev, "[%s]: port (%d) vid (%d)\n", __func__,
+							  port, vlan->vid);
 
 	struct rtl837x_vlan_4k vlan4k;
 
@@ -1494,7 +1493,8 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
     struct rtl837x_priv *priv = ds->priv;
 	unsigned int port_bitmap = 0;
 	int ret, i;
-	dev_dbg(priv->dev, "port_bridge_join %d\n", port);
+	dev_dbg(priv->dev, "[%s]: %d\n", __func__,
+						  port);
 
 	/* Loop over all other ports than the current one */
 	for (i = 0; i < priv->num_ports; i++) {
@@ -1530,7 +1530,8 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
     struct rtl837x_priv *priv = ds->priv;
 	unsigned int port_bitmap = 0;
 	int ret, i;
-	dev_dbg(priv->dev, "port_bridge_leave %d\n", port);
+	dev_dbg(priv->dev, "[%s]: %d\n", __func__,
+							  port);
 
 	/* Loop over all other ports than this one */
 	for (i = 0; i < priv->num_ports; i++) {
@@ -1615,7 +1616,7 @@ static void rtl8372n_port_stp_state_set(struct dsa_switch *ds, int port, u8 stat
 		val = MSTP_FORWARDING;
 		break;
 	default:
-		dev_err(priv->dev, "unknown bridge state requested\n");
+		dev_err(priv->dev, "[%s]: unknown bridge state requested\n", __func__);
 		return;
 	}
 
