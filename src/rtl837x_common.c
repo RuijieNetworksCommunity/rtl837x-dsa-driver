@@ -312,6 +312,34 @@ int rtl837x_phy_write_c45(struct rtl837x_priv *priv, int phy, int devad, int reg
 	return rtl837x_phys_write_c45(priv, BIT(phy), devad, regnum, val);
 }
 
+int rtl837x_phy_bits_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 mask, u16 *pdata)
+{
+	int ret;
+	u16 val;
+
+	ret = rtl837x_phy_read_c45(priv, phy, devad, regnum, &val);
+	if (ret)
+		return ret;
+
+	*pdata = (val & mask) >> __ffs(mask);
+	return 0;
+}
+
+int rtl837x_phy_bits_write_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 mask, u16 data)
+{
+	int ret;
+	u16 val;
+
+	ret = rtl837x_phy_read_c45(priv, phy, devad, regnum, &val);
+	if (ret)
+		return ret;
+
+	val &= ~mask;
+	val |= (data << __ffs(mask)) & mask;
+
+	return rtl837x_phy_write_c45(priv, phy, devad, regnum, val);
+}
+
 int rtl837x_sds_reg_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 *pdata)
 {
 	int ret;

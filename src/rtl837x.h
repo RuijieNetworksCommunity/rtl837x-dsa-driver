@@ -184,6 +184,8 @@ extern int rtl837x_debug_proc_deinit(struct rtl837x_priv *priv);
 extern int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 *pval);
 extern int rtl837x_phys_write_c45(struct rtl837x_priv *priv, u16 phy_mask, int devad, int regnum, u16 val);
 extern int rtl837x_phy_write_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 val);
+extern int rtl837x_phy_bits_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 mask, u16 *pdata);
+extern int rtl837x_phy_bits_write_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 mask, u16 data);
 
 extern int rtl837x_sds_reg_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 *pdata);
 extern int rtl837x_sds_reg_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 data);
@@ -207,6 +209,13 @@ extern int rtl837x_sds_reset_R(struct rtl837x_priv *priv, u8 sds_idx);
 extern int rtl837x_rtl8224_sds_reset_R(struct rtl837x_priv *priv, u8 sds_idx);
 
 extern int rtl837x_serdes_set_mode(struct rtl837x_priv *priv, u8 sds_idx, rtk_sds_mode_t mode);
+
+#if defined(RTL837X_PHY_PATCH)
+extern int patch_phys_v008(struct rtl837x_priv *priv, u16 phy_mask);
+extern int patch_phys_v008_rls_lockmain(struct rtl837x_priv *priv, u16 phy_mask);
+extern int patch_phys_v009(struct rtl837x_priv *priv, u16 phy_mask);
+extern int patch_phys_v009_rls_lockmain(struct rtl837x_priv *priv, u16 phy_mask);
+#endif
 
 extern const struct rtl837x_variant rtl8372n_variant;
 

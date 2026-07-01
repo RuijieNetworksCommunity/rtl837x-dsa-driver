@@ -29,6 +29,7 @@ define Build/Compile
 		M="$(PKG_BUILD_DIR)" \
 		EXTRA_CFLAGS="$(EXTRA_CFLAGS)" \
 		CONFIG_RTL8372N_DSA=m \
+		CONFIG_RTL837X_PHY_PATCH=y \
 		CONFIG_RTL8372N_DSA_DEBUG=n \
 		modules
 endef

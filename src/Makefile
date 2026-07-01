@@ -17,6 +17,11 @@ rtl8372n_dsa-objs += rtl837x_dbg.o
 rtl8372n_dsa-objs += rtl837x_mdio.o
 rtl8372n_dsa-objs += rtl837x_common.o
 
+ifeq ($(CONFIG_RTL837X_PHY_PATCH),y)
+ccflags-y += -DRTL837X_PHY_PATCH
+rtl8372n_dsa-objs += rtl837x_intphy_patch.o
+endif
+
 ifeq (n,y)
 ccflags-y += -I$(src)/rtk-api -I$(src)/rtk-api/dal/rtl8373
 

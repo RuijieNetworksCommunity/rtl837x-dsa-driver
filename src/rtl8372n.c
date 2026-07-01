@@ -10,7 +10,7 @@
 #define RTL8372N_VLAN_FID_MASK 0xF
 #define RTL8372N_VLAN_MAX 4095
 
-// TODO: this should check port is set serdes mode or port mode
+// TODO: this should check port is serdes mode or port mode
 #define IS_SERDES_PORT(port) (((port)==3)||((port)==8))
 
 #define PORT_TO_SERDES_IDX(port) ((port==3)?0:1)
@@ -1188,9 +1188,13 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 			 RTL8373_DW8051_CFG_DW8051_READY_MASK,
 			 FIELD_PREP(RTL8373_DW8051_CFG_DW8051_READY_MASK, 1));
 
-	// TODO: refactor
-	// RL6818C_pwr_on_patch_phy_v008(0xf0);
-	// RL6818C_pwr_on_patch_phy_v008_rls_lockmain(0xf0);
+#if defined(RTL837X_PHY_PATCH)
+	if (priv->chip_ver == 2)
+	{
+		patch_phys_v008(priv, 0xf0);
+		patch_phys_v008_rls_lockmain(priv, 0xf0);
+	}
+#endif
 
 	//  puts "Power up PHY 4~7"
     rtl837x_phys_write_c45(priv, 0xF0 ,31,0xa610,0x2058);
