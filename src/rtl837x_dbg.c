@@ -32,6 +32,7 @@ static int simple_debugfs_open(struct inode *inode, struct file *file)
 	};
 
 REGRWFUNC(vlan, 128)
+REGRWFUNC(pvid, 64)
 REGRWFUNC(reg, 64)
 REGRWFUNC(phyreg_mmd, 64)
 REGRWFUNC(sdsreg, 64)
@@ -63,6 +64,44 @@ ssize_t _vlan_rw_write(struct file *filep, const char __user *ubuf,
 		}
 	} else {
 		snprintf(_buf_rd_vlan, 128, "echo \"r <vlan_id>\" > vlan_dump\n");
+	}
+	return count;
+}
+
+ssize_t _pvid_rw_write(struct file *filep, const char __user *ubuf,
+				   size_t count, loff_t *offp)
+{
+	char *buf;
+	int ret;
+	u32 port, pvid;
+	struct seq_file *sfile;
+	struct rtl837x_priv *priv;
+
+	sfile = filep->private_data;
+	priv = sfile->private;
+
+	buf = memdup_user_nul(ubuf, count);
+	if (IS_ERR(buf))
+		return PTR_ERR(buf);
+	
+	if(buf[0] == 'w') {
+		if(sscanf(buf, "w %d %d", &port, &pvid) == -1)
+			return -EFAULT;
+		else{
+			rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_PB_VLAN_ADDR(port),
+					  RTL8373_VLAN_PORT_PB_VLAN_PVID_MASK(port), pvid);
+		}
+	} else if(buf[0] == 'r') {
+		if(sscanf(buf, "r %d", &port) == -1)
+			return -EFAULT;
+		else {
+			ret = rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_PB_VLAN_ADDR(port),
+					  RTL8373_VLAN_PORT_PB_VLAN_PVID_MASK(port), &pvid);
+			if (ret) return -EIO;
+			snprintf(_buf_rd_pvid, 64, "port: %d, pvid: %d\n", port, pvid);
+		}
+	} else {
+		snprintf(_buf_rd_sdsreg, 64, "echo \"w/r <port> [<pvid>]\" > pvid\n");
 	}
 	return count;
 }
@@ -268,6 +307,10 @@ int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 	debugfs_create_file("vlan_dump", 0400,
 		priv->debugfs_parent, priv,
 		&TO_FOPS(vlan));
+
+	debugfs_create_file("pvid", 0400,
+		priv->debugfs_parent, priv,
+		&TO_FOPS(pvid));
 
 	debugfs_create_file("sds_page_dump", 0400,
 		priv->debugfs_parent, priv,
