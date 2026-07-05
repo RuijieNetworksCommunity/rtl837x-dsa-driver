@@ -89,7 +89,7 @@ ssize_t _sdsreg_rw_write(struct file *filep, const char __user *ubuf,
 		else{
 			if (sds_id > 1)
 				return -EFAULT;
-			rtk_rtl8373_sds_reg_write(sds_id, page, reg, val);
+			rtl837x_sds_reg_write(priv, sds_id, page, reg, val);
 		}
 	} else if(buf[0] == 'r') {
 		if(sscanf(buf, "r %d %x %x", &sds_id, &page, &reg) == -1)
