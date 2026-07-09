@@ -219,6 +219,10 @@ rtk_sds_mode_t phy_interface_to_rtk_sds_mode(phy_interface_t interface)
 	}
 }
 
+/** ================================================= **/
+/** -------------------Register Funcs-----------------**/
+/** ================================================= **/
+
 int rtl837x_reg_bits_read(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 *pval)
 {
 	int ret;
@@ -242,10 +246,8 @@ int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regn
 	int ret;
     u32 tmp;
 
-	ret = regmap_update_bits(priv->map,
-			  RTL8373_SMI_ACCESS_PHY_CTRL_3_ADDR,
-			  RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK,
-			  FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK, phy));
+	ret = rtl837x_reg_bits_write(priv, RTL8373_SMI_ACCESS_PHY_CTRL_3_ADDR,
+			  RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK, phy);
 	if (ret)
 		return ret;
 
@@ -255,7 +257,7 @@ int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regn
 		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_TYPE_MASK, 1) |
 		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK, 1);
 
-	ret = regmap_write(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp);
+	ret = rtl837x_reg_write(priv, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp);
 	if (ret)
 		return ret;
 
@@ -265,7 +267,7 @@ int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regn
 	if (ret)
 		return ret;
 
-	ret = regmap_read(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_2_ADDR, &tmp);
+	ret = rtl837x_reg_read(priv, RTL8373_SMI_ACCESS_PHY_CTRL_2_ADDR, &tmp);
 	if (ret)
 		return ret;
 
@@ -278,14 +280,13 @@ int rtl837x_phys_write_c45(struct rtl837x_priv *priv, u16 phy_mask, int devad, i
 	int ret;
     u32 tmp;
 
-	ret = regmap_write(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_0_ADDR, phy_mask);
+	ret = rtl837x_reg_write(priv, RTL8373_SMI_ACCESS_PHY_CTRL_0_ADDR, phy_mask);
 	if (ret)
 		return ret;
 
-	ret = regmap_update_bits(priv->map, 
-			  RTL8373_SMI_ACCESS_PHY_CTRL_3_ADDR,
+	ret = rtl837x_reg_bits_write(priv, RTL8373_SMI_ACCESS_PHY_CTRL_3_ADDR,
 			  RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK,
-			  FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK, val));
+			  val);
 	if (ret)
 		return ret;
 
@@ -295,7 +296,7 @@ int rtl837x_phys_write_c45(struct rtl837x_priv *priv, u16 phy_mask, int devad, i
 		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_TYPE_MASK, 1) |
 		FIELD_PREP(RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK, 1);
 
-	ret = regmap_write(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp);
+	ret = rtl837x_reg_write(priv, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp);
 	if (ret)
 		return ret;
 
@@ -357,7 +358,7 @@ int rtl837x_sds_reg_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u1
 				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_RWOP_MASK, 0) |
 				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK, 1);
 
-	ret = regmap_write(priv->map, RTL8373_SDS_INDACS_CMD_ADDR, tmp);
+	ret = rtl837x_reg_write(priv, RTL8373_SDS_INDACS_CMD_ADDR, tmp);
 	if (ret)
 		return ret;
 
@@ -367,7 +368,7 @@ int rtl837x_sds_reg_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u1
 	if (ret)
 		return ret;
 
-	ret = regmap_read(priv->map, RTL8373_SDS_INDACS_RD_ADDR, &val);
+	ret = rtl837x_reg_read(priv, RTL8373_SDS_INDACS_RD_ADDR, &val);
 	if (ret)
 		return ret;
 
@@ -386,7 +387,7 @@ int rtl837x_sds_reg_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u
 	if (ret)
 		return ret;
 
-	ret = regmap_write(priv->map, RTL8373_SDS_INDACS_WD_ADDR, data);
+	ret = rtl837x_reg_write(priv, RTL8373_SDS_INDACS_WD_ADDR, data);
 
 	tmp = FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_INDEX_MASK, sds_idx) |
 				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_PAGE_MASK, sds_page) |
@@ -394,7 +395,7 @@ int rtl837x_sds_reg_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u
 				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_RWOP_MASK, 1) |
 				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK, 1);
 
-	ret = regmap_write(priv->map, RTL8373_SDS_INDACS_CMD_ADDR, tmp);
+	ret = rtl837x_reg_write(priv, RTL8373_SDS_INDACS_CMD_ADDR, tmp);
 	if (ret)
 		return ret;
 
@@ -475,7 +476,7 @@ int rtl837x_rtl8224_sds_reg_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_
 				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_RWOP_MASK, 0) |
 				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK, 1);
 
-	ret = regmap_write(priv->map_8224, RTL8373_SDS_INDACS_CMD_ADDR, tmp);
+	ret = rtl837x_rtl8224_reg_write(priv, RTL8373_SDS_INDACS_CMD_ADDR, tmp);
 	if (ret)
 		return ret;
 
@@ -485,7 +486,7 @@ int rtl837x_rtl8224_sds_reg_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_
 	if (ret)
 		return ret;
 
-	ret = regmap_read(priv->map_8224, RTL8373_SDS_INDACS_RD_ADDR, &val);
+	ret = rtl837x_rtl8224_reg_read(priv, RTL8373_SDS_INDACS_RD_ADDR, &val);
 	if (ret)
 		return ret;
 
@@ -507,7 +508,7 @@ int rtl837x_rtl8224_sds_reg_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds
 	if (ret)
 		return ret;
 
-	ret = regmap_write(priv->map_8224, RTL8373_SDS_INDACS_WD_ADDR, data);
+	ret = rtl837x_rtl8224_reg_write(priv, RTL8373_SDS_INDACS_WD_ADDR, data);
 
 	tmp = FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_INDEX_MASK, sds_idx) |
 				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_PAGE_MASK, sds_page) |
@@ -515,7 +516,7 @@ int rtl837x_rtl8224_sds_reg_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds
 				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_RWOP_MASK, 1) |
 				FIELD_PREP(RTL8373_SDS_INDACS_CMD_SDS_CMD_MASK, 1);
 
-	ret = regmap_write(priv->map_8224, RTL8373_SDS_INDACS_CMD_ADDR, tmp);
+	ret = rtl837x_rtl8224_reg_write(priv, RTL8373_SDS_INDACS_CMD_ADDR, tmp);
 	if (ret)
 		return ret;
 
@@ -556,68 +557,6 @@ int rtl837x_rtl8224_sds_reg_bits_write(struct rtl837x_priv *priv, u8 sds_idx, u1
 	return rtl837x_rtl8224_sds_reg_write(priv, sds_idx, sds_page, sds_reg, val);
 }
 
-int rtl837x_vlan_set(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan)
-{
-	int ret;
-	u32 tmp;
-
-	ret = regmap_write(priv->map, RTL8373_ITA_WRITE_DATA0_ADDR(0), vlan->val);
-	if (ret)
-		return ret;
-
-	tmp = FIELD_PREP(RTL8373_ITA_CTRL0_TBL_ADDR_MASK, vlan->vid) |
-		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_CVLAN) |
-		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_ACT_MASK, TB_OP_WRITE) |
-		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
-
-	ret = regmap_write(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp);
-	if (ret)
-		return ret;
-
-	ret = regmap_read_poll_timeout(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp,
-		  ((tmp & RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
-		  0, 1000);
-	if (ret)
-		return ret;
-	return 0;
-}
-
-int rtl837x_vlan_get(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan)
-{
-	int ret;
-	u32 tmp;
-
-	ret = regmap_read_poll_timeout(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp,
-		  ((tmp & RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
-		  0, 1000);
-
-	ret = regmap_write(priv->map, RTL8373_ITA_WRITE_DATA0_ADDR(0), vlan->val);
-	if (ret)
-		return ret;
-
-	tmp = FIELD_PREP(RTL8373_ITA_CTRL0_TBL_ADDR_MASK, vlan->vid) |
-		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_CVLAN) |
-		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_ACT_MASK, TB_OP_READ) |
-		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
-
-	ret = regmap_write(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp);
-	if (ret)
-		return ret;
-
-	ret = regmap_read_poll_timeout(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp,
-		  ((tmp & RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
-		  0, 1000);
-	if (ret)
-		return ret;
-
-	ret = regmap_read(priv->map, RTL8373_ITA_READ_DATA0_ADDR(0), &tmp);
-	if (ret)
-		return ret;
-	vlan->val = tmp;
-
-	return 0;
-}
-
 #define _reg_read(is_8224, priv, reg, pval) \
 	  (is_8224 ? rtl837x_rtl8224_reg_read(priv, reg, pval): \
 	             rtl837x_reg_read(priv, reg, pval))
@@ -643,6 +582,72 @@ int rtl837x_vlan_get(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan)
 #define _sds_reg_bits_write(is_8224, priv, sds_idx, page, reg, mask, val) \
 	  (is_8224 ? rtl837x_rtl8224_sds_reg_bits_write(priv, sds_idx, page, reg, mask, val): \
 	             rtl837x_sds_reg_bits_write(priv, sds_idx, page, reg, mask, val))
+
+/** ================================================= **/
+/** --------------------Common Funcs------------------**/
+/** ================================================= **/
+
+int rtl837x_vlan_set(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan)
+{
+	int ret;
+	u32 tmp;
+
+	ret = rtl837x_reg_write(priv, RTL8373_ITA_WRITE_DATA0_ADDR(0), vlan->val);
+	if (ret)
+		return ret;
+
+	tmp = FIELD_PREP(RTL8373_ITA_CTRL0_TBL_ADDR_MASK, vlan->vid) |
+		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_CVLAN) |
+		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_ACT_MASK, TB_OP_WRITE) |
+		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
+
+	ret = rtl837x_reg_write(priv, RTL8373_ITA_CTRL0_ADDR, tmp);
+	if (ret)
+		return ret;
+
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp,
+		  ((tmp & RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
+		  0, 1000);
+	if (ret)
+		return ret;
+	return 0;
+}
+
+int rtl837x_vlan_get(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan)
+{
+	int ret;
+	u32 tmp;
+
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp,
+		  ((tmp & RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
+		  0, 1000);
+
+	ret = rtl837x_reg_write(priv, RTL8373_ITA_WRITE_DATA0_ADDR(0), vlan->val);
+	if (ret)
+		return ret;
+
+	tmp = FIELD_PREP(RTL8373_ITA_CTRL0_TBL_ADDR_MASK, vlan->vid) |
+		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_CVLAN) |
+		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_ACT_MASK, TB_OP_READ) |
+		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
+
+	ret = rtl837x_reg_write(priv, RTL8373_ITA_CTRL0_ADDR, tmp);
+	if (ret)
+		return ret;
+
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp,
+		  ((tmp & RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
+		  0, 1000);
+	if (ret)
+		return ret;
+
+	ret = rtl837x_reg_read(priv, RTL8373_ITA_READ_DATA0_ADDR(0), &tmp);
+	if (ret)
+		return ret;
+	vlan->val = tmp;
+
+	return 0;
+}
 
 // 10G reset
 static inline int _rtl837x_sds_reset_R(bool is_8224, struct rtl837x_priv *priv, u8 sds_idx)

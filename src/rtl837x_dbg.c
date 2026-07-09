@@ -202,12 +202,12 @@ ssize_t _reg_rw_write(struct file *filep, const char __user *ubuf,
 		if(sscanf(buf, "w %x %x", &reg, &val) == -1)
 			return -EFAULT;
 		else
-			regmap_write(priv->map, reg, val);
+			rtl837x_reg_write(priv, reg, val);
 	} else if(buf[0] == 'r') {
 		if(sscanf(buf, "r %x", &reg) == -1)
 			return -EFAULT;
 		else {
-			regmap_read(priv->map, reg, &val);
+			rtl837x_reg_read(priv, reg, &val);
 			snprintf(_buf_rd_reg, 64, "reg: 0x%08x, val: 0x%08x\n", reg, val);
 		}
 	} else {
@@ -234,7 +234,7 @@ static ssize_t _sds_page_dump_read(struct file *filep, char __user *ubuf,
 	if (!buf)
 		return -ENOMEM;
 
-	regmap_read(priv->map, RTL8373_SDS_MODE_SEL_ADDR, &tmp32);
+	rtl837x_reg_read(priv, RTL8373_SDS_MODE_SEL_ADDR, &tmp32);
 	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "reg 0x7b20: %#08x\n", tmp32);
 	rtl837x_sds_reg_read(priv, 0, 0x21, 0x10, &tmp16);
 	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x21  reg 0x10; data = 0x%04x\n", tmp16);
