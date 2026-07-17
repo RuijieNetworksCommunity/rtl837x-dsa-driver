@@ -411,7 +411,7 @@ static int rtl8372n_get_mib_counter(struct rtl837x_priv *priv,
                 u64 *mibvalue)
 {
     int ret;
-	uint32_t val_h, val_l;
+	uint32_t val_h, val_l, val;
 
     int mib_id = (mib->offset)/2;
 
@@ -436,9 +436,11 @@ static int rtl8372n_get_mib_counter(struct rtl837x_priv *priv,
 	} else
 	{
 		if(mib->offset % 2)
-			return rtl837x_reg_read(priv, RTL8373_INDIRECT_ACCESS_CNT_H_ADDR, (u32*)mibvalue);
+			ret = rtl837x_reg_read(priv, RTL8373_INDIRECT_ACCESS_CNT_H_ADDR, &val);
 		else
-			return rtl837x_reg_read(priv, RTL8373_INDIRECT_ACCESS_CNT_L_ADDR, (u32*)mibvalue);
+			ret = rtl837x_reg_read(priv, RTL8373_INDIRECT_ACCESS_CNT_L_ADDR, &val);
+		*mibvalue = val;
+		return ret;
 	}
 }
 
