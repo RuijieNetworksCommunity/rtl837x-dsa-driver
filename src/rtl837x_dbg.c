@@ -41,7 +41,7 @@ ssize_t _vlan_rw_write(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
 	char *buf;
-	uint32_t vlan_id;
+	u32 vlan_id;
 	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
 
@@ -58,7 +58,7 @@ ssize_t _vlan_rw_write(struct file *filep, const char __user *ubuf,
 		else {
 			struct rtl837x_vlan_4k vlan4k;
 			memset(&vlan4k, 0, sizeof(vlan4k));
-			priv->ops->get_vlan_4k(priv,vlan_id,  &vlan4k);
+			priv->ops->get_vlan_4k(priv, vlan_id,  &vlan4k);
 			snprintf(_buf_rd_vlan, 128, "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
 						  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
 		}
@@ -185,7 +185,7 @@ ssize_t _reg_rw_write(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
 	char *buf;
-	uint32_t reg, val;
+	u32 reg, val;
 	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
 	if (*offp)
