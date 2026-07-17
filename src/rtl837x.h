@@ -106,6 +106,7 @@ struct rtl837x_priv {
 
     const struct rtl837x_mib_counter *mib_counters;
 	unsigned int num_mib_counters;
+	struct mutex mib_lock;
 
 	const struct rtl837x_ops *ops;
 	int			(*write_reg_noack)(void *ctx, u32 addr, u32 data);

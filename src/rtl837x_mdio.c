@@ -264,6 +264,8 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 		dev_dbg(priv->dev, "[%s] chip ver 8224: %d\n", __func__, priv->chip_ver_8224);
 	}
 
+	mutex_init(&priv->mib_lock);
+
 	priv->ds = devm_kzalloc(dev, sizeof(*priv->ds), GFP_KERNEL);
 	if (!priv->ds){
 		ret =  -ENOMEM;

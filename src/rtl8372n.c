@@ -15,105 +15,211 @@
 
 #define PORT_TO_SERDES_IDX(port) ((port==3)?0:1)
 
-static const struct rtl837x_mib_counter rtl8372n_mib_counters[] ={
-	{ 0,  2, "ifInOctets"        },
-	{ 2,  2, "ifOutOctets"       },
-	{ 4,  2, "ifInUcastPkts"     },
-	{ 6,  2, "ifInMulticastPkts" },
-	{ 8,  2, "ifInBroadcastPkts" },
-	{ 10, 2, "ifOutUcastPkts"    },
-	{ 12, 2, "ifOutMulticastPkts"},
-	{ 14, 2, "ifOutBroadcastPkts"},
+enum rtl8372n_mib_counter_index {
+	RTL837X_MIB_ifInOctets,
+	RTL837X_MIB_ifOutOctets,
+	RTL837X_MIB_ifInUcastPkts,
+	RTL837X_MIB_ifInMulticastPkts,
+	RTL837X_MIB_ifInBroadcastPkts,
+	RTL837X_MIB_ifOutUcastPkts,
+	RTL837X_MIB_ifOutMulticastPkts,
+	RTL837X_MIB_ifOutBroadcastPkts,
 
-	{ 16, 1, "ifOutDiscards"                    },
-	{ 17, 1, "dot1dTpPortInDiscards"            },
-	{ 18, 1, "dot3StatsSingleCollisionFrames"   },
-	{ 19, 1, "dot3StatMultipleCollisionFrames"  },
-	{ 20, 1, "dot3sDeferredTransmissions"       },
-	{ 21, 1, "dot3StatsLateCollisions"          },
-	{ 22, 1, "dot3StatsExcessiveCollisions"     },
-	{ 23, 1, "dot3StatsSymbolErrors"            },
-	{ 24, 1, "dot3ControlInUnknownOpcodes"      },
-	{ 25, 1, "dot3InPauseFrames"                },
-	{ 26, 1, "dot3OutPauseFrames"               },
-	{ 27, 1, "etherStatsDropEvents"             },
-	{ 28, 1, "tx_etherStatsBroadcastPkts"       },
-	{ 29, 1, "tx_etherStatsMulticastPkts"       },
-	{ 30, 1, "tx_etherStatsCRCAlignErrors"      },
-	{ 31, 1, "rx_etherStatsCRCAlignErrors"      },
-	{ 32, 1, "tx_etherStatsUndersizePkts"       },
-	{ 33, 1, "rx_etherStatsUndersizePkts"       },
-	{ 34, 1, "tx_etherStatsOversizePkts"        },
-	{ 35, 1, "rx_etherStatsOversizePkts"        },
-	{ 36, 1, "tx_etherStatsFragments"           },
-	{ 37, 1, "rx_etherStatsFragments"           },
-	{ 38, 1, "tx_etherStatsJabbers"             },
-	{ 39, 1, "rx_etherStatsJabbers"             },
-	{ 40, 1, "tx_etherStatsCollisions"          },
-	{ 41, 1, "tx_etherStatsPkts64Octets"        },
-	{ 42, 1, "rx_etherStatsPkts64Octets"        },
-	{ 43, 1, "tx_etherStatsPkts65to127Octets"   },
-	{ 44, 1, "rx_etherStatsPkts65to127Octets"   },
-	{ 45, 1, "tx_etherStatsPkts128to255Octets"  },
-	{ 46, 1, "rx_etherStatsPkts128to255Octets"  },
-	{ 47, 1, "tx_etherStatsPkts256to511Octets"  },
-	{ 48, 1, "rx_etherStatsPkts256to511Octets"  },
-	{ 49, 1, "tx_etherStatsPkts512to1023Octets" },
-	{ 50, 1, "rx_etherStatsPkts512to1023Octets" },
-	{ 51, 1, "tx_etherStatsPkts1024to1518Octets"},
-	{ 52, 1, "rx_etherStatsPkts1024to1518Octets"},
+	RTL837X_MIB_ifOutDiscards,
+	RTL837X_MIB_dot1dTpPortInDiscards,
+	RTL837X_MIB_dot3StatsSingleCollisionFrames,
+	RTL837X_MIB_dot3StatsMultipleCollisionFrames,
+	RTL837X_MIB_dot3StatsDeferredTransmissions,
+	RTL837X_MIB_dot3StatsLateCollisions,
+	RTL837X_MIB_dot3StatsExcessiveCollisions,
+	RTL837X_MIB_dot3StatsSymbolErrors,
+	RTL837X_MIB_dot3ControlInUnknownOpcodes,
+	RTL837X_MIB_dot3InPauseFrames,
+	RTL837X_MIB_dot3OutPauseFrames,
+	RTL837X_MIB_etherStatsDropEvents,
+	RTL837X_MIB_tx_etherStatsBroadcastPkts,
+	RTL837X_MIB_tx_etherStatsMulticastPkts,
+	RTL837X_MIB_tx_etherStatsCRCAlignErrors,
+	RTL837X_MIB_rx_etherStatsCRCAlignErrors,
+	RTL837X_MIB_tx_etherStatsUndersizePkts,
+	RTL837X_MIB_rx_etherStatsUndersizePkts,
+	RTL837X_MIB_tx_etherStatsOversizePkts,
+	RTL837X_MIB_rx_etherStatsOversizePkts,
+	RTL837X_MIB_tx_etherStatsFragments,
+	RTL837X_MIB_rx_etherStatsFragments,
+	RTL837X_MIB_tx_etherStatsJabbers,
+	RTL837X_MIB_rx_etherStatsJabbers,
+	RTL837X_MIB_tx_etherStatsCollisions,
+	RTL837X_MIB_tx_etherStatsPkts64Octets,
+	RTL837X_MIB_rx_etherStatsPkts64Octets,
+	RTL837X_MIB_tx_etherStatsPkts65to127Octets,
+	RTL837X_MIB_rx_etherStatsPkts65to127Octets,
+	RTL837X_MIB_tx_etherStatsPkts128to255Octets,
+	RTL837X_MIB_rx_etherStatsPkts128to255Octets,
+	RTL837X_MIB_tx_etherStatsPkts256to511Octets,
+	RTL837X_MIB_rx_etherStatsPkts256to511Octets,
+	RTL837X_MIB_tx_etherStatsPkts512to1023Octets,
+	RTL837X_MIB_rx_etherStatsPkts512to1023Octets,
+	RTL837X_MIB_tx_etherStatsPkts1024to1518Octets,
+	RTL837X_MIB_rx_etherStatsPkts1024to1518Octets,
 
-	{ 54, 1, "rx_etherStatsUndersizedropPkts"        },
-	{ 55, 1, "tx_etherStatsPkts1519toMaxOctets"      },
-	{ 56, 1, "rx_etherStatsPkts1519toMaxOctets"      },
-	{ 57, 1, "tx_etherStatsPktsOverMaxOctets"        },
-	{ 58, 1, "rx_etherStatsPktsOverMaxOctets"        },
-	{ 59, 1, "tx_etherStatsPktsFlexibleOctetsSET1"   },
-	{ 60, 1, "rx_etherStatsPktsFlexibleOctetsSET1"   },
-	{ 61, 1, "tx_etherStatsPktsFlexibleOctetsCRCSET1"},
-	{ 62, 1, "rx_etherStatsPktsFlexibleOctetsCRCSET1"},
-	{ 63, 1, "tx_etherStatsPktsFlexibleOctetsSET0"   },
-	{ 64, 1, "rx_etherStatsPktsFlexibleOctetsSET0"   },
-	{ 65, 1, "tx_etherStatsPktsFlexibleOctetsCRSET0C"},
-	{ 66, 1, "rx_etherStatsPktsFlexibleOctetsCRSET0C"},
-	{ 67, 1, "lengthFieldError"                      },
-	{ 68, 1, "falseCarrieimes"                       },
-	{ 69, 1, "underSizeOctets"                       },
-	{ 70, 1, "framingErrors"                         },
+	RTL837X_MIB_rx_etherStatsUndersizedropPkts,
+	RTL837X_MIB_tx_etherStatsPkts1519toMaxOctets,
+	RTL837X_MIB_rx_etherStatsPkts1519toMaxOctets,
+	RTL837X_MIB_tx_etherStatsPktsOverMaxOctets,
+	RTL837X_MIB_rx_etherStatsPktsOverMaxOctets,
+	RTL837X_MIB_tx_etherStatsPktsFlexibleOctetsSET1,
+	RTL837X_MIB_rx_etherStatsPktsFlexibleOctetsSET1,
+	RTL837X_MIB_tx_etherStatsPktsFlexibleOctetsCRCSET1,
+	RTL837X_MIB_rx_etherStatsPktsFlexibleOctetsCRCSET1,
+	RTL837X_MIB_tx_etherStatsPktsFlexibleOctetsSET0,
+	RTL837X_MIB_rx_etherStatsPktsFlexibleOctetsSET0,
+	RTL837X_MIB_tx_etherStatsPktsFlexibleOctetsCRSET0C,
+	RTL837X_MIB_rx_etherStatsPktsFlexibleOctetsCRSET0C,
+	RTL837X_MIB_lengthFieldError,
+	RTL837X_MIB_falseCarrieimes,
+	RTL837X_MIB_underSizeOctets,
+	RTL837X_MIB_framingErrors,
 
-	{ 72, 1, "rxMacDiscards"              },
-	{ 73, 1, "rxMacIPGShortDropRT"        },
+	RTL837X_MIB_rxMacDiscards,
+	RTL837X_MIB_rxMacIPGShortDropRT,
 
-	{ 75, 1, "dot1dTpLearnedEntryDiscards"},
-	{ 76, 1, "egrQueue7DropPktRT"         },
-	{ 77, 1, "egrQueue6DropPktRT"         },
-	{ 78, 1, "egrQueue5DropPktRT"         },
-	{ 79, 1, "egrQueue4DropPktRT"         },
-	{ 80, 1, "egrQueue3DropPktRT"         },
-	{ 81, 1, "egrQueue2DropPktRT"         },
-	{ 82, 1, "egrQueue1DropPktRT"         },
-	{ 83, 1, "egrQueue0DropPktRT"         },
-	{ 84, 1, "egrQueue7OutPktRT"          },
-	{ 85, 1, "egrQueue6OutPktRT"          },
-	{ 86, 1, "egrQueue5OutPktRT"          },
-	{ 87, 1, "egrQueue4OutPktRT"          },
-	{ 88, 1, "egrQueue3OutPktRT"          },
-	{ 89, 1, "egrQueue2OutPktRT"          },
-	{ 90, 1, "egrQueue1OutPktRT"          },
-	{ 91, 1, "egrQueue0OutPktRT"          },
+	RTL837X_MIB_dot1dTpLearnedEntryDiscards,
+	RTL837X_MIB_egrQueue7DropPktRT,
+	RTL837X_MIB_egrQueue6DropPktRT,
+	RTL837X_MIB_egrQueue5DropPktRT,
+	RTL837X_MIB_egrQueue4DropPktRT,
+	RTL837X_MIB_egrQueue3DropPktRT,
+	RTL837X_MIB_egrQueue2DropPktRT,
+	RTL837X_MIB_egrQueue1DropPktRT,
+	RTL837X_MIB_egrQueue0DropPktRT,
+	RTL837X_MIB_egrQueue7OutPktRT,
+	RTL837X_MIB_egrQueue6OutPktRT,
+	RTL837X_MIB_egrQueue5OutPktRT,
+	RTL837X_MIB_egrQueue4OutPktRT,
+	RTL837X_MIB_egrQueue3OutPktRT,
+	RTL837X_MIB_egrQueue2OutPktRT,
+	RTL837X_MIB_egrQueue1OutPktRT,
+	RTL837X_MIB_egrQueue0OutPktRT,
 
-	{ 92, 2, "TxGoodCnt"                  },
-	{ 94, 2, "RxGoodCnt"                  },
+	RTL837X_MIB_TxGoodCnt,
+	RTL837X_MIB_RxGoodCnt,
 
-	{ 96, 1, "RxErrorCnt"                 },
-	{ 97, 1, "TxErrorCnt"                 },
+	RTL837X_MIB_RxErrorCnt,
+	RTL837X_MIB_TxErrorCnt,
 
-	{ 98, 2, "TxGoodCnt_phy"              },
-	{ 100, 2, "RxGoodCnt_phy"             },
+	RTL837X_MIB_TxGoodCnt_phy,
+	RTL837X_MIB_RxGoodCnt_phy,
 
-	{ 102, 1, "RxErrorCnt_phy"            },
-	{ 103, 1, "TxErrorCnt_phy"            }
+	RTL837X_MIB_RxErrorCnt_phy,
+	RTL837X_MIB_TxErrorCnt_phy,
+	RTL837X_MIB_END,
 };
+
+#define RTL837X_MAKE_MIB_COUNTER(_offset, _length, _name) \
+		[RTL837X_MIB_ ## _name] = { _offset, _length, #_name }
+
+static const struct rtl837x_mib_counter rtl8372n_mib_counters[] ={
+	RTL837X_MAKE_MIB_COUNTER(0,  2, ifInOctets        ),
+	RTL837X_MAKE_MIB_COUNTER(2,  2, ifOutOctets       ),
+	RTL837X_MAKE_MIB_COUNTER(4,  2, ifInUcastPkts     ),
+	RTL837X_MAKE_MIB_COUNTER(6,  2, ifInMulticastPkts ),
+	RTL837X_MAKE_MIB_COUNTER(8,  2, ifInBroadcastPkts ),
+	RTL837X_MAKE_MIB_COUNTER(10, 2, ifOutUcastPkts    ),
+	RTL837X_MAKE_MIB_COUNTER(12, 2, ifOutMulticastPkts),
+	RTL837X_MAKE_MIB_COUNTER(14, 2, ifOutBroadcastPkts),
+
+	RTL837X_MAKE_MIB_COUNTER(16, 1, ifOutDiscards                    ),
+	RTL837X_MAKE_MIB_COUNTER(17, 1, dot1dTpPortInDiscards            ),
+	RTL837X_MAKE_MIB_COUNTER(18, 1, dot3StatsSingleCollisionFrames   ),
+	RTL837X_MAKE_MIB_COUNTER(19, 1, dot3StatsMultipleCollisionFrames ),
+	RTL837X_MAKE_MIB_COUNTER(20, 1, dot3StatsDeferredTransmissions   ),
+	RTL837X_MAKE_MIB_COUNTER(21, 1, dot3StatsLateCollisions          ),
+	RTL837X_MAKE_MIB_COUNTER(22, 1, dot3StatsExcessiveCollisions     ),
+	RTL837X_MAKE_MIB_COUNTER(23, 1, dot3StatsSymbolErrors            ),
+	RTL837X_MAKE_MIB_COUNTER(24, 1, dot3ControlInUnknownOpcodes      ),
+	RTL837X_MAKE_MIB_COUNTER(25, 1, dot3InPauseFrames                ),
+	RTL837X_MAKE_MIB_COUNTER(26, 1, dot3OutPauseFrames               ),
+	RTL837X_MAKE_MIB_COUNTER(27, 1, etherStatsDropEvents             ),
+	RTL837X_MAKE_MIB_COUNTER(28, 1, tx_etherStatsBroadcastPkts       ),
+	RTL837X_MAKE_MIB_COUNTER(29, 1, tx_etherStatsMulticastPkts       ),
+	RTL837X_MAKE_MIB_COUNTER(30, 1, tx_etherStatsCRCAlignErrors      ),
+	RTL837X_MAKE_MIB_COUNTER(31, 1, rx_etherStatsCRCAlignErrors      ),
+	RTL837X_MAKE_MIB_COUNTER(32, 1, tx_etherStatsUndersizePkts       ),
+	RTL837X_MAKE_MIB_COUNTER(33, 1, rx_etherStatsUndersizePkts       ),
+	RTL837X_MAKE_MIB_COUNTER(34, 1, tx_etherStatsOversizePkts        ),
+	RTL837X_MAKE_MIB_COUNTER(35, 1, rx_etherStatsOversizePkts        ),
+	RTL837X_MAKE_MIB_COUNTER(36, 1, tx_etherStatsFragments           ),
+	RTL837X_MAKE_MIB_COUNTER(37, 1, rx_etherStatsFragments           ),
+	RTL837X_MAKE_MIB_COUNTER(38, 1, tx_etherStatsJabbers             ),
+	RTL837X_MAKE_MIB_COUNTER(39, 1, rx_etherStatsJabbers             ),
+	RTL837X_MAKE_MIB_COUNTER(40, 1, tx_etherStatsCollisions          ),
+	RTL837X_MAKE_MIB_COUNTER(41, 1, tx_etherStatsPkts64Octets        ),
+	RTL837X_MAKE_MIB_COUNTER(42, 1, rx_etherStatsPkts64Octets        ),
+	RTL837X_MAKE_MIB_COUNTER(43, 1, tx_etherStatsPkts65to127Octets   ),
+	RTL837X_MAKE_MIB_COUNTER(44, 1, rx_etherStatsPkts65to127Octets   ),
+	RTL837X_MAKE_MIB_COUNTER(45, 1, tx_etherStatsPkts128to255Octets  ),
+	RTL837X_MAKE_MIB_COUNTER(46, 1, rx_etherStatsPkts128to255Octets  ),
+	RTL837X_MAKE_MIB_COUNTER(47, 1, tx_etherStatsPkts256to511Octets  ),
+	RTL837X_MAKE_MIB_COUNTER(48, 1, rx_etherStatsPkts256to511Octets  ),
+	RTL837X_MAKE_MIB_COUNTER(49, 1, tx_etherStatsPkts512to1023Octets ),
+	RTL837X_MAKE_MIB_COUNTER(50, 1, rx_etherStatsPkts512to1023Octets ),
+	RTL837X_MAKE_MIB_COUNTER(51, 1, tx_etherStatsPkts1024to1518Octets),
+	RTL837X_MAKE_MIB_COUNTER(52, 1, rx_etherStatsPkts1024to1518Octets),
+
+	RTL837X_MAKE_MIB_COUNTER(54, 1, rx_etherStatsUndersizedropPkts        ),
+	RTL837X_MAKE_MIB_COUNTER(55, 1, tx_etherStatsPkts1519toMaxOctets      ),
+	RTL837X_MAKE_MIB_COUNTER(56, 1, rx_etherStatsPkts1519toMaxOctets      ),
+	RTL837X_MAKE_MIB_COUNTER(57, 1, tx_etherStatsPktsOverMaxOctets        ),
+	RTL837X_MAKE_MIB_COUNTER(58, 1, rx_etherStatsPktsOverMaxOctets        ),
+	RTL837X_MAKE_MIB_COUNTER(59, 1, tx_etherStatsPktsFlexibleOctetsSET1   ),
+	RTL837X_MAKE_MIB_COUNTER(60, 1, rx_etherStatsPktsFlexibleOctetsSET1   ),
+	RTL837X_MAKE_MIB_COUNTER(61, 1, tx_etherStatsPktsFlexibleOctetsCRCSET1),
+	RTL837X_MAKE_MIB_COUNTER(62, 1, rx_etherStatsPktsFlexibleOctetsCRCSET1),
+	RTL837X_MAKE_MIB_COUNTER(63, 1, tx_etherStatsPktsFlexibleOctetsSET0   ),
+	RTL837X_MAKE_MIB_COUNTER(64, 1, rx_etherStatsPktsFlexibleOctetsSET0   ),
+	RTL837X_MAKE_MIB_COUNTER(65, 1, tx_etherStatsPktsFlexibleOctetsCRSET0C),
+	RTL837X_MAKE_MIB_COUNTER(66, 1, rx_etherStatsPktsFlexibleOctetsCRSET0C),
+	RTL837X_MAKE_MIB_COUNTER(67, 1, lengthFieldError                      ),
+	RTL837X_MAKE_MIB_COUNTER(68, 1, falseCarrieimes                       ),
+	RTL837X_MAKE_MIB_COUNTER(69, 1, underSizeOctets                       ),
+	RTL837X_MAKE_MIB_COUNTER(70, 1, framingErrors                         ),
+
+	RTL837X_MAKE_MIB_COUNTER(72, 1, rxMacDiscards              ),
+	RTL837X_MAKE_MIB_COUNTER(73, 1, rxMacIPGShortDropRT        ),
+
+	RTL837X_MAKE_MIB_COUNTER(75, 1, dot1dTpLearnedEntryDiscards),
+	RTL837X_MAKE_MIB_COUNTER(76, 1, egrQueue7DropPktRT         ),
+	RTL837X_MAKE_MIB_COUNTER(77, 1, egrQueue6DropPktRT         ),
+	RTL837X_MAKE_MIB_COUNTER(78, 1, egrQueue5DropPktRT         ),
+	RTL837X_MAKE_MIB_COUNTER(79, 1, egrQueue4DropPktRT         ),
+	RTL837X_MAKE_MIB_COUNTER(80, 1, egrQueue3DropPktRT         ),
+	RTL837X_MAKE_MIB_COUNTER(81, 1, egrQueue2DropPktRT         ),
+	RTL837X_MAKE_MIB_COUNTER(82, 1, egrQueue1DropPktRT         ),
+	RTL837X_MAKE_MIB_COUNTER(83, 1, egrQueue0DropPktRT         ),
+	RTL837X_MAKE_MIB_COUNTER(84, 1, egrQueue7OutPktRT          ),
+	RTL837X_MAKE_MIB_COUNTER(85, 1, egrQueue6OutPktRT          ),
+	RTL837X_MAKE_MIB_COUNTER(86, 1, egrQueue5OutPktRT          ),
+	RTL837X_MAKE_MIB_COUNTER(87, 1, egrQueue4OutPktRT          ),
+	RTL837X_MAKE_MIB_COUNTER(88, 1, egrQueue3OutPktRT          ),
+	RTL837X_MAKE_MIB_COUNTER(89, 1, egrQueue2OutPktRT          ),
+	RTL837X_MAKE_MIB_COUNTER(90, 1, egrQueue1OutPktRT          ),
+	RTL837X_MAKE_MIB_COUNTER(91, 1, egrQueue0OutPktRT          ),
+
+	RTL837X_MAKE_MIB_COUNTER(92, 2, TxGoodCnt                  ),
+	RTL837X_MAKE_MIB_COUNTER(94, 2, RxGoodCnt                  ),
+
+	RTL837X_MAKE_MIB_COUNTER(96, 1, RxErrorCnt                 ),
+	RTL837X_MAKE_MIB_COUNTER(97, 1, TxErrorCnt                 ),
+
+	RTL837X_MAKE_MIB_COUNTER(98, 2, TxGoodCnt_phy              ),
+	RTL837X_MAKE_MIB_COUNTER(100,2, RxGoodCnt_phy              ),
+
+	RTL837X_MAKE_MIB_COUNTER(102, 1,RxErrorCnt_phy             ),
+	RTL837X_MAKE_MIB_COUNTER(103, 1,TxErrorCnt_phy             )
+};
+
+static_assert(ARRAY_SIZE(rtl8372n_mib_counters) == RTL837X_MIB_END);
 
 struct rtl8372n_pcs
 {
@@ -1333,6 +1439,7 @@ static void rtl8372n_get_ethtool_stats(struct dsa_switch *ds, int port, uint64_t
 	if (port >= priv->num_ports)
 		return;
 
+	mutex_lock(&priv->mib_lock);
 	for (i = 0; i < priv->num_mib_counters; i++) {
 		u64 mibvalue = 0;
 
@@ -1344,6 +1451,7 @@ static void rtl8372n_get_ethtool_stats(struct dsa_switch *ds, int port, uint64_t
 		}
 		data[i] = mibvalue;
 	}
+	mutex_unlock(&priv->mib_lock);
 }
 
 static int rtl8372n_get_sset_count(struct dsa_switch *ds, int port, int sset)
@@ -1357,6 +1465,100 @@ static int rtl8372n_get_sset_count(struct dsa_switch *ds, int port, int sset)
 		return -EINVAL;
 
 	return priv->num_mib_counters;
+}
+
+static void rtl8372n_get_phy_stats(struct dsa_switch *ds, int port,
+				    struct ethtool_eth_phy_stats *phy_stats)
+{
+	struct rtl837x_priv *priv = ds->priv;
+	const struct rtl837x_mib_counter *mib;
+
+	mib = &priv->mib_counters[RTL837X_MIB_dot3StatsSymbolErrors];
+
+	mutex_lock(&priv->mib_lock);
+	priv->ops->get_mib_counter(priv, port, mib,
+				   &phy_stats->SymbolErrorDuringCarrier);
+	mutex_unlock(&priv->mib_lock);
+}
+
+static void rtl8372n_get_mac_stats(struct dsa_switch *ds, int port,
+				    struct ethtool_eth_mac_stats *mac_stats)
+{
+	u64 cnt[RTL837X_MIB_END] = {
+		[RTL837X_MIB_ifOutOctets] = 1,
+		[RTL837X_MIB_ifOutMulticastPkts] = 1,
+		[RTL837X_MIB_ifOutBroadcastPkts] = 1,
+		[RTL837X_MIB_falseCarrieimes] = 1,
+		[RTL837X_MIB_ifInOctets] = 1,
+		[RTL837X_MIB_ifInMulticastPkts] = 1,
+		[RTL837X_MIB_ifInBroadcastPkts] = 1,
+		[RTL837X_MIB_dot3StatsSingleCollisionFrames] = 1,
+		[RTL837X_MIB_dot3StatsMultipleCollisionFrames] = 1,
+		[RTL837X_MIB_framingErrors] = 1,
+		[RTL837X_MIB_dot3StatsDeferredTransmissions] = 1,
+		[RTL837X_MIB_dot3StatsLateCollisions] = 1,
+		[RTL837X_MIB_dot3StatsExcessiveCollisions] = 1,
+		[RTL837X_MIB_TxGoodCnt] = 1,
+		[RTL837X_MIB_RxGoodCnt] = 1,
+	};
+
+	struct rtl837x_priv *priv = ds->priv;
+	int ret;
+	int i;
+
+	mutex_lock(&priv->mib_lock);
+	for (i = 0; i < RTL837X_MIB_END; i++) {
+		const struct rtl837x_mib_counter *mib = &priv->mib_counters[i];
+
+		/* Only fetch required MIB counters (marked = 1 above) */
+		if (!cnt[i])
+			continue;
+
+		ret = priv->ops->get_mib_counter(priv, port, mib, &cnt[i]);
+		if (ret)
+			break;
+	}
+	mutex_unlock(&priv->mib_lock);
+
+	mac_stats->FramesTransmittedOK = cnt[RTL837X_MIB_TxGoodCnt];
+	mac_stats->SingleCollisionFrames =
+		cnt[RTL837X_MIB_dot3StatsSingleCollisionFrames];
+	mac_stats->MultipleCollisionFrames =
+		cnt[RTL837X_MIB_dot3StatsMultipleCollisionFrames];
+	mac_stats->FramesReceivedOK = cnt[RTL837X_MIB_RxGoodCnt];
+	mac_stats->FrameCheckSequenceErrors =
+		cnt[RTL837X_MIB_framingErrors];
+	mac_stats->OctetsTransmittedOK = cnt[RTL837X_MIB_ifOutOctets] -
+					 18 * mac_stats->FramesTransmittedOK;
+	mac_stats->FramesWithDeferredXmissions =
+		cnt[RTL837X_MIB_dot3StatsDeferredTransmissions];
+	mac_stats->LateCollisions = cnt[RTL837X_MIB_dot3StatsLateCollisions];
+	mac_stats->FramesAbortedDueToXSColls =
+		cnt[RTL837X_MIB_dot3StatsExcessiveCollisions];
+	mac_stats->CarrierSenseErrors = cnt[RTL837X_MIB_falseCarrieimes];
+	mac_stats->OctetsReceivedOK = cnt[RTL837X_MIB_ifInOctets] -
+				      18 * mac_stats->FramesReceivedOK;
+	mac_stats->MulticastFramesXmittedOK =
+		cnt[RTL837X_MIB_ifOutMulticastPkts];
+	mac_stats->BroadcastFramesXmittedOK =
+		cnt[RTL837X_MIB_ifOutBroadcastPkts];
+	mac_stats->MulticastFramesReceivedOK =
+		cnt[RTL837X_MIB_ifInMulticastPkts];
+	mac_stats->BroadcastFramesReceivedOK =
+		cnt[RTL837X_MIB_ifInBroadcastPkts];
+}
+
+static void rtl8372n_get_ctrl_stats(struct dsa_switch *ds, int port,
+				     struct ethtool_eth_ctrl_stats *ctrl_stats)
+{
+	struct rtl837x_priv *priv = ds->priv;
+	const struct rtl837x_mib_counter *mib = 
+		  &priv->mib_counters[RTL837X_MIB_dot3ControlInUnknownOpcodes];
+
+	mutex_lock(&priv->mib_lock);
+	priv->ops->get_mib_counter(priv, port, mib,
+			  &ctrl_stats->UnsupportedOpcodesReceived);
+	mutex_unlock(&priv->mib_lock);
 }
 
 static int rtl8372n_vlan_filtering(struct dsa_switch *ds, int port,
@@ -1625,6 +1827,9 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.get_strings = rtl8372n_get_strings,
 	.get_ethtool_stats = rtl8372n_get_ethtool_stats,
 	.get_sset_count = rtl8372n_get_sset_count,
+	.get_eth_phy_stats = rtl8372n_get_phy_stats,
+	.get_eth_mac_stats = rtl8372n_get_mac_stats,
+	.get_eth_ctrl_stats = rtl8372n_get_ctrl_stats,
 
 	.port_vlan_filtering = rtl8372n_vlan_filtering,
 	.port_vlan_add = rtl8372n_vlan_add,
