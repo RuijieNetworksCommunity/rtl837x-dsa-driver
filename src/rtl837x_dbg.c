@@ -15,6 +15,9 @@ static int simple_debugfs_open(struct inode *inode, struct file *file)
 	return single_open(file, NULL, inode->i_private);
 }
 
+#define MAKE_WRITE_FUNCNAME(_name) _##_name##_rw_write
+#define MAKE_WRITE_BUFNAME(_name) _buf_rd_##_name
+
 #define REGRWFUNC(name, BUF_SIZE) \
 	static char _buf_rd_##name[BUF_SIZE];  \
 	static ssize_t _##name##_rw_read(struct file *filep, char __user *ubuf,  \
@@ -27,7 +30,7 @@ static int simple_debugfs_open(struct inode *inode, struct file *file)
 	static const struct file_operations _##name##_rw_fops = {   \
 		.owner = THIS_MODULE,   \
 		.open = simple_debugfs_open,   \
-		.write = _##name##_rw_write,   \
+		.write = MAKE_WRITE_FUNCNAME(name),   \
 		.read = _##name##_rw_read   \
 	};
 
@@ -35,9 +38,11 @@ REGRWFUNC(vlan, 128)
 REGRWFUNC(pvid, 64)
 REGRWFUNC(reg, 64)
 REGRWFUNC(phyreg_mmd, 64)
+REGRWFUNC(phyreg_mii, 64)
+REGRWFUNC(phyreg_ocp, 64)
 REGRWFUNC(sdsreg, 64)
 
-ssize_t _vlan_rw_write(struct file *filep, const char __user *ubuf,
+ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
 	char *buf;
@@ -59,16 +64,16 @@ ssize_t _vlan_rw_write(struct file *filep, const char __user *ubuf,
 			struct rtl837x_vlan_4k vlan4k;
 			memset(&vlan4k, 0, sizeof(vlan4k));
 			priv->ops->get_vlan_4k(priv, vlan_id,  &vlan4k);
-			snprintf(_buf_rd_vlan, 128, "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
+			snprintf(MAKE_WRITE_BUFNAME(vlan), 128, "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
 						  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
 		}
 	} else {
-		snprintf(_buf_rd_vlan, 128, "echo \"r <vlan_id>\" > vlan_dump\n");
+		snprintf(MAKE_WRITE_BUFNAME(vlan), 128, "echo \"r <vlan_id>\" > vlan_dump\n");
 	}
 	return count;
 }
 
-ssize_t _pvid_rw_write(struct file *filep, const char __user *ubuf,
+ssize_t MAKE_WRITE_FUNCNAME(pvid)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
 	char *buf;
@@ -98,15 +103,15 @@ ssize_t _pvid_rw_write(struct file *filep, const char __user *ubuf,
 			ret = rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_PB_VLAN_ADDR(port),
 					  RTL8373_VLAN_PORT_PB_VLAN_PVID_MASK(port), &pvid);
 			if (ret) return -EIO;
-			snprintf(_buf_rd_pvid, 64, "port: %d, pvid: %d\n", port, pvid);
+			snprintf(MAKE_WRITE_BUFNAME(pvid), 64, "port: %d, pvid: %d\n", port, pvid);
 		}
 	} else {
-		snprintf(_buf_rd_sdsreg, 64, "echo \"w/r <port> [<pvid>]\" > pvid\n");
+		snprintf(MAKE_WRITE_BUFNAME(pvid), 64, "echo \"w/r <port> [<pvid>]\" > pvid\n");
 	}
 	return count;
 }
 
-ssize_t _sdsreg_rw_write(struct file *filep, const char __user *ubuf,
+ssize_t MAKE_WRITE_FUNCNAME(sdsreg)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
 	char *buf;
@@ -135,15 +140,15 @@ ssize_t _sdsreg_rw_write(struct file *filep, const char __user *ubuf,
 			return -EFAULT;
 		else {
 			rtl837x_sds_reg_read(priv, sds_id, page, reg, &tmp16);
-			snprintf(_buf_rd_sdsreg, 64, "sds_id: %d, page: 0x%08x, reg: 0x%08x, val: 0x%08x\n", sds_id, page, reg, tmp16);
+			snprintf(MAKE_WRITE_BUFNAME(sdsreg), 64, "sds_id: %d, page: 0x%08x, reg: 0x%08x, val: 0x%08x\n", sds_id, page, reg, tmp16);
 		}
 	} else {
-		snprintf(_buf_rd_sdsreg, 64, "echo \"w/r <sds_id> <page> <reg> [<val>]\" > sdsreg\n");
+		snprintf(MAKE_WRITE_BUFNAME(sdsreg), 64, "echo \"w/r <sds_id> <page> <reg> [<val>]\" > sdsreg\n");
 	}
 	return count;
 }
 
-ssize_t _phyreg_mmd_rw_write(struct file *filep, const char __user *ubuf,
+ssize_t MAKE_WRITE_FUNCNAME(phyreg_mmd)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
 	char *buf;
@@ -173,15 +178,92 @@ ssize_t _phyreg_mmd_rw_write(struct file *filep, const char __user *ubuf,
 		else {
 			if (priv->ops->phy_read_c45(priv, port, devad, reg, &tmp16))
 				return -EIO;
-			snprintf(_buf_rd_phyreg_mmd, 64, "port: %d, devad: 0x%08x, reg: 0x%08x, val: 0x%08x\n", port, devad, reg, tmp16);
+			snprintf(MAKE_WRITE_BUFNAME(phyreg_mmd), 64, "port: %d, devad: 0x%08x, reg: 0x%08x, val: 0x%08x\n", port, devad, reg, tmp16);
 		}
 	} else {
-		snprintf(_buf_rd_phyreg_mmd, 64, "echo \"w/r <real_port_index> <devad> <reg> [<val>]\" > phyreg_mmd\n");
+		snprintf(MAKE_WRITE_BUFNAME(phyreg_mmd), 64, "echo \"w/r <real_port_index> <devad> <reg> [<val>]\" > phyreg_mmd\n");
 	}
 	return count;
 }
 
-ssize_t _reg_rw_write(struct file *filep, const char __user *ubuf,
+
+ssize_t MAKE_WRITE_FUNCNAME(phyreg_mii)(struct file *filep, const char __user *ubuf,
+				   size_t count, loff_t *offp)
+{
+	char *buf;
+	u32 port, reg, val;
+	u16 tmp16;
+	struct seq_file *sfile;
+	struct rtl837x_priv *priv;
+
+	sfile = filep->private_data;
+	priv = sfile->private;
+
+	buf = memdup_user_nul(ubuf, count);
+	if (IS_ERR(buf))
+		return PTR_ERR(buf);
+	
+	if(buf[0] == 'w') {
+		if(sscanf(buf, "w %d %x %x", &port, &reg, &val) == -1)
+			return -EFAULT;
+		else{
+			if (port > 9)
+				return -EFAULT;
+			rtl837x_phy_write_c22(priv, port, reg, val);
+		}
+	} else if(buf[0] == 'r') {
+		if(sscanf(buf, "r %d %x", &port, &reg) == -1)
+			return -EFAULT;
+		else {
+			if (rtl837x_phy_read_c22(priv, port, reg, &tmp16))
+				return -EIO;
+			snprintf(MAKE_WRITE_BUFNAME(phyreg_mii), 64, "port: %d, reg: 0x%08x, val: 0x%08x\n", port, reg, tmp16);
+		}
+	} else {
+		snprintf(MAKE_WRITE_BUFNAME(phyreg_mii), 64, "echo \"w/r <real_port_index> <reg> [<val>]\" > phyreg_mii\n");
+	}
+	return count;
+}
+
+ssize_t MAKE_WRITE_FUNCNAME(phyreg_ocp)(struct file *filep, const char __user *ubuf,
+				   size_t count, loff_t *offp)
+{
+	char *buf;
+	u32 port, reg, val;
+	u16 tmp16;
+	struct seq_file *sfile;
+	struct rtl837x_priv *priv;
+
+	sfile = filep->private_data;
+	priv = sfile->private;
+
+	buf = memdup_user_nul(ubuf, count);
+	if (IS_ERR(buf))
+		return PTR_ERR(buf);
+	
+	if(buf[0] == 'w') {
+		if(sscanf(buf, "w %d %x %x", &port, &reg, &val) == -1)
+			return -EFAULT;
+		else{
+			if (port > 9)
+				return -EFAULT;
+			rtl837x_phy_write_c22(priv, port, reg, val);
+		}
+	} else if(buf[0] == 'r') {
+		if(sscanf(buf, "r %d %x", &port, &reg) == -1)
+			return -EFAULT;
+		else {
+			if (rtl837x_phy_read_c22(priv, port, reg, &tmp16))
+				return -EIO;
+			snprintf(MAKE_WRITE_BUFNAME(phyreg_ocp), 64, "port: %d, reg: 0x%08x, val: 0x%08x\n", port, reg, tmp16);
+		}
+	} else {
+		snprintf(MAKE_WRITE_BUFNAME(phyreg_ocp), 64, "echo \"w/r <real_port_index> <reg> [<val>]\" > phyreg_ocp\n");
+	}
+	return count;
+}
+
+ssize_t MAKE_WRITE_FUNCNAME(reg)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
 {
 	char *buf;
@@ -208,10 +290,10 @@ ssize_t _reg_rw_write(struct file *filep, const char __user *ubuf,
 			return -EFAULT;
 		else {
 			rtl837x_reg_read(priv, reg, &val);
-			snprintf(_buf_rd_reg, 64, "reg: 0x%08x, val: 0x%08x\n", reg, val);
+			snprintf(MAKE_WRITE_BUFNAME(reg), 64, "reg: 0x%08x, val: 0x%08x\n", reg, val);
 		}
 	} else {
-		snprintf(_buf_rd_reg, 64, "echo \"w/r <reg> [<val>]\" > reg\n");
+		snprintf(MAKE_WRITE_BUFNAME(reg), 64, "echo \"w/r <reg> [<val>]\" > reg\n");
 	}
 	return count;
 }
@@ -299,6 +381,14 @@ int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 	debugfs_create_file("phy_mmd", 0600,
 		priv->debugfs_parent, priv,
 		&TO_FOPS(phyreg_mmd));
+
+	debugfs_create_file("phy_mii", 0600,
+		priv->debugfs_parent, priv,
+		&TO_FOPS(phyreg_mii));
+
+	debugfs_create_file("phy_mii", 0600,
+		priv->debugfs_parent, priv,
+		&TO_FOPS(phyreg_ocp));
 
 	debugfs_create_file("sdsreg", 0600,
 		priv->debugfs_parent, priv,
