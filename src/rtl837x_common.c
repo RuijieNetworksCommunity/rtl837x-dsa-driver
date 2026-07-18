@@ -275,6 +275,66 @@ int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regn
 	return 0;
 }
 
+int rtl837x_phy_read_ocp(struct rtl837x_priv *priv, u16 phy, int regnum, u16 *pval)
+{
+	int ret;
+    u32 tmp;
+	tmp = FIELD_PREP(RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_ADDR_MASK, regnum) |
+		  FIELD_PREP(RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_PHYADR_MASK, phy) |
+		  FIELD_PREP(RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_RW_MASK, 0) |
+		  FIELD_PREP(RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_CMD_MASK, 1);
+
+	ret = rtl837x_reg_write(priv, RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp);
+	if (ret)
+		return ret;
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp, 
+		((tmp & (RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_CMD_MASK | RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_FAIL_MASK))==0),
+		0, 1000);
+	if (ret)
+		return ret;
+
+	ret = rtl837x_reg_read(priv, RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_1_ADDR, &tmp);
+	if (ret)
+		return ret;
+	*pval = (tmp & RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_1_INT_PHY_OCP_INDACC_RDDATA_MASK) >> __ffs(RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_1_INT_PHY_OCP_INDACC_RDDATA_MASK); 
+    return 0;
+}
+
+int rtl837x_phy_write_ocp(struct rtl837x_priv *priv, u16 phy, int regnum, u16 val)
+{
+	int ret;
+    u32 tmp;
+	ret = rtl837x_reg_write(priv, RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_2_ADDR, val);
+	if (ret)
+		return ret;
+
+	tmp = FIELD_PREP(RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_ADDR_MASK, regnum) |
+		  FIELD_PREP(RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_PHYADR_MASK, phy) |
+		  FIELD_PREP(RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_RW_MASK, 1) |
+		  FIELD_PREP(RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_CMD_MASK, 1);
+
+	ret = rtl837x_reg_write(priv, RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp);
+	if (ret)
+		return ret;
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp, 
+		((tmp & (RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_CMD_MASK | RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_FAIL_MASK))==0),
+		0, 1000);
+	if (ret)
+		return ret;
+    return 0;
+}
+
+// It seems that the C22 function is incomplete on phy rtl8224?
+int rtl837x_phy_read_c22(struct rtl837x_priv *priv, u16 phy, int regnum, u16 *pval)
+{
+	return rtl837x_phy_read_ocp(priv, phy, 0xA400 + (regnum * 2), pval);
+}
+
+int rtl837x_phy_write_c22(struct rtl837x_priv *priv, u16 phy, int regnum, u16 val)
+{
+	return rtl837x_phy_write_ocp(priv, phy, 0xA400 + (regnum * 2), val);
+}
+
 int rtl837x_phys_write_c45(struct rtl837x_priv *priv, u16 phy_mask, int devad, int regnum, u16 val)
 {
 	int ret;

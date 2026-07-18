@@ -160,7 +160,12 @@ struct rtl837x_ops {
 			       const struct rtl837x_vlan_4k *vlan4k);
 	bool	(*is_vlan_valid)(struct rtl837x_priv *priv, unsigned int vlan);
 	int	(*enable_vlan)(struct rtl837x_priv *priv, bool enable);
-	
+
+	int	(*phy_read_c22)(struct rtl837x_priv *priv, u16 phy, int regnum,
+				u16 *pval);
+	int	(*phy_write_c22)(struct rtl837x_priv *priv, u16 phy, int regnum,
+				u16 val);
+
 	int	(*phy_read_c45)(struct rtl837x_priv *priv, int phy, int devad, int regnum,
 				u16 *pval);
 	int	(*phy_write_c45)(struct rtl837x_priv *priv, int phy, int devad, int regnum,
@@ -181,6 +186,10 @@ extern rtk_sds_mode_t phy_interface_to_rtk_sds_mode(phy_interface_t interface);
 extern int rtl837x_debug_proc_init(struct rtl837x_priv *priv);
 extern int rtl837x_debug_proc_deinit(struct rtl837x_priv *priv);
 
+extern int rtl837x_phy_read_ocp(struct rtl837x_priv *priv, u16 phy, int regnum, u16 *pval);
+extern int rtl837x_phy_write_ocp(struct rtl837x_priv *priv, u16 phy, int regnum, u16 val);
+extern int rtl837x_phy_read_c22(struct rtl837x_priv *priv, u16 phy, int regnum, u16 *pval);
+extern int rtl837x_phy_write_c22(struct rtl837x_priv *priv, u16 phy, int regnum, u16 val);
 extern int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 *pval);
 extern int rtl837x_phys_write_c45(struct rtl837x_priv *priv, u16 phy_mask, int devad, int regnum, u16 val);
 extern int rtl837x_phy_write_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 val);

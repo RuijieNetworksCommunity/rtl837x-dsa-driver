@@ -460,6 +460,25 @@ static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
 	return priv->tag_proto;
 }
 
+static int rtl8372n_mdio_phy_read_c22(struct mii_bus *bus, int addr, int regnum)
+{
+	struct rtl837x_priv *priv = bus->priv;
+	u16 val;
+
+	int ret = priv->ops->phy_read_c22(priv, addr, regnum, &val);
+	if (ret)
+		return ret;
+
+	return val;
+}
+
+static int rtl8372n_mdio_phy_write_c22(struct mii_bus *bus, int addr, int regnum, u16 val)
+{
+	struct rtl837x_priv *priv = bus->priv;
+
+	return priv->ops->phy_write_c22(priv, addr, regnum, val);
+}
+
 static int rtl8372n_mdio_phy_read_c45(struct mii_bus *bus, int port, int devad, int regnum)
 {
 	struct rtl837x_priv *priv = bus->priv;
@@ -507,8 +526,8 @@ static int rtl8372n_setup_mdio(struct rtl837x_priv *priv)
     bus->priv = priv;
 	bus->name = KBUILD_MODNAME "-mii";
 	snprintf(bus->id, MII_BUS_ID_SIZE, KBUILD_MODNAME "-%d", idx++);
-	// bus->read = rtl8372n_phy_read_c22;
-	// bus->write = rtl8372n_phy_write_c22;
+	bus->read = rtl8372n_mdio_phy_read_c22;
+	bus->write = rtl8372n_mdio_phy_write_c22;
 	bus->read_c45 = rtl8372n_mdio_phy_read_c45;
 	bus->write_c45 = rtl8372n_mdio_phy_write_c45;
 	bus->parent = dev;
@@ -685,12 +704,8 @@ static void rtl8372n_phylink_mac_link_down(struct phylink_config *config, unsign
 		dev_info(priv->dev, "MAC link down on phy port (%d)\n", port);
 		break;
 	case 3:
-		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 0);
-		// ret = rtk_sdsMode_set(0, SERDES_OFF);
-		break;
 	case 8:
-		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", 1);
-		// ret = rtk_sdsMode_set(1, SERDES_OFF);
+		dev_info(priv->dev, "MAC link down on serdes port (%d)\n", PORT_TO_SERDES_IDX(port));
 		break;
 	}
 
@@ -1856,6 +1871,8 @@ static const struct rtl837x_ops rtl8372n_ops = {
 	.get_mib_counter = rtl8372n_get_mib_counter,
 	.enable_vlan	= rtl8372n_enable_vlan,
 
+	.phy_read_c22   = rtl837x_phy_read_c22,
+	.phy_write_c22  = rtl837x_phy_write_c22,
     .phy_read_c45   = rtl837x_phy_read_c45,
     .phy_write_c45  = rtl837x_phy_write_c45,
 };
