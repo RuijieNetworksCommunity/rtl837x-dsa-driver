@@ -1245,6 +1245,36 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	rtl837x_sds_reset_R(priv, 0);
 	msleep(5);
 
+	/*
+	  What The Fuck Is This??????? 
+	  I can't understand this register design.
+
+	  We have two PCB routing
+
+	  RJ45 port pin mapping:
+	    white Orange ->  0+
+	          Orange ->  0-
+	    white Green  ->  1+
+	          Blue   ->  2+
+	    white Blue   ->  2-
+	          Green  ->  1-
+	    white Brown  ->  3+
+	          Brown  ->  3-
+	  Chip side:
+	  	A+ A- B+ B- C+ C- D+ D-
+
+	  Case 1: No phy-mdi-reverse and no phy-tx-polarity-swap (normal connection)
+	    A+ → 0+   A- → 0-   (Pair A → RJ45 Pair 0)
+	    B+ → 1+   B- → 1-   (Pair B → RJ45 Pair 1)
+	    C+ → 2+   C- → 2-   (Pair C → RJ45 Pair 2)
+	    D+ → 3+   D- → 3-   (Pair D → RJ45 Pair 3)
+	  Case 2: With phy-mdi-reverse and phy-tx-polarity-swap
+	    A+ → 3+   A- → 3-   (Pair A → RJ45 Pair 3)
+	    B+ → 2+   B- → 2-   (Pair B → RJ45 Pair 2)
+	    C+ → 1-   C- → 1+   (Pair C → RJ45 Pair 1, with polarity REVERSED)
+	    D+ → 0-   D- → 0+   (Pair D → RJ45 Pair 0, with polarity REVERSED)
+	*/
+
     // ##MDI reverse configuration for Demo Tap UP RJ45, RTL8366U/RTL8373N/RTL8372N
 	if (of_property_read_bool(np, "phy-mdi-reverse"))
 		rtl837x_reg_bits_write(priv, RTL8373_CFG_PHY_MDI_REVERSE_ADDR, 
