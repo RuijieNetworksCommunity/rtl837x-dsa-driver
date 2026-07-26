@@ -39,21 +39,21 @@ sfp0: sfp {
 		phy-mdi-reverse; # optional
 		phy-tx-polarity-swap; # optional
 
-        # GPIO Controller
+        // GPIO Controller
 		gpio-controller; # optional
 		#gpio-cells = <2>; # optional
 
 		ports {
-		#address-cells = <1>;
-		#size-cells = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 
-        /*
-         * Port 0~2 is unused on rtl8372n switch chip
-         *
-         * if the chip is rtl8373(n) with rtl8224 
-         * port3 will configure as a 'port' not a serdes port
-         * (I haven't implemented the driver for this part yet :D)
-        */
+			/*
+			* Port 0~2 is unused on rtl8372n switch chip
+			*
+			* if the chip is rtl8373(n) with rtl8224 
+			* port3 will configure as a 'port' not a serdes port
+			* (I haven't implemented the driver for this part yet :D)
+			*/
 
 			port@3 {
 				reg = <3>;
