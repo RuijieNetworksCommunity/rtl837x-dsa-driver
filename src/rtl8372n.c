@@ -341,9 +341,8 @@ static int rtl8372n_set_vlan_4k(struct rtl837x_priv *priv,
 {
 	int ret;
 	
-	struct rtl837x_vlan_data vlan;
+	struct rtl837x_vlan_data vlan = {0};
 	vlan.vid = vlan4k->vid;
-	vlan.val = 0;
 	vlan.mbr = vlan4k->member;
 	vlan.untag = vlan4k->untag;
     vlan.fid = vlan4k->fid;
@@ -1171,340 +1170,6 @@ static int rtl8372n_port_remove_isolation(struct rtl837x_priv *priv, int port,
 				  mask, 0);
 }
 
-static int rtl8372n_setup(struct dsa_switch *ds)
-{
-    int ret;
-    struct rtl837x_priv *priv = ds->priv;
-	struct device_node *np = priv->dev->of_node;
-	struct rtl8372n *chip_data = priv->chip_data;
-	struct dsa_port *cpu_dp = NULL;
-	struct dsa_port *dp;
-	u32 downports_mask = 0;
-
-	int cpu_dp_cnt = 0;
-	dsa_switch_for_each_port(dp, ds) {
-		if (dsa_port_is_cpu(dp)) {
-			cpu_dp = dp;
-			cpu_dp_cnt++;
-		}
-	}
-
-	// TODO: muilt CPU port support
-	if (cpu_dp_cnt > 1)
-	{
-		dev_err(priv->dev,"We only support one cpu port now\n");
-		return -ENODEV;
-	}
-
-	if (!cpu_dp) {
-		dev_err(priv->dev,"No CPU port found\n");
-		return -ENODEV;
-	}
-
-	chip_data->pcs[3].pcs.ops = &rtl8372n_sds_pcs_ops;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6,18,0)
-	chip_data->pcs[3].pcs.neg_mode = true;
-#endif
-	chip_data->pcs[3].priv = priv;
-	chip_data->pcs[3].index = 3;
-
-	chip_data->pcs[8].pcs.ops = &rtl8372n_sds_pcs_ops;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6,18,0)
-	chip_data->pcs[8].pcs.neg_mode = true;
-#endif
-	chip_data->pcs[8].priv = priv;
-	chip_data->pcs[8].index = 8;
-
-    dev_info(priv->dev,"Start init RTL8372N Switch\n");
-
-	// set port 3 and port 8 as serdes port
-	rtl837x_reg_bits_write(priv, RTL8373_SMI_MAC_TYPE_CTRL_ADDR, 
-			 RTL8373_SMI_MAC_TYPE_CTRL_MAC_PORT8_TYPE_MASK | RTL8373_SMI_MAC_TYPE_CTRL_MAC_PORT3_TYPE_MASK,
-			 0
-			);
-
-	// set port4-7 polling internal resolution reg
-	rtl837x_reg_bits_write(priv, RTL8373_SMI_PORT_POLLING_SEL_ADDR, 
-			 RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL4_MASK | RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL5_MASK |
-			  RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL6_MASK | RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL7_MASK,
-			 0b1111
-			);
-
-	// enable SMI0/1/2 MDC clock output
-	rtl837x_reg_bits_write(priv, RTL8373_SMI_CTRL_ADDR,
-			 RTL8373_SMI_CTRL_SMI0_MDC_EN_MASK | RTL8373_SMI_CTRL_SMI1_MDC_EN_MASK | RTL8373_SMI_CTRL_SMI2_MDC_EN_MASK,
-			 0b111
-			);
-
-	if (of_property_read_bool(np, "sds0-rx-swap"))
-	{
-		rtl837x_sds_reg_bits_write(priv, 0, 0, 0, 0x200, 1); //#SDS0RX PN swap
-		rtl837x_sds_reg_bits_write(priv, 0, 6, 2, 0x2000, 1);
-	}
-
-	if (of_property_read_bool(np, "sds0-tx-swap"))
-	{
-		rtl837x_sds_reg_bits_write(priv, 0, 0, 0, 1 << 8, 1); //#SDS0RTX PN swap
-		rtl837x_sds_reg_bits_write(priv, 0, 6, 2, 1 << 14, 1);
-	}
-
-	if (of_property_read_bool(np, "sds1-rx-swap"))
-	{
-		rtl837x_sds_reg_bits_write(priv, 1, 0, 0, 0x200, 1); //#SDS1RX PN swap
-		rtl837x_sds_reg_bits_write(priv, 1, 6, 2, 0x2000, 1);
-	}
-
-	if (of_property_read_bool(np, "sds1-tx-swap"))
-	{
-		rtl837x_sds_reg_bits_write(priv, 1, 0, 0, 1 << 8, 1); //#SDS1TX PN swap
-		rtl837x_sds_reg_bits_write(priv, 1, 6, 2, 1 << 14, 1);
-	}
-
-	rtl837x_sds_reset_R(priv, 1);
-	msleep(5);
-	rtl837x_sds_reset_R(priv, 0);
-	msleep(5);
-
-	/*
-	  What The Fuck Is This??????? 
-	  I can't understand this register design.
-
-	  We have two PCB routing
-
-	  RJ45 port pin mapping:
-	    white Orange ->  0+
-	          Orange ->  0-
-	    white Green  ->  1+
-	          Blue   ->  2+
-	    white Blue   ->  2-
-	          Green  ->  1-
-	    white Brown  ->  3+
-	          Brown  ->  3-
-	  Chip side:
-	  	A+ A- B+ B- C+ C- D+ D-
-
-	  Case 1: No phy-mdi-reverse and no phy-tx-polarity-swap (normal connection)
-	    A+ → 0+   A- → 0-   (Pair A → RJ45 Pair 0)
-	    B+ → 1+   B- → 1-   (Pair B → RJ45 Pair 1)
-	    C+ → 2+   C- → 2-   (Pair C → RJ45 Pair 2)
-	    D+ → 3+   D- → 3-   (Pair D → RJ45 Pair 3)
-	  Case 2: With phy-mdi-reverse and phy-tx-polarity-swap
-	    A+ → 3+   A- → 3-   (Pair A → RJ45 Pair 3)
-	    B+ → 2+   B- → 2-   (Pair B → RJ45 Pair 2)
-	    C+ → 1-   C- → 1+   (Pair C → RJ45 Pair 1, with polarity REVERSED)
-	    D+ → 0-   D- → 0+   (Pair D → RJ45 Pair 0, with polarity REVERSED)
-	*/
-
-    // ##MDI reverse configuration for Demo Tap UP RJ45, RTL8366U/RTL8373N/RTL8372N
-	if (of_property_read_bool(np, "phy-mdi-reverse"))
-		rtl837x_reg_bits_write(priv, RTL8373_CFG_PHY_MDI_REVERSE_ADDR, 
-				  RTL8373_CFG_PHY_MDI_REVERSE_P0_MDI_REVERSE_MASK | RTL8373_CFG_PHY_MDI_REVERSE_P1_MDI_REVERSE_MASK |
-				   RTL8373_CFG_PHY_MDI_REVERSE_P2_MDI_REVERSE_MASK | RTL8373_CFG_PHY_MDI_REVERSE_P3_MDI_REVERSE_MASK,
-				  0xC
-				);
-
-	if (of_property_read_bool(np, "phy-tx-polarity-swap"))
-		rtl837x_reg_bits_write(priv, RTL8373_CFG_PHY_TX_POLARITY_SWAP_ADDR,
-				 RTL8373_CFG_PHY_TX_POLARITY_SWAP_P0_TX_POLARITY_SWAP_MASK | RTL8373_CFG_PHY_TX_POLARITY_SWAP_P1_TX_POLARITY_SWAP_MASK |
-				  RTL8373_CFG_PHY_TX_POLARITY_SWAP_P2_TX_POLARITY_SWAP_MASK | RTL8373_CFG_PHY_TX_POLARITY_SWAP_P3_TX_POLARITY_SWAP_MASK,
-				 0x596A
-				); //#TX_POLARITY_SWAP
-
-	//  puts "Power down PHY 4~7"
-	rtl837x_phys_write_c45(priv, 0xF0, 31, 0xa610, 0x2858);
-
-	//## ---------------------------Patch MAC--------------------------
-	//#cfg_FWD_INVLD_MAC_CTRL_EN,cfg_FWD_UNKN_OPCODE_EN
-	rtl837x_reg_bits_write(priv, RTL8373_MAC_L2_GLOBAL_CTRL0_ADDR,
-			 RTL8373_MAC_L2_GLOBAL_CTRL0_FWD_UNKN_OPCODE_EN_MASK | RTL8373_MAC_L2_GLOBAL_CTRL0_FWD_INVLD_MAC_CTRL_EN_MASK,
-			 0b11
-			);
-
-	for(int i=3; i<9; i++)
-	{
-		rtl837x_reg_bits_write(priv, RTL8373_MAC_L2_PORT_CTRL_ADDR(i),
-		 RTL8373_MAC_L2_PORT_CTRL_RX_CHK_CRC_EN_MASK, 1
-		);
-		rtl837x_reg_bits_write(priv, RTL8373_MAC_L2_PORT_CTRL_ADDR(i),
-		 RTL8373_MAC_L2_PORT_CTRL_CLOCK_SWITCH_MASK, 1
-		);
-	}
-
-	// #RS_LINK_FAULT_INDI_OFF=1 disable link fault flag, resolve port4-port7 linkdown dsc expand issue
-    rtl837x_reg_bits_write(priv, RTL8373_RS_LAYER_CONFIG_ADDR,
-		 RTL8373_RS_LAYER_CONFIG_RS_LINK_FAULT_INDI_OFF_MASK, 1
-		);
-
-	for(int i=0; i<10; i++)
-    {
-        rtl837x_reg_write(priv, RTL8373_FC_PORT_ACT_CTRL_ADDR(i), 0x1050);
-    }
-
-	rtl837x_reg_bits_write(priv, RTL8373_DW8051_CFG_ADDR,
-			 RTL8373_DW8051_CFG_DW8051_READY_MASK, 1
-			);
-
-#if defined(RTL837X_PHY_PATCH)
-	if (priv->chip_ver == 2)
-	{
-		patch_phys_v008(priv, 0xf0);
-		patch_phys_v008_rls_lockmain(priv, 0xf0);
-	}
-#endif
-
-	//  puts "Power up PHY 4~7"
-    rtl837x_phys_write_c45(priv, 0xF0 ,31,0xa610,0x2058);
-    //RTL8372/RTL8372N/RTL8366U set polling mask 0x1f8, port 3/8 from serdes need config bit8=1
-    rtl837x_reg_bits_write(priv, RTL8373_SMI_GLB_CTRL_ADDR,
-		 RTL8373_SMI_GLB_CTRL_SMI_POLLING_MASK_MASK, 0x1f8
-		);
-	msleep(5);
-
-	of_extra_init(ds);
-
-    ret = rtl8372n_setup_mdio(priv);
-	if(ret){
-		dev_err(priv->dev, "rtl8372n_setup_mdio Fail, error:%d\n", ret);
-		return ret;
-	}
-
-	// Reset vlan table
-	ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_CTRL_ADDR, RTL8373_VLAN_CTRL_TABLE_RST_MASK, 1);
-	if (ret)
-		return ret;
-
-	dsa_switch_for_each_port(dp, ds) {
-		int port = dp->index;
-
-		/* Start with all port completely isolated */
-		ret = rtl8372n_port_set_isolation(priv, port, 0);
-		if (ret)
-			return ret;
-
-		if (dsa_port_is_unused(dp))
-			continue;
-
-    	// Disable per-port l2 learning
-		ret = rtl837x_reg_write(priv, RTL8373_L2_LRN_PORT_CONSTRT_CTRL_ADDR(port), 0);
-		if (ret)
-			return ret;
-
-		// FORWARD:0, DROP:1, TO_CPU:2
-		ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_PORT_CONSTRT_ACT_ADDR,
-			 RTL8373_L2_LRN_PORT_CONSTRT_ACT_LRN_ACT_MASK, 0
-			);
-		if (ret)
-			return ret;
-
-		// What fuck is this?
-		/*
-		 *	VLAN_EGRESS_TAG_MODE_ORIGINAL = 0,
-		 *	VLAN_EGRESS_TAG_MODE_KEEP_FORMAT,
-		 *	VLAN_EGRESS_TAG_MODE_PRI,
-		 *	VLAN_EGRESS_TAG_MODE_REAL_KEEP,
-		 *	VLAN_EGRESS_TAG_MODE_END
-		*/
-		ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TAG_ADDR(port),
-			 RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port), 1
-			);
-		if (ret)
-			return ret;
-
-		// Accept untaged Frame
-		ret = rtl8372n_drop_untagged(priv, port, false);
-		if (ret)
-			return ret;
-		// Disable Ingress filter
-		ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_IGR_FLTR_ADDR(port),
-			  RTL8373_VLAN_PORT_IGR_FLTR_IGR_FLTR_ACT_MASK(port), 0
-			);
-		if (ret)
-			return ret;
-
-		// Disable port EEE feature
-		ret = rtl837x_reg_bits_write(priv, RTL8373_EEE_CTRL_ADDR(port), 
-				  RTL8373_EEE_CTRL_EEE_PORT_TX_EN_MASK | RTL8373_EEE_CTRL_EEE_PORT_RX_EN_MASK,
-				  0
-				);
-		if (ret)
-			return ret;
-
-		// Enable backpressure
-		ret = rtl837x_reg_bits_write(priv, RTL8373_MAC_PORT_CTRL_ADDR(port),
-				  RTL8373_MAC_PORT_CTRL_BKPRES_EN_MASK, 1
-				);
-		if (ret)
-			return ret;
-
-		if (!dsa_port_is_user(dp))
-			continue;
-		/* Forward only to the CPU */
-		ret = rtl8372n_port_set_isolation(priv, dp->index,
-						   BIT(cpu_dp->index));
-		if (ret)
-			return ret;
-
-		downports_mask |= BIT(dp->index);
-	}
-
-	ret = rtl8372n_port_set_isolation(priv, cpu_dp->index,
-						downports_mask);
-
-	// Disable l2 learning
-	ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_CONSTRT_CTRL_ADDR,
-			  RTL8373_L2_LRN_CONSTRT_CTRL_CONSTRT_NUM_MASK, 0
-			);
-	if (ret)
-		return ret;
-
-	// FORWARD:0, DROP:1, TO_CPU:2
-	ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_PORT_CONSTRT_ACT_ADDR,
-			  RTL8373_L2_LRN_PORT_CONSTRT_ACT_LRN_ACT_MASK, 0
-			);
-	if (ret)
-		return ret;
-
-	// Disable vlan egrFilter
-	ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_CTRL_ADDR,
-			  RTL8373_VLAN_CTRL_CVLAN_FILTER_MASK, 0
-			);
-	if (ret)
-		return ret;
-
-	// Disable vlan leaky
-	ret = rtl837x_reg_bits_write(priv, RTL8373_MIR_CTRL_ADDR,
-			  RTL8373_MIR_CTRL_MIR_TX_VLAN_LKY_MASK | RTL8373_MIR_CTRL_MIR_RX_VLAN_LKY_OFFSET,
-			  0
-			);
-	if (ret)
-		return ret;
-
-	// Disable isolate leaky
-	ret = rtl837x_reg_bits_write(priv, RTL8373_MIR_CTRL_ADDR,
-			  RTL8373_MIR_CTRL_MIR_TX_ISOLATE_LKY_MASK | RTL8373_MIR_CTRL_MIR_RX_ISOLATE_LKY_MASK,
-			  0
-			);
-	if (ret)
-		return ret;
-
-	rtnl_lock();
-	switch (priv->tag_proto) {
-	case DSA_TAG_PROTO_MXL862_8021Q:
-		ret = rtl8372n_set_tag_8021q(ds);
-		break;
-	case DSA_TAG_PROTO_RTL8_4:
-		ret = rtl8372n_set_tag_rtl(ds);
-		break;
-	default:
-		ret = -EPROTONOSUPPORT;
-	}
-	rtnl_unlock();
-	if (ret)
-		return ret;
-
-    return 0;
-}
-
 static void rtl8372n_get_strings(struct dsa_switch *ds, int port, u32 stringset,
 			 uint8_t *data)
 {
@@ -1877,7 +1542,9 @@ static void rtl8372n_port_stp_state_set(struct dsa_switch *ds, int port, u8 stat
 {
 	struct rtl837x_priv *priv = ds->priv;
 	u32 val;
-	int i;
+
+	dev_dbg(priv->dev, "[%s]: port(%d) stp_status(%d)\n", __func__,
+						  port, state);
 
 	switch (state) {
 	case BR_STATE_DISABLED:
@@ -1899,11 +1566,347 @@ static void rtl8372n_port_stp_state_set(struct dsa_switch *ds, int port, u8 stat
 	}
 
 	/* Set the same status for the port on all the FIDs */
-	for (i = 0; i < RTL837x_FIDMAX; i++) {
+	for (int i = 0; i < RTL837x_FIDMAX; i++) {
 		rtl837x_reg_bits_write(priv, RTL8373_MSPT_STATE_ADDR(i),
 				  RTL8373_STP_STATE_MASK(port), val
 				);
 	}
+}
+
+static int rtl8372n_setup(struct dsa_switch *ds)
+{
+    int ret;
+    struct rtl837x_priv *priv = ds->priv;
+	struct device_node *np = priv->dev->of_node;
+	struct rtl8372n *chip_data = priv->chip_data;
+	struct dsa_port *cpu_dp = NULL;
+	struct dsa_port *dp;
+	u32 downports_mask = 0;
+
+	int cpu_dp_cnt = 0;
+	dsa_switch_for_each_port(dp, ds) {
+		if (dsa_port_is_cpu(dp)) {
+			cpu_dp = dp;
+			cpu_dp_cnt++;
+		}
+	}
+
+	// TODO: muilt CPU port support
+	if (cpu_dp_cnt > 1)
+	{
+		dev_err(priv->dev,"We only support one cpu port now\n");
+		return -ENODEV;
+	}
+
+	if (!cpu_dp) {
+		dev_err(priv->dev,"No CPU port found\n");
+		return -ENODEV;
+	}
+
+	chip_data->pcs[3].pcs.ops = &rtl8372n_sds_pcs_ops;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,18,0)
+	chip_data->pcs[3].pcs.neg_mode = true;
+#endif
+	chip_data->pcs[3].priv = priv;
+	chip_data->pcs[3].index = 3;
+
+	chip_data->pcs[8].pcs.ops = &rtl8372n_sds_pcs_ops;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,18,0)
+	chip_data->pcs[8].pcs.neg_mode = true;
+#endif
+	chip_data->pcs[8].priv = priv;
+	chip_data->pcs[8].index = 8;
+
+    dev_info(priv->dev,"Start init RTL8372N Switch\n");
+
+	// set port 3 and port 8 as serdes port
+	rtl837x_reg_bits_write(priv, RTL8373_SMI_MAC_TYPE_CTRL_ADDR, 
+			 RTL8373_SMI_MAC_TYPE_CTRL_MAC_PORT8_TYPE_MASK | RTL8373_SMI_MAC_TYPE_CTRL_MAC_PORT3_TYPE_MASK,
+			 0
+			);
+
+	// set port4-7 polling internal resolution reg
+	rtl837x_reg_bits_write(priv, RTL8373_SMI_PORT_POLLING_SEL_ADDR, 
+			 RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL4_MASK | RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL5_MASK |
+			  RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL6_MASK | RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL7_MASK,
+			 0b1111
+			);
+
+	// enable SMI0/1/2 MDC clock output
+	rtl837x_reg_bits_write(priv, RTL8373_SMI_CTRL_ADDR,
+			 RTL8373_SMI_CTRL_SMI0_MDC_EN_MASK | RTL8373_SMI_CTRL_SMI1_MDC_EN_MASK | RTL8373_SMI_CTRL_SMI2_MDC_EN_MASK,
+			 0b111
+			);
+
+	if (of_property_read_bool(np, "sds0-rx-swap"))
+	{
+		rtl837x_sds_reg_bits_write(priv, 0, 0, 0, 0x200, 1); //#SDS0RX PN swap
+		rtl837x_sds_reg_bits_write(priv, 0, 6, 2, 0x2000, 1);
+	}
+
+	if (of_property_read_bool(np, "sds0-tx-swap"))
+	{
+		rtl837x_sds_reg_bits_write(priv, 0, 0, 0, 1 << 8, 1); //#SDS0RTX PN swap
+		rtl837x_sds_reg_bits_write(priv, 0, 6, 2, 1 << 14, 1);
+	}
+
+	if (of_property_read_bool(np, "sds1-rx-swap"))
+	{
+		rtl837x_sds_reg_bits_write(priv, 1, 0, 0, 0x200, 1); //#SDS1RX PN swap
+		rtl837x_sds_reg_bits_write(priv, 1, 6, 2, 0x2000, 1);
+	}
+
+	if (of_property_read_bool(np, "sds1-tx-swap"))
+	{
+		rtl837x_sds_reg_bits_write(priv, 1, 0, 0, 1 << 8, 1); //#SDS1TX PN swap
+		rtl837x_sds_reg_bits_write(priv, 1, 6, 2, 1 << 14, 1);
+	}
+
+	rtl837x_sds_reset_R(priv, 1);
+	msleep(5);
+	rtl837x_sds_reset_R(priv, 0);
+	msleep(5);
+
+	/*
+	  What The Fuck Is This??????? 
+	  I can't understand this register design.
+
+	  We have two PCB routing
+
+	  RJ45 port pin mapping:
+	    white Orange ->  0+
+	          Orange ->  0-
+	    white Green  ->  1+
+	          Blue   ->  2+
+	    white Blue   ->  2-
+	          Green  ->  1-
+	    white Brown  ->  3+
+	          Brown  ->  3-
+	  Chip side:
+	  	A+ A- B+ B- C+ C- D+ D-
+
+	  Case 1: No phy-mdi-reverse and no phy-tx-polarity-swap (normal connection)
+	    A+ → 0+   A- → 0-   (Pair A → RJ45 Pair 0)
+	    B+ → 1+   B- → 1-   (Pair B → RJ45 Pair 1)
+	    C+ → 2+   C- → 2-   (Pair C → RJ45 Pair 2)
+	    D+ → 3+   D- → 3-   (Pair D → RJ45 Pair 3)
+	  Case 2: With phy-mdi-reverse and phy-tx-polarity-swap
+	    A+ → 3+   A- → 3-   (Pair A → RJ45 Pair 3)
+	    B+ → 2+   B- → 2-   (Pair B → RJ45 Pair 2)
+	    C+ → 1-   C- → 1+   (Pair C → RJ45 Pair 1, with polarity REVERSED)
+	    D+ → 0-   D- → 0+   (Pair D → RJ45 Pair 0, with polarity REVERSED)
+	*/
+
+    // ##MDI reverse configuration for Demo Tap UP RJ45, RTL8366U/RTL8373N/RTL8372N
+	if (of_property_read_bool(np, "phy-mdi-reverse"))
+		rtl837x_reg_bits_write(priv, RTL8373_CFG_PHY_MDI_REVERSE_ADDR, 
+				  RTL8373_CFG_PHY_MDI_REVERSE_P0_MDI_REVERSE_MASK | RTL8373_CFG_PHY_MDI_REVERSE_P1_MDI_REVERSE_MASK |
+				   RTL8373_CFG_PHY_MDI_REVERSE_P2_MDI_REVERSE_MASK | RTL8373_CFG_PHY_MDI_REVERSE_P3_MDI_REVERSE_MASK,
+				  0xC
+				);
+
+	if (of_property_read_bool(np, "phy-tx-polarity-swap"))
+		rtl837x_reg_bits_write(priv, RTL8373_CFG_PHY_TX_POLARITY_SWAP_ADDR,
+				 RTL8373_CFG_PHY_TX_POLARITY_SWAP_P0_TX_POLARITY_SWAP_MASK | RTL8373_CFG_PHY_TX_POLARITY_SWAP_P1_TX_POLARITY_SWAP_MASK |
+				  RTL8373_CFG_PHY_TX_POLARITY_SWAP_P2_TX_POLARITY_SWAP_MASK | RTL8373_CFG_PHY_TX_POLARITY_SWAP_P3_TX_POLARITY_SWAP_MASK,
+				 0x596A
+				); //#TX_POLARITY_SWAP
+
+	//  puts "Power down PHY 4~7"
+	rtl837x_phys_write_c45(priv, 0xF0, 31, 0xa610, 0x2858);
+
+	//## ---------------------------Patch MAC--------------------------
+	//#cfg_FWD_INVLD_MAC_CTRL_EN,cfg_FWD_UNKN_OPCODE_EN
+	rtl837x_reg_bits_write(priv, RTL8373_MAC_L2_GLOBAL_CTRL0_ADDR,
+			 RTL8373_MAC_L2_GLOBAL_CTRL0_FWD_UNKN_OPCODE_EN_MASK | RTL8373_MAC_L2_GLOBAL_CTRL0_FWD_INVLD_MAC_CTRL_EN_MASK,
+			 0b11
+			);
+
+	for(int i=3; i<9; i++)
+	{
+		rtl837x_reg_bits_write(priv, RTL8373_MAC_L2_PORT_CTRL_ADDR(i),
+		 RTL8373_MAC_L2_PORT_CTRL_RX_CHK_CRC_EN_MASK, 1
+		);
+		rtl837x_reg_bits_write(priv, RTL8373_MAC_L2_PORT_CTRL_ADDR(i),
+		 RTL8373_MAC_L2_PORT_CTRL_CLOCK_SWITCH_MASK, 1
+		);
+	}
+
+	// #RS_LINK_FAULT_INDI_OFF=1 disable link fault flag, resolve port4-port7 linkdown dsc expand issue
+    rtl837x_reg_bits_write(priv, RTL8373_RS_LAYER_CONFIG_ADDR,
+		 RTL8373_RS_LAYER_CONFIG_RS_LINK_FAULT_INDI_OFF_MASK, 1
+		);
+
+	for(int i=0; i<10; i++)
+    {
+        rtl837x_reg_write(priv, RTL8373_FC_PORT_ACT_CTRL_ADDR(i), 0x1050);
+    }
+
+	rtl837x_reg_bits_write(priv, RTL8373_DW8051_CFG_ADDR,
+			 RTL8373_DW8051_CFG_DW8051_READY_MASK, 1
+			);
+
+#if defined(RTL837X_PHY_PATCH)
+	if (priv->chip_ver == 2)
+	{
+		patch_phys_v008(priv, 0xf0);
+		patch_phys_v008_rls_lockmain(priv, 0xf0);
+	}
+#endif
+
+	//  puts "Power up PHY 4~7"
+    rtl837x_phys_write_c45(priv, 0xF0 ,31,0xa610,0x2058);
+    //RTL8372/RTL8372N/RTL8366U set polling mask 0x1f8, port 3/8 from serdes need config bit8=1
+    rtl837x_reg_bits_write(priv, RTL8373_SMI_GLB_CTRL_ADDR,
+		 RTL8373_SMI_GLB_CTRL_SMI_POLLING_MASK_MASK, 0x1f8
+		);
+	msleep(5);
+
+	of_extra_init(ds);
+
+    ret = rtl8372n_setup_mdio(priv);
+	if(ret){
+		dev_err(priv->dev, "rtl8372n_setup_mdio Fail, error:%d\n", ret);
+		return ret;
+	}
+
+	// Reset vlan table
+	ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_CTRL_ADDR, RTL8373_VLAN_CTRL_TABLE_RST_MASK, 1);
+	if (ret)
+		return ret;
+
+	dsa_switch_for_each_port(dp, ds) {
+		int port = dp->index;
+
+		rtl8372n_port_stp_state_set(ds, port, BR_STATE_DISABLED);
+
+		/* Start with all port completely isolated */
+		ret = rtl8372n_port_set_isolation(priv, port, 0);
+		if (ret)
+			return ret;
+
+		if (dsa_port_is_unused(dp))
+			continue;
+
+    	// Disable per-port l2 learning
+		ret = rtl837x_reg_write(priv, RTL8373_L2_LRN_PORT_CONSTRT_CTRL_ADDR(port), 0);
+		if (ret)
+			return ret;
+
+		// FORWARD:0, DROP:1, TO_CPU:2
+		ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_PORT_CONSTRT_ACT_ADDR,
+			 RTL8373_L2_LRN_PORT_CONSTRT_ACT_LRN_ACT_MASK, 0
+			);
+		if (ret)
+			return ret;
+
+		// What fuck is this?
+		/*
+		 *	VLAN_EGRESS_TAG_MODE_ORIGINAL = 0,
+		 *	VLAN_EGRESS_TAG_MODE_KEEP_FORMAT,
+		 *	VLAN_EGRESS_TAG_MODE_PRI,
+		 *	VLAN_EGRESS_TAG_MODE_REAL_KEEP,
+		 *	VLAN_EGRESS_TAG_MODE_END
+		*/
+		ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TAG_ADDR(port),
+			 RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port), 1
+			);
+		if (ret)
+			return ret;
+
+		// Accept untaged Frame
+		ret = rtl8372n_drop_untagged(priv, port, false);
+		if (ret)
+			return ret;
+		// Disable Ingress filter
+		ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_IGR_FLTR_ADDR(port),
+			  RTL8373_VLAN_PORT_IGR_FLTR_IGR_FLTR_ACT_MASK(port), 0
+			);
+		if (ret)
+			return ret;
+
+		// Disable port EEE feature
+		ret = rtl837x_reg_bits_write(priv, RTL8373_EEE_CTRL_ADDR(port), 
+				  RTL8373_EEE_CTRL_EEE_PORT_TX_EN_MASK | RTL8373_EEE_CTRL_EEE_PORT_RX_EN_MASK,
+				  0
+				);
+		if (ret)
+			return ret;
+
+		// Enable backpressure
+		ret = rtl837x_reg_bits_write(priv, RTL8373_MAC_PORT_CTRL_ADDR(port),
+				  RTL8373_MAC_PORT_CTRL_BKPRES_EN_MASK, 1
+				);
+		if (ret)
+			return ret;
+
+		if (!dsa_port_is_user(dp))
+			continue;
+		/* Forward only to the CPU */
+		ret = rtl8372n_port_set_isolation(priv, dp->index,
+						   BIT(cpu_dp->index));
+		if (ret)
+			return ret;
+
+		downports_mask |= BIT(dp->index);
+	}
+
+	ret = rtl8372n_port_set_isolation(priv, cpu_dp->index,
+						downports_mask);
+
+	// Disable l2 learning
+	ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_CONSTRT_CTRL_ADDR,
+			  RTL8373_L2_LRN_CONSTRT_CTRL_CONSTRT_NUM_MASK, 0
+			);
+	if (ret)
+		return ret;
+
+	// FORWARD:0, DROP:1, TO_CPU:2
+	ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_PORT_CONSTRT_ACT_ADDR,
+			  RTL8373_L2_LRN_PORT_CONSTRT_ACT_LRN_ACT_MASK, 0
+			);
+	if (ret)
+		return ret;
+
+	// Disable vlan egrFilter
+	ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_CTRL_ADDR,
+			  RTL8373_VLAN_CTRL_CVLAN_FILTER_MASK, 0
+			);
+	if (ret)
+		return ret;
+
+	// Disable vlan leaky
+	ret = rtl837x_reg_bits_write(priv, RTL8373_MIR_CTRL_ADDR,
+			  RTL8373_MIR_CTRL_MIR_TX_VLAN_LKY_MASK | RTL8373_MIR_CTRL_MIR_RX_VLAN_LKY_OFFSET,
+			  0
+			);
+	if (ret)
+		return ret;
+
+	// Disable isolate leaky
+	ret = rtl837x_reg_bits_write(priv, RTL8373_MIR_CTRL_ADDR,
+			  RTL8373_MIR_CTRL_MIR_TX_ISOLATE_LKY_MASK | RTL8373_MIR_CTRL_MIR_RX_ISOLATE_LKY_MASK,
+			  0
+			);
+	if (ret)
+		return ret;
+
+	rtnl_lock();
+	switch (priv->tag_proto) {
+	case DSA_TAG_PROTO_MXL862_8021Q:
+		ret = rtl8372n_set_tag_8021q(ds);
+		break;
+	case DSA_TAG_PROTO_RTL8_4:
+		ret = rtl8372n_set_tag_rtl(ds);
+		break;
+	default:
+		ret = -EPROTONOSUPPORT;
+	}
+	rtnl_unlock();
+	if (ret)
+		return ret;
+
+    return 0;
 }
 
 static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
