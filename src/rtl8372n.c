@@ -1151,6 +1151,25 @@ static int rtl8372n_change_tag_protocol(struct dsa_switch *ds,
 	return 0;
 }
 
+static int rtl8372n_port_set_isolation(struct rtl837x_priv *priv, int port,
+					u32 mask)
+{
+	return rtl837x_reg_write(priv, RTL8373_PORT_ISO_PORT_PMSK_ADDR(port), mask);
+}
+
+static int rtl8372n_port_add_isolation(struct rtl837x_priv *priv, int port,
+					u32 mask)
+{
+	return rtl837x_reg_bits_write(priv, RTL8373_PORT_ISO_PORT_PMSK_ADDR(port), 
+				  mask, 0xffffffff);
+}
+
+static int rtl8372n_port_remove_isolation(struct rtl837x_priv *priv, int port,
+					   u32 mask)
+{
+	return rtl837x_reg_bits_write(priv, RTL8373_PORT_ISO_PORT_PMSK_ADDR(port), 
+				  mask, 0);
+}
 
 static int rtl8372n_setup(struct dsa_switch *ds)
 {
@@ -1160,6 +1179,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *cpu_dp = NULL;
 	struct dsa_port *dp;
+	u32 downports_mask = 0;
 
 	int cpu_dp_cnt = 0;
 	dsa_switch_for_each_port(dp, ds) {
@@ -1354,10 +1374,15 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		return ret;
 
 	dsa_switch_for_each_port(dp, ds) {
+		int port = dp->index;
+
+		/* Start with all port completely isolated */
+		ret = rtl8372n_port_set_isolation(priv, port, 0);
+		if (ret)
+			return ret;
+
 		if (dsa_port_is_unused(dp))
 			continue;
-
-		int port = dp->index;
 
     	// Disable per-port l2 learning
 		ret = rtl837x_reg_write(priv, RTL8373_L2_LRN_PORT_CONSTRT_CTRL_ADDR(port), 0);
@@ -1410,7 +1435,20 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 				);
 		if (ret)
 			return ret;
+
+		if (!dsa_port_is_user(dp))
+			continue;
+		/* Forward only to the CPU */
+		ret = rtl8372n_port_set_isolation(priv, dp->index,
+						   BIT(cpu_dp->index));
+		if (ret)
+			return ret;
+
+		downports_mask |= BIT(dp->index);
 	}
+
+	ret = rtl8372n_port_set_isolation(priv, cpu_dp->index,
+						downports_mask);
 
 	// Disable l2 learning
 	ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_CONSTRT_CTRL_ADDR,
@@ -1436,6 +1474,14 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	// Disable vlan leaky
 	ret = rtl837x_reg_bits_write(priv, RTL8373_MIR_CTRL_ADDR,
 			  RTL8373_MIR_CTRL_MIR_TX_VLAN_LKY_MASK | RTL8373_MIR_CTRL_MIR_RX_VLAN_LKY_OFFSET,
+			  0
+			);
+	if (ret)
+		return ret;
+
+	// Disable isolate leaky
+	ret = rtl837x_reg_bits_write(priv, RTL8373_MIR_CTRL_ADDR,
+			  RTL8373_MIR_CTRL_MIR_TX_ISOLATE_LKY_MASK | RTL8373_MIR_CTRL_MIR_RX_ISOLATE_LKY_MASK,
 			  0
 			);
 	if (ret)
@@ -1728,34 +1774,30 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 			   struct netlink_ext_ack *extack)
 {
     struct rtl837x_priv *priv = ds->priv;
+	struct dsa_port *dp;
 	unsigned int port_bitmap = 0;
-	int ret, i;
-	dev_dbg(priv->dev, "[%s]: %d\n", __func__,
-						  port);
+	int ret;
 
 	/* Loop over all other ports than the current one */
-	for (i = 0; i < priv->num_ports; i++) {
+	dsa_switch_for_each_user_port(dp, ds) {
 		/* Current port handled last */
-		if (i == port)
+		if (dp->index == port)
 			continue;
 		/* Not on this bridge */
-		if (!dsa_port_offloads_bridge(dsa_to_port(ds, i), &bridge))
+		if (!dsa_port_offloads_bridge(dp, &bridge))
 			continue;
 		/* Join this port to each other port on the bridge */
-		ret = rtl837x_reg_bits_write(priv, 
-				  RTL8373_PORT_ISO_PORT_PMSK_ADDR(i),
-				  BIT(port), 1);
+		ret = rtl8372n_port_add_isolation(priv, dp->index, BIT(port));
 		if (ret)
 			dev_err(priv->dev, "failed to join port %d\n", port);
 
-		port_bitmap |= BIT(i);
+		port_bitmap |= BIT(dp->index);
 	}
+	dev_dbg(priv->dev, "[%s]: port(%d) isolate(0x%04x)\n", __func__,
+						  port, port_bitmap);
 
 	/* Set the bits for the ports we can access */
-	ret = rtl837x_reg_bits_write(priv, 
-				  RTL8373_PORT_ISO_PORT_PMSK_ADDR(port),
-				  port_bitmap,
-				  0xffffffff);
+	ret = rtl8372n_port_add_isolation(priv, port, port_bitmap);
 	return ret;
 }
 
@@ -1764,31 +1806,31 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 			    struct dsa_bridge bridge)
 {
     struct rtl837x_priv *priv = ds->priv;
+	struct dsa_port *dp;
 	unsigned int port_bitmap = 0;
-	int ret, i;
+	int ret;
 	dev_dbg(priv->dev, "[%s]: %d\n", __func__,
 							  port);
 
 	/* Loop over all other ports than this one */
-	for (i = 0; i < priv->num_ports; i++) {
+	dsa_switch_for_each_user_port(dp, ds) {
 		/* Current port handled last */
-		if (i == port)
+		if (dp->index == port)
 			continue;
 		/* Not on this bridge */
-		if (!dsa_port_offloads_bridge(dsa_to_port(ds, i), &bridge))
+		if (!dsa_port_offloads_bridge(dp, &bridge))
 			continue;
 		/* Remove this port from any other port on the bridge */
-		ret = rtl837x_reg_bits_write(priv, RTL8373_PORT_ISO_PORT_PMSK_ADDR(i),
-					 BIT(port), 0);
+		ret = rtl8372n_port_remove_isolation(priv, dp->index,
+					  BIT(port));
 		if (ret)
 			dev_err(priv->dev, "failed to leave port %d\n", port);
 
-		port_bitmap |= BIT(i);
+		port_bitmap |= BIT(dp->index);
 	}
 
 	/* Clear the bits for the ports we can not access, leave ourselves */
-	rtl837x_reg_bits_write(priv, RTL8373_PORT_ISO_PORT_PMSK_ADDR(port),
-			   port_bitmap, 0);
+	rtl8372n_port_remove_isolation(priv, port, port_bitmap);
 }
 
 static int rtl8372n_port_enable(struct dsa_switch *ds, int port,

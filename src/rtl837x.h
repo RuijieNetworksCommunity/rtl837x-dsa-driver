@@ -139,7 +139,7 @@ struct rtl837x_vlan_data {
 struct rtl837x_variant {
 	const struct dsa_switch_ops *ds_ops_mdio;
 	const struct rtl837x_ops *ops;
-	enum dsa_tag_protocol def_tag_proto;
+	const enum dsa_tag_protocol def_tag_proto;
 	const struct phylink_mac_ops *pl_mac_ops;
 	const bool have_8224;
 	size_t chip_data_sz;
@@ -158,7 +158,6 @@ struct rtl837x_ops {
 			       struct rtl837x_vlan_4k *vlan4k);
 	int	(*set_vlan_4k)(struct rtl837x_priv *priv,
 			       const struct rtl837x_vlan_4k *vlan4k);
-	bool	(*is_vlan_valid)(struct rtl837x_priv *priv, unsigned int vlan);
 	int	(*enable_vlan)(struct rtl837x_priv *priv, bool enable);
 
 	int	(*phy_read_c22)(struct rtl837x_priv *priv, u16 phy, int regnum,
