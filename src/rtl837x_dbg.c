@@ -1,8 +1,7 @@
-/* SPDX-License-Identifier: GPL-2.0 */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * Copyright (C) 2025 StarField Xu <air_jinkela@163.com>
  */
-
 #include <linux/debugfs.h>
 #include <linux/regmap.h>
 

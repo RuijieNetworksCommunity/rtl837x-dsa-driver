@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/*
+ * Copyright (C) 2025 StarField Xu <air_jinkela@163.com>
+ */
 #ifndef __RTL8372_COMMON_H__
 #define __RTL8372_COMMON_H__
 
