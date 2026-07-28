@@ -368,6 +368,51 @@ static const struct file_operations _sds_page_dump_fops = {
 	.read = _sds_page_dump_read
 };
 
+static ssize_t _vlan_dump_read(struct file *filep, char __user *ubuf,
+			       size_t count, loff_t *offp)
+{
+	int ret, len = 0;
+	char *buf;
+	u32 vid;
+	struct seq_file *sfile;
+	struct rtl837x_priv *priv;
+	struct rtl837x_vlan_4k vlan4k;
+
+	sfile = filep->private_data;
+	priv = sfile->private;
+
+	buf = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	for (vid = 0; vid <= 4095; vid++) {
+		memset(&vlan4k, 0, sizeof(vlan4k));
+		ret = priv->ops->get_vlan_4k(priv, vid, &vlan4k);
+		if (ret)
+			continue;
+
+		if (vlan4k.member == 0)
+			continue;
+
+		len += scnprintf(buf + len, PAGE_SIZE - len,
+				 "vid: %d, mbr: 0x%04X, untag: 0x%04X, fid: %d\n",
+				 vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
+
+		if (len >= PAGE_SIZE - 64)
+			break;
+	}
+
+	ret = simple_read_from_buffer(ubuf, count, offp, buf, len);
+	kfree(buf);
+	return ret;
+}
+
+static const struct file_operations _vlan_dump_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_debugfs_open,
+	.read = _vlan_dump_read
+};
+
 int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 {
 	char name[64];
@@ -393,13 +438,17 @@ int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 		priv->debugfs_parent, priv,
 		&TO_FOPS(sdsreg));
 
-	debugfs_create_file("vlan_dump", 0400,
+	debugfs_create_file("vlan", 0400,
 		priv->debugfs_parent, priv,
 		&TO_FOPS(vlan));
 
 	debugfs_create_file("pvid", 0400,
 		priv->debugfs_parent, priv,
 		&TO_FOPS(pvid));
+
+	debugfs_create_file("vlan_dump", 0400,
+		priv->debugfs_parent, priv,
+		&_vlan_dump_fops);
 
 	debugfs_create_file("sds_page_dump", 0400,
 		priv->debugfs_parent, priv,
