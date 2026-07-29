@@ -1868,9 +1868,9 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	if (ret)
 		return ret;
 
-	// Disable vlan egrFilter
+	// Enable vlan egrFilter
 	ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_CTRL_ADDR,
-			  RTL8373_VLAN_CTRL_CVLAN_FILTER_MASK, 0
+			  RTL8373_VLAN_CTRL_CVLAN_FILTER_MASK, 1
 			);
 	if (ret)
 		return ret;
