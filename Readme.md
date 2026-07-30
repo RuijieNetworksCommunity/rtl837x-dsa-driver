@@ -135,10 +135,10 @@ sfp0: sfp {
 ```
 
 ## The current bug I have discovered
-  1. When ports are bridged on the same bridge, 
+  1. ~~When ports are bridged on the same bridge, 
     if there are different VLANs, packets between 
 	VLANs will leak to each other, even if the two 
-	VLANs do not contain the same port
+	VLANs do not contain the same port~~ ***--FIXED***
   2. STP successfully prevented packet flooding,
     but STP packets were allowed to pass through and forward,
     resulting in a large number of STP packets flooding
