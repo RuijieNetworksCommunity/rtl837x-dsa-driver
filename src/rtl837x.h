@@ -133,7 +133,7 @@ struct rtl837x_vlan_data {
 			u32 untag: 10;
 			u32 fid  : 4 ;
 			u32 svlan_chk_ivl_svl: 1;
-			u32 ivl_svl: 1;
+			u32 ivl_en: 1;
 			u32 resv : 6;
 		};
 		u32 val;

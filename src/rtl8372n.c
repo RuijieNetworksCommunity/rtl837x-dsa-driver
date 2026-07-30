@@ -346,7 +346,7 @@ static int rtl8372n_set_vlan_4k(struct rtl837x_priv *priv,
 	vlan.mbr = vlan4k->member;
 	vlan.untag = vlan4k->untag;
     vlan.fid = vlan4k->fid;
-    vlan.ivl_svl = 1;
+    vlan.ivl_en = 1;
 
 	ret = rtl837x_vlan_set(priv, &vlan);
 	if (ret)
