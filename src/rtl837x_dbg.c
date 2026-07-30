@@ -57,9 +57,10 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 		return PTR_ERR(buf);
 	
 	if(buf[0] == 'r') {
-		if(sscanf(buf, "r %d", &vlan_id) == -1)
+		if(sscanf(buf, "r %d", &vlan_id) != 1) {
+			kfree(buf);
 			return -EFAULT;
-		else {
+		} else {
 			struct rtl837x_vlan_4k vlan4k;
 			memset(&vlan4k, 0, sizeof(vlan4k));
 			priv->ops->get_vlan_4k(priv, vlan_id,  &vlan4k);
@@ -69,6 +70,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 	} else {
 		snprintf(MAKE_WRITE_BUFNAME(vlan), 128, "echo \"r <vlan_id>\" > vlan_dump\n");
 	}
+	kfree(buf);
 	return count;
 }
 
@@ -89,24 +91,36 @@ ssize_t MAKE_WRITE_FUNCNAME(pvid)(struct file *filep, const char __user *ubuf,
 		return PTR_ERR(buf);
 	
 	if(buf[0] == 'w') {
-		if(sscanf(buf, "w %d %d", &port, &pvid) == -1)
+		if(sscanf(buf, "w %d %d", &port, &pvid) != 2) {
+			kfree(buf);
 			return -EFAULT;
-		else{
-			rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_PB_VLAN_ADDR(port),
-					  RTL8373_VLAN_PORT_PB_VLAN_PVID_MASK(port), pvid);
 		}
+		if (port > 8) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_PB_VLAN_ADDR(port),
+				  RTL8373_VLAN_PORT_PB_VLAN_PVID_MASK(port), pvid);
 	} else if(buf[0] == 'r') {
-		if(sscanf(buf, "r %d", &port) == -1)
+		if(sscanf(buf, "r %d", &port) != 1) {
+			kfree(buf);
 			return -EFAULT;
-		else {
-			ret = rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_PB_VLAN_ADDR(port),
-					  RTL8373_VLAN_PORT_PB_VLAN_PVID_MASK(port), &pvid);
-			if (ret) return -EIO;
-			snprintf(MAKE_WRITE_BUFNAME(pvid), 64, "port: %d, pvid: %d\n", port, pvid);
 		}
+		if (port > 8) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		ret = rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_PB_VLAN_ADDR(port),
+				  RTL8373_VLAN_PORT_PB_VLAN_PVID_MASK(port), &pvid);
+		if (ret) {
+			kfree(buf);
+			return -EIO;
+		}
+		snprintf(MAKE_WRITE_BUFNAME(pvid), 64, "port: %d, pvid: %d\n", port, pvid);
 	} else {
 		snprintf(MAKE_WRITE_BUFNAME(pvid), 64, "echo \"w/r <port> [<pvid>]\" > pvid\n");
 	}
+	kfree(buf);
 	return count;
 }
 
@@ -127,23 +141,30 @@ ssize_t MAKE_WRITE_FUNCNAME(sdsreg)(struct file *filep, const char __user *ubuf,
 		return PTR_ERR(buf);
 	
 	if(buf[0] == 'w') {
-		if(sscanf(buf, "w %d %x %x %x", &sds_id, &page, &reg, &val) == -1)
+		if(sscanf(buf, "w %d %x %x %x", &sds_id, &page, &reg, &val) != 4) {
+			kfree(buf);
 			return -EFAULT;
-		else{
-			if (sds_id > 1)
-				return -EFAULT;
-			rtl837x_sds_reg_write(priv, sds_id, page, reg, val);
 		}
+		if (sds_id > 1) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		rtl837x_sds_reg_write(priv, sds_id, page, reg, val);
 	} else if(buf[0] == 'r') {
-		if(sscanf(buf, "r %d %x %x", &sds_id, &page, &reg) == -1)
+		if(sscanf(buf, "r %d %x %x", &sds_id, &page, &reg) != 3) {
+			kfree(buf);
 			return -EFAULT;
-		else {
-			rtl837x_sds_reg_read(priv, sds_id, page, reg, &tmp16);
-			snprintf(MAKE_WRITE_BUFNAME(sdsreg), 64, "sds_id: %d, page: 0x%08x, reg: 0x%08x, val: 0x%08x\n", sds_id, page, reg, tmp16);
 		}
+		if (sds_id > 1) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		rtl837x_sds_reg_read(priv, sds_id, page, reg, &tmp16);
+		snprintf(MAKE_WRITE_BUFNAME(sdsreg), 64, "sds_id: %d, page: 0x%08x, reg: 0x%08x, val: 0x%08x\n", sds_id, page, reg, tmp16);
 	} else {
 		snprintf(MAKE_WRITE_BUFNAME(sdsreg), 64, "echo \"w/r <sds_id> <page> <reg> [<val>]\" > sdsreg\n");
 	}
+	kfree(buf);
 	return count;
 }
 
@@ -164,24 +185,33 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mmd)(struct file *filep, const char __user *u
 		return PTR_ERR(buf);
 	
 	if(buf[0] == 'w') {
-		if(sscanf(buf, "w %d %x %x %x", &port, &devad, &reg, &val) == -1)
+		if(sscanf(buf, "w %d %x %x %x", &port, &devad, &reg, &val) != 4) {
+			kfree(buf);
 			return -EFAULT;
-		else{
-			if (port > 9)
-				return -EFAULT;
-			priv->ops->phy_write_c45(priv, port, devad, reg, val);
 		}
+		if (port > 9) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		priv->ops->phy_write_c45(priv, port, devad, reg, val);
 	} else if(buf[0] == 'r') {
-		if(sscanf(buf, "r %d %x %x", &port, &devad, &reg) == -1)
+		if(sscanf(buf, "r %d %x %x", &port, &devad, &reg) != 3) {
+			kfree(buf);
 			return -EFAULT;
-		else {
-			if (priv->ops->phy_read_c45(priv, port, devad, reg, &tmp16))
-				return -EIO;
-			snprintf(MAKE_WRITE_BUFNAME(phyreg_mmd), 64, "port: %d, devad: 0x%08x, reg: 0x%08x, val: 0x%08x\n", port, devad, reg, tmp16);
 		}
+		if (port > 9) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		if (priv->ops->phy_read_c45(priv, port, devad, reg, &tmp16)) {
+			kfree(buf);
+			return -EIO;
+		}
+		snprintf(MAKE_WRITE_BUFNAME(phyreg_mmd), 64, "port: %d, devad: 0x%08x, reg: 0x%08x, val: 0x%08x\n", port, devad, reg, tmp16);
 	} else {
 		snprintf(MAKE_WRITE_BUFNAME(phyreg_mmd), 64, "echo \"w/r <real_port_index> <devad> <reg> [<val>]\" > phyreg_mmd\n");
 	}
+	kfree(buf);
 	return count;
 }
 
@@ -203,24 +233,33 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mii)(struct file *filep, const char __user *u
 		return PTR_ERR(buf);
 	
 	if(buf[0] == 'w') {
-		if(sscanf(buf, "w %d %x %x", &port, &reg, &val) == -1)
+		if(sscanf(buf, "w %d %x %x", &port, &reg, &val) != 3) {
+			kfree(buf);
 			return -EFAULT;
-		else{
-			if (port > 9)
-				return -EFAULT;
-			rtl837x_phy_write_c22(priv, port, reg, val);
 		}
+		if (port > 9) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		rtl837x_phy_write_c22(priv, port, reg, val);
 	} else if(buf[0] == 'r') {
-		if(sscanf(buf, "r %d %x", &port, &reg) == -1)
+		if(sscanf(buf, "r %d %x", &port, &reg) != 2) {
+			kfree(buf);
 			return -EFAULT;
-		else {
-			if (rtl837x_phy_read_c22(priv, port, reg, &tmp16))
-				return -EIO;
-			snprintf(MAKE_WRITE_BUFNAME(phyreg_mii), 64, "port: %d, reg: 0x%08x, val: 0x%08x\n", port, reg, tmp16);
 		}
+		if (port > 9) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		if (rtl837x_phy_read_c22(priv, port, reg, &tmp16)) {
+			kfree(buf);
+			return -EIO;
+		}
+		snprintf(MAKE_WRITE_BUFNAME(phyreg_mii), 64, "port: %d, reg: 0x%08x, val: 0x%08x\n", port, reg, tmp16);
 	} else {
 		snprintf(MAKE_WRITE_BUFNAME(phyreg_mii), 64, "echo \"w/r <real_port_index> <reg> [<val>]\" > phyreg_mii\n");
 	}
+	kfree(buf);
 	return count;
 }
 
@@ -241,24 +280,33 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_ocp)(struct file *filep, const char __user *u
 		return PTR_ERR(buf);
 	
 	if(buf[0] == 'w') {
-		if(sscanf(buf, "w %d %x %x", &port, &reg, &val) == -1)
+		if(sscanf(buf, "w %d %x %x", &port, &reg, &val) != 3) {
+			kfree(buf);
 			return -EFAULT;
-		else{
-			if (port > 9)
-				return -EFAULT;
-			rtl837x_phy_write_c22(priv, port, reg, val);
 		}
+		if (port > 9) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		rtl837x_phy_write_c22(priv, port, reg, val);
 	} else if(buf[0] == 'r') {
-		if(sscanf(buf, "r %d %x", &port, &reg) == -1)
+		if(sscanf(buf, "r %d %x", &port, &reg) != 2) {
+			kfree(buf);
 			return -EFAULT;
-		else {
-			if (rtl837x_phy_read_c22(priv, port, reg, &tmp16))
-				return -EIO;
-			snprintf(MAKE_WRITE_BUFNAME(phyreg_ocp), 64, "port: %d, reg: 0x%08x, val: 0x%08x\n", port, reg, tmp16);
 		}
+		if (port > 9) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		if (rtl837x_phy_read_c22(priv, port, reg, &tmp16)) {
+			kfree(buf);
+			return -EIO;
+		}
+		snprintf(MAKE_WRITE_BUFNAME(phyreg_ocp), 64, "port: %d, reg: 0x%08x, val: 0x%08x\n", port, reg, tmp16);
 	} else {
 		snprintf(MAKE_WRITE_BUFNAME(phyreg_ocp), 64, "echo \"w/r <real_port_index> <reg> [<val>]\" > phyreg_ocp\n");
 	}
+	kfree(buf);
 	return count;
 }
 
@@ -280,20 +328,22 @@ ssize_t MAKE_WRITE_FUNCNAME(reg)(struct file *filep, const char __user *ubuf,
 		return PTR_ERR(buf);
 
 	if(buf[0] == 'w') {
-		if(sscanf(buf, "w %x %x", &reg, &val) == -1)
+		if(sscanf(buf, "w %x %x", &reg, &val) != 2) {
+			kfree(buf);
 			return -EFAULT;
-		else
-			rtl837x_reg_write(priv, reg, val);
-	} else if(buf[0] == 'r') {
-		if(sscanf(buf, "r %x", &reg) == -1)
-			return -EFAULT;
-		else {
-			rtl837x_reg_read(priv, reg, &val);
-			snprintf(MAKE_WRITE_BUFNAME(reg), 64, "reg: 0x%08x, val: 0x%08x\n", reg, val);
 		}
+		rtl837x_reg_write(priv, reg, val);
+	} else if(buf[0] == 'r') {
+		if(sscanf(buf, "r %x", &reg) != 1) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		rtl837x_reg_read(priv, reg, &val);
+		snprintf(MAKE_WRITE_BUFNAME(reg), 64, "reg: 0x%08x, val: 0x%08x\n", reg, val);
 	} else {
 		snprintf(MAKE_WRITE_BUFNAME(reg), 64, "echo \"w/r <reg> [<val>]\" > reg\n");
 	}
+	kfree(buf);
 	return count;
 }
 
@@ -315,47 +365,60 @@ static ssize_t _sds_page_dump_read(struct file *filep, char __user *ubuf,
 	if (!buf)
 		return -ENOMEM;
 
+#define SDS_DUMP_APPEND(fmt, ...) do { \
+		if (len < SDS_DUMP_BUF_SIZE) { \
+			int _n = snprintf(buf + len, SDS_DUMP_BUF_SIZE - len, \
+					  fmt, ##__VA_ARGS__); \
+			if (_n > 0) \
+				len += _n; \
+			if (len >= SDS_DUMP_BUF_SIZE) \
+				len = SDS_DUMP_BUF_SIZE - 1; \
+		} \
+	} while (0)
+
 	rtl837x_reg_read(priv, RTL8373_SDS_MODE_SEL_ADDR, &tmp32);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "reg 0x7b20: %#08x\n", tmp32);
+	SDS_DUMP_APPEND("reg 0x7b20: %#08x\n", tmp32);
 	rtl837x_sds_reg_read(priv, 0, 0x21, 0x10, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x21  reg 0x10; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x21  reg 0x10; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x21, 0x13, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x21  reg 0x13; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x21  reg 0x13; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x21, 0x18, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x21  reg 0x18; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x21  reg 0x18; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x21, 0x1B, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x21  reg 0x1b; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x21  reg 0x1b; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x21, 0x1D, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x21  reg 0x1d; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x21  reg 0x1d; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x36, 0x1C, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x36  reg 0x1c; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x36  reg 0x1c; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x36, 0x14, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x36  reg 0x14; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x36  reg 0x14; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x36, 0x10, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x36  reg 0x10; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x36  reg 0x10; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 4, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x04; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x2e  reg 0x04; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 6, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x06; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x2e  reg 0x06; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 7, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x07; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x2e  reg 0x07; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 9, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x09; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x2e  reg 0x09; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 0xB, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x0b; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x2e  reg 0x0b; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 0xC, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x0c; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x2e  reg 0x0c; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 0xD, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x0d; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x2e  reg 0x0d; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 0x15, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x15; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x2e  reg 0x15; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 0x16, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x16; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x2e  reg 0x16; data = 0x%04x\n", tmp16);
 	rtl837x_sds_reg_read(priv, 0, 0x2E, 0x1D, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x2e  reg 0x1d; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x2e  reg 0x1d; data = 0x%04x\n", tmp16);
 
 	rtl837x_sds_reg_read(priv, 0, 0x05, 0x00, &tmp16);
-	len += snprintf(buf + len, SDS_DUMP_BUF_SIZE-len, "sds page 0x05  reg 0x00; data = 0x%04x\n", tmp16);
+	SDS_DUMP_APPEND("sds page 0x05  reg 0x00; data = 0x%04x\n", tmp16);
+
+#undef SDS_DUMP_APPEND
 
 	ret = simple_read_from_buffer(ubuf, count, offp, buf, strlen(buf));
 	kfree(buf);
@@ -430,7 +493,7 @@ int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 		priv->debugfs_parent, priv,
 		&TO_FOPS(phyreg_mii));
 
-	debugfs_create_file("phy_mii", 0600,
+	debugfs_create_file("phy_ocp", 0600,
 		priv->debugfs_parent, priv,
 		&TO_FOPS(phyreg_ocp));
 
