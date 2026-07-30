@@ -40,6 +40,7 @@ REGRWFUNC(phyreg_mmd, 64)
 REGRWFUNC(phyreg_mii, 64)
 REGRWFUNC(phyreg_ocp, 64)
 REGRWFUNC(sdsreg, 64)
+REGRWFUNC(l2uc, 128)
 
 ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
@@ -347,6 +348,55 @@ ssize_t MAKE_WRITE_FUNCNAME(reg)(struct file *filep, const char __user *ubuf,
 	return count;
 }
 
+ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
+				   size_t count, loff_t *offp)
+{
+	int ret, len = 0;
+	char *buf;
+	u32 method, index;
+	struct seq_file *sfile;
+	struct rtl837x_lut_entry entry = {0};
+	struct rtl837x_priv *priv;
+	if (*offp)
+		return 0;
+
+	sfile = filep->private_data;
+	priv = sfile->private;
+
+	buf = memdup_user_nul(ubuf, count);
+	if (IS_ERR(buf))
+		return PTR_ERR(buf);
+
+	if(buf[0] == 'r') {
+		if(sscanf(buf, "r %d %d", &method, &index) != 2) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		entry.addr = index;
+		ret = rtl837x_lut_query(priv, method, &entry);
+		len += snprintf(MAKE_WRITE_BUFNAME(l2uc)+len, 128-len, "result: %s%d ", ret==0?"ok  ":"no  ", ret);
+		len += snprintf(MAKE_WRITE_BUFNAME(l2uc)+len, 128-len, "type: %s ", entry.type==LUT_TYPE_L2_UC?"l2uc":(entry.type==LUT_TYPE_L2_MC?"l2mc":"l3"));
+		len += snprintf(MAKE_WRITE_BUFNAME(l2uc)+len, 128-len, "addr: %d ", entry.addr);
+		len += snprintf(MAKE_WRITE_BUFNAME(l2uc)+len, 128-len, "%02X:%02X:%02X:%02X:%02X:%02X ", 
+											  entry.uc.key.mac_addr[0],
+											  entry.uc.key.mac_addr[1],
+											  entry.uc.key.mac_addr[2],
+											  entry.uc.key.mac_addr[3],
+											  entry.uc.key.mac_addr[4],
+											  entry.uc.key.mac_addr[5]
+											);
+		len += snprintf(MAKE_WRITE_BUFNAME(l2uc)+len, 128-len, "vid_fid: %d ", entry.uc.key.vid_fid);
+		len += snprintf(MAKE_WRITE_BUFNAME(l2uc)+len, 128-len, "ivl: %d ", entry.uc.key.ivl);
+		len += snprintf(MAKE_WRITE_BUFNAME(l2uc)+len, 128-len, "auth: %d ", entry.uc.auth);
+		len += snprintf(MAKE_WRITE_BUFNAME(l2uc)+len, 128-len, "is_static: %d ", entry.uc.is_static);
+		len += snprintf(MAKE_WRITE_BUFNAME(l2uc)+len, 128-len, "l3lookup: %d\n", entry.uc.l3lookup);
+	} else {
+		snprintf(MAKE_WRITE_BUFNAME(l2uc), 128, "echo \"r <read_method> [<index>]\" > l2uc\n");
+	}
+	kfree(buf);
+	return count;
+}
+
 static ssize_t _sds_page_dump_read(struct file *filep, char __user *ubuf,
 				size_t count, loff_t *offp)
 {
@@ -476,6 +526,73 @@ static const struct file_operations _vlan_dump_fops = {
 	.read = _vlan_dump_read
 };
 
+
+static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
+			       size_t count, loff_t *offp)
+{
+	int ret, len = 0;
+	char *buf;
+	struct seq_file *sfile;
+	struct rtl837x_priv *priv;
+	struct rtl837x_lut_entry entry = {0};
+
+	sfile = filep->private_data;
+	priv = sfile->private;
+
+#define L2UC_BUF_SIZE PAGE_SIZE*64
+
+	buf = kmalloc(L2UC_BUF_SIZE, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+#define L2UC_DUMP_APPEND(fmt, ...) do { \
+		if (len < L2UC_BUF_SIZE) { \
+			int _n = snprintf(buf + len, L2UC_BUF_SIZE - len, \
+					  fmt, ##__VA_ARGS__); \
+			if (_n > 0) \
+				len += _n; \
+			if (len >= L2UC_BUF_SIZE) \
+				len = L2UC_BUF_SIZE - 1; \
+		} \
+	} while (0)
+
+	for (int i = 0; i < 4160; i++) {
+		entry.addr = i;
+		ret = rtl837x_lut_query(priv, LUT_READ_METHOD_ADDRESS, &entry);
+		if (ret)
+			continue;
+		L2UC_DUMP_APPEND("result: %s%d ", ret==0?"ok  ":"no  ", ret);
+		L2UC_DUMP_APPEND("type: %s ", entry.type==LUT_TYPE_L2_UC?"l2uc":(entry.type==LUT_TYPE_L2_MC?"l2mc":"l3"));
+		L2UC_DUMP_APPEND("addr: %d ", entry.addr);
+		L2UC_DUMP_APPEND("%02X:%02X:%02X:%02X:%02X:%02X ", 
+											  entry.uc.key.mac_addr[0],
+											  entry.uc.key.mac_addr[1],
+											  entry.uc.key.mac_addr[2],
+											  entry.uc.key.mac_addr[3],
+											  entry.uc.key.mac_addr[4],
+											  entry.uc.key.mac_addr[5]
+											);
+		L2UC_DUMP_APPEND("vid_fid: %d ", entry.uc.key.vid_fid);
+		L2UC_DUMP_APPEND("ivl: %d ", entry.uc.key.ivl);
+		L2UC_DUMP_APPEND("auth: %d ", entry.uc.auth);
+		L2UC_DUMP_APPEND("is_static: %d ", entry.uc.is_static);
+		L2UC_DUMP_APPEND("l3lookup: %d\n", entry.uc.l3lookup);
+
+		if (len >= L2UC_BUF_SIZE - 64)
+			break;
+	}
+
+	ret = simple_read_from_buffer(ubuf, count, offp, buf, len);
+	kfree(buf);
+	return ret;
+}
+
+static const struct file_operations _l2uc_dump_fops = {
+	.owner = THIS_MODULE,
+	.open = simple_debugfs_open,
+	.read = _l2uc_dump_read
+};
+
 int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 {
 	char name[64];
@@ -508,6 +625,14 @@ int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 	debugfs_create_file("pvid", 0400,
 		priv->debugfs_parent, priv,
 		&TO_FOPS(pvid));
+
+	debugfs_create_file("l2uc", 0400,
+		priv->debugfs_parent, priv,
+		&TO_FOPS(l2uc));
+
+	debugfs_create_file("l2uc_dump", 0400,
+		priv->debugfs_parent, priv,
+		&_l2uc_dump_fops);
 
 	debugfs_create_file("vlan_dump", 0400,
 		priv->debugfs_parent, priv,

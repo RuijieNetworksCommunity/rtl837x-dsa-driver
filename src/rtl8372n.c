@@ -1788,10 +1788,10 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		if (dsa_port_is_unused(dp))
 			continue;
 
-    	// Disable per-port l2 learning
-		ret = rtl837x_reg_write(priv, RTL8373_L2_LRN_PORT_CONSTRT_CTRL_ADDR(port), 0);
-		if (ret)
-			return ret;
+    	// // Disable per-port l2 learning
+		// ret = rtl837x_reg_write(priv, RTL8373_L2_LRN_PORT_CONSTRT_CTRL_ADDR(port), 0);
+		// if (ret)
+		// 	return ret;
 
 		// FORWARD:0, DROP:1, TO_CPU:2
 		ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_PORT_CONSTRT_ACT_ADDR,
@@ -1854,9 +1854,23 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	ret = rtl8372n_port_set_isolation(priv, cpu_dp->index,
 						downports_mask);
 
+	ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_CONSTRT_CTRL_ADDR,
+			  RTL8373_L2_LRN_CONSTRT_CTRL_PORT_MASK_MASK, downports_mask
+			);
+	if (ret)
+		return ret;
+	
+	ret = rtl837x_reg_write(priv, RTL8373_VLAN_L2_LRN_DIS_ADDR(0), 0);
+	if (ret)
+		return ret;
+
+	ret = rtl837x_reg_write(priv, RTL8373_VLAN_L2_LRN_DIS_ADDR(1), 0);
+	if (ret)
+		return ret;
+
 	// Disable l2 learning
 	ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_CONSTRT_CTRL_ADDR,
-			  RTL8373_L2_LRN_CONSTRT_CTRL_CONSTRT_NUM_MASK, 0
+			  RTL8373_L2_LRN_CONSTRT_CTRL_CONSTRT_NUM_MASK, 2112
 			);
 	if (ret)
 		return ret;
