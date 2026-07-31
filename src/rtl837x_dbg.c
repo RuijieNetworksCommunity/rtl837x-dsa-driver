@@ -15,11 +15,11 @@ static int simple_debugfs_open(struct inode *inode, struct file *file)
 }
 
 #define MAKE_WRITE_FUNCNAME(_name) _##_name##_rw_write
-#define MAKE_WRITE_BUFNAME(_name) _buf_rd_##_name
-#define MAKE_BUF_LEN_NAME(_name) _buf_size_##_name
+#define MK_BUFNAME(_name) _buf_rd_##_name
+#define MK_BUFLEN(_name) _buf_size_##_name
 
 #define REGRWFUNC(name, BUF_SIZE) \
-	static const int MAKE_BUF_LEN_NAME(name) = BUF_SIZE; \
+	static const int MK_BUFLEN(name) = BUF_SIZE; \
 	static char _buf_rd_##name[BUF_SIZE];  \
 	static ssize_t _##name##_rw_read(struct file *filep, char __user *ubuf,  \
 				  size_t count, loff_t *offp)   \
@@ -35,7 +35,7 @@ static int simple_debugfs_open(struct inode *inode, struct file *file)
 		.read = _##name##_rw_read   \
 	};
 
-#define BUF_APPEND(_BUF, _LEN, _BUF_SIZE, fmt, ...) do { \
+#define BUF_APPEND(_BUF, _BUF_SIZE, _LEN, fmt, ...) do { \
 	if (_LEN < _BUF_SIZE) { \
 		int _n = snprintf(_BUF + _LEN, _BUF_SIZE - _LEN, \
 					fmt, ##__VA_ARGS__); \
@@ -53,6 +53,7 @@ REGRWFUNC(phyreg_mmd, 64)
 REGRWFUNC(phyreg_mii, 64)
 REGRWFUNC(phyreg_ocp, 64)
 REGRWFUNC(sdsreg, 64)
+REGRWFUNC(l2uc, 256)
 
 ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
@@ -77,11 +78,11 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 			struct rtl837x_vlan_4k vlan4k;
 			memset(&vlan4k, 0, sizeof(vlan4k));
 			priv->ops->get_vlan_4k(priv, vlan_id,  &vlan4k);
-			snprintf(MAKE_WRITE_BUFNAME(vlan), MAKE_BUF_LEN_NAME(vlan), "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
+			snprintf(MK_BUFNAME(vlan), MK_BUFLEN(vlan), "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
 						  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
 		}
 	} else {
-		snprintf(MAKE_WRITE_BUFNAME(vlan), MAKE_BUF_LEN_NAME(vlan), "echo \"r <vlan_id>\" > vlan_dump\n");
+		snprintf(MK_BUFNAME(vlan), MK_BUFLEN(vlan), "echo \"r <vlan_id>\" > vlan_dump\n");
 	}
 	kfree(buf);
 	return count;
@@ -129,9 +130,9 @@ ssize_t MAKE_WRITE_FUNCNAME(pvid)(struct file *filep, const char __user *ubuf,
 			kfree(buf);
 			return -EIO;
 		}
-		snprintf(MAKE_WRITE_BUFNAME(pvid), MAKE_BUF_LEN_NAME(pvid), "port: %d, pvid: %d\n", port, pvid);
+		snprintf(MK_BUFNAME(pvid), MK_BUFLEN(pvid), "port: %d, pvid: %d\n", port, pvid);
 	} else {
-		snprintf(MAKE_WRITE_BUFNAME(pvid), MAKE_BUF_LEN_NAME(pvid), "echo \"w/r <port> [<pvid>]\" > pvid\n");
+		snprintf(MK_BUFNAME(pvid), MK_BUFLEN(pvid), "echo \"w/r <port> [<pvid>]\" > pvid\n");
 	}
 	kfree(buf);
 	return count;
@@ -173,9 +174,9 @@ ssize_t MAKE_WRITE_FUNCNAME(sdsreg)(struct file *filep, const char __user *ubuf,
 			return -EFAULT;
 		}
 		rtl837x_sds_reg_read(priv, sds_id, page, reg, &tmp16);
-		snprintf(MAKE_WRITE_BUFNAME(sdsreg), MAKE_BUF_LEN_NAME(sdsreg), "sds_id: %d, page: 0x%08x, reg: 0x%08x, val: 0x%08x\n", sds_id, page, reg, tmp16);
+		snprintf(MK_BUFNAME(sdsreg), MK_BUFLEN(sdsreg), "sds_id: %d, page: 0x%08x, reg: 0x%08x, val: 0x%08x\n", sds_id, page, reg, tmp16);
 	} else {
-		snprintf(MAKE_WRITE_BUFNAME(sdsreg), MAKE_BUF_LEN_NAME(sdsreg), "echo \"w/r <sds_id> <page> <reg> [<val>]\" > sdsreg\n");
+		snprintf(MK_BUFNAME(sdsreg), MK_BUFLEN(sdsreg), "echo \"w/r <sds_id> <page> <reg> [<val>]\" > sdsreg\n");
 	}
 	kfree(buf);
 	return count;
@@ -220,9 +221,9 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mmd)(struct file *filep, const char __user *u
 			kfree(buf);
 			return -EIO;
 		}
-		snprintf(MAKE_WRITE_BUFNAME(phyreg_mmd), MAKE_BUF_LEN_NAME(phyreg_mmd), "port: %d, devad: 0x%08x, reg: 0x%08x, val: 0x%08x\n", port, devad, reg, tmp16);
+		snprintf(MK_BUFNAME(phyreg_mmd), MK_BUFLEN(phyreg_mmd), "port: %d, devad: 0x%08x, reg: 0x%08x, val: 0x%08x\n", port, devad, reg, tmp16);
 	} else {
-		snprintf(MAKE_WRITE_BUFNAME(phyreg_mmd), MAKE_BUF_LEN_NAME(phyreg_mmd), "echo \"w/r <real_port_index> <devad> <reg> [<val>]\" > phyreg_mmd\n");
+		snprintf(MK_BUFNAME(phyreg_mmd), MK_BUFLEN(phyreg_mmd), "echo \"w/r <real_port_index> <devad> <reg> [<val>]\" > phyreg_mmd\n");
 	}
 	kfree(buf);
 	return count;
@@ -268,9 +269,9 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mii)(struct file *filep, const char __user *u
 			kfree(buf);
 			return -EIO;
 		}
-		snprintf(MAKE_WRITE_BUFNAME(phyreg_mii), MAKE_BUF_LEN_NAME(phyreg_mii), "port: %d, reg: 0x%08x, val: 0x%08x\n", port, reg, tmp16);
+		snprintf(MK_BUFNAME(phyreg_mii), MK_BUFLEN(phyreg_mii), "port: %d, reg: 0x%08x, val: 0x%08x\n", port, reg, tmp16);
 	} else {
-		snprintf(MAKE_WRITE_BUFNAME(phyreg_mii), MAKE_BUF_LEN_NAME(phyreg_mii), "echo \"w/r <real_port_index> <reg> [<val>]\" > phyreg_mii\n");
+		snprintf(MK_BUFNAME(phyreg_mii), MK_BUFLEN(phyreg_mii), "echo \"w/r <real_port_index> <reg> [<val>]\" > phyreg_mii\n");
 	}
 	kfree(buf);
 	return count;
@@ -315,9 +316,9 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_ocp)(struct file *filep, const char __user *u
 			kfree(buf);
 			return -EIO;
 		}
-		snprintf(MAKE_WRITE_BUFNAME(phyreg_ocp), MAKE_BUF_LEN_NAME(phyreg_ocp), "port: %d, reg: 0x%08x, val: 0x%08x\n", port, reg, tmp16);
+		snprintf(MK_BUFNAME(phyreg_ocp), MK_BUFLEN(phyreg_ocp), "port: %d, reg: 0x%08x, val: 0x%08x\n", port, reg, tmp16);
 	} else {
-		snprintf(MAKE_WRITE_BUFNAME(phyreg_ocp), MAKE_BUF_LEN_NAME(phyreg_ocp), "echo \"w/r <real_port_index> <reg> [<val>]\" > phyreg_ocp\n");
+		snprintf(MK_BUFNAME(phyreg_ocp), MK_BUFLEN(phyreg_ocp), "echo \"w/r <real_port_index> <reg> [<val>]\" > phyreg_ocp\n");
 	}
 	kfree(buf);
 	return count;
@@ -352,10 +353,131 @@ ssize_t MAKE_WRITE_FUNCNAME(reg)(struct file *filep, const char __user *ubuf,
 			return -EFAULT;
 		}
 		rtl837x_reg_read(priv, reg, &val);
-		snprintf(MAKE_WRITE_BUFNAME(reg), MAKE_BUF_LEN_NAME(phyreg_mmd), "reg: 0x%08x, val: 0x%08x\n", reg, val);
+		snprintf(MK_BUFNAME(reg), MK_BUFLEN(phyreg_mmd), "reg: 0x%08x, val: 0x%08x\n", reg, val);
 	} else {
-		snprintf(MAKE_WRITE_BUFNAME(reg), MAKE_BUF_LEN_NAME(phyreg_mmd), "echo \"w/r <reg> [<val>]\" > reg\n");
+		snprintf(MK_BUFNAME(reg), MK_BUFLEN(phyreg_mmd), "echo \"w/r <reg> [<val>]\" > reg\n");
 	}
+	kfree(buf);
+	return count;
+}
+
+ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
+				   size_t count, loff_t *offp)
+{
+	char *buf;
+	int ret, len=0;
+	u32 index;
+	struct seq_file *sfile;
+	struct rtl837x_priv *priv;
+	struct rtl837x_lut_entry entry = {0};
+
+	sfile = filep->private_data;
+	priv = sfile->private;
+
+	buf = memdup_user_nul(ubuf, count);
+	if (IS_ERR(buf))
+		return PTR_ERR(buf);
+	
+	if(buf[0] == 'r') {
+		if(sscanf(buf, "r %d", &index) != 1) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		entry.addr = index;
+		ret = rtl837x_lut_query(priv, LUT_READ_METHOD_ADDRESS, &entry);
+		if (ret)
+		{
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len,
+					"addr: %d Not Hit\n", index);
+			goto out;
+		}
+		switch (entry.type)
+		{
+		case LUT_TYPE_L2_UC:
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "type:%s ", "l2uc");
+			// L2UC_DUMP_APPEND("type:%s ", "l2uc");
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "%02X:%02X:%02X:%02X:%02X:%02X ", 
+								entry.uc.key.mac_addr[0],
+								entry.uc.key.mac_addr[1],
+								entry.uc.key.mac_addr[2],
+								entry.uc.key.mac_addr[3],
+								entry.uc.key.mac_addr[4],
+								entry.uc.key.mac_addr[5]
+								);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "ivl:%d ", entry.uc.key.ivl);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "vid_fid:%d ", entry.uc.key.vid_fid);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "port:%d ", entry.uc.port);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "age:%03d ", entry.uc.age);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "auth:%d ", entry.uc.auth);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "is_static:%d ", entry.uc.is_static);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "l3lookup:%d\n", entry.uc.l3lookup);
+			break;
+		case LUT_TYPE_L2_MC:
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "type:%s ", "l2mc");
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "%02X:%02X:%02X:%02X:%02X:%02X ", 
+								entry.mc.key.mac_addr[0],
+								entry.mc.key.mac_addr[1],
+								entry.mc.key.mac_addr[2],
+								entry.mc.key.mac_addr[3],
+								entry.mc.key.mac_addr[4],
+								entry.mc.key.mac_addr[5]
+								);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "ivl:%d ", entry.mc.key.ivl);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "vid_fid:%d ", entry.mc.key.vid_fid);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "mbr:0x%04X ", entry.mc.mbr);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "igmp_idx:%d ", entry.mc.igmp_idx);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "igmp_asic:%d ", entry.mc.igmp_asic);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "l3lookup:%d\n", entry.mc.l3lookup);
+			break;
+		case LUT_TYPE_L3:
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "type:%s ", "l3");
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "sipaddr: 0x%08X", entry.l3.sip);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "dipaddr: 0x%08X", entry.l3.dip);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "mbr:0x%04X ", entry.l3.mbr);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "igmp_idx:%d ", entry.l3.igmp_idx);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "igmp_asic:%d ", entry.l3.igmp_asic);
+			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+					   "l3lookup:%d\n", entry.l3.l3lookup);
+			break;
+		default:
+			break;
+		}
+	} else if(buf[0] == 'd'){
+		if(sscanf(buf, "d %d", &index) != 1) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		ret = rtl837x_lut_del(priv, index);
+		BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
+			   "addr:%d deleted %d\n", index, ret);
+	} else {
+		BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len,
+				"echo \"r/d <index>\" > l2uc\n");
+	}
+out:
 	kfree(buf);
 	return count;
 }
@@ -531,7 +653,7 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 		switch (entry.type)
 		{
 		case LUT_TYPE_L2_UC:
-			BUF_APPEND(buf, len, L2UC_BUF_SIZE, "type:%s ", "l2uc");
+			BUF_APPEND(buf, L2UC_BUF_SIZE, len, "type:%s ", "l2uc");
 			// L2UC_DUMP_APPEND("type:%s ", "l2uc");
 			L2UC_DUMP_APPEND("%02X:%02X:%02X:%02X:%02X:%02X ", 
 								entry.uc.key.mac_addr[0],
@@ -627,6 +749,10 @@ int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 	debugfs_create_file("pvid", 0400,
 		priv->debugfs_parent, priv,
 		&TO_FOPS(pvid));
+
+	debugfs_create_file("l2uc", 0400,
+		priv->debugfs_parent, priv,
+		&TO_FOPS(l2uc));
 
 	debugfs_create_file("l2uc_dump", 0400,
 		priv->debugfs_parent, priv,
