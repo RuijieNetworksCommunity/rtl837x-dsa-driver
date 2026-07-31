@@ -1793,12 +1793,12 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		// if (ret)
 		// 	return ret;
 
-		// FORWARD:0, DROP:1, TO_CPU:2
-		ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_PORT_CONSTRT_ACT_ADDR,
-			 RTL8373_L2_LRN_PORT_CONSTRT_ACT_LRN_ACT_MASK, 0
-			);
-		if (ret)
-			return ret;
+		// // FORWARD:0, DROP:1, TO_CPU:2
+		// ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_PORT_CONSTRT_ACT_ADDR,
+		// 	 RTL8373_L2_LRN_PORT_CONSTRT_ACT_LRN_ACT_MASK, 0
+		// 	);
+		// if (ret)
+		// 	return ret;
 
 		// What fuck is this?
 		/*
@@ -1854,12 +1854,22 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	ret = rtl8372n_port_set_isolation(priv, cpu_dp->index,
 						downports_mask);
 
-	ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_CONSTRT_CTRL_ADDR,
-			  RTL8373_L2_LRN_CONSTRT_CTRL_PORT_MASK_MASK, downports_mask
-			);
+	// ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_CONSTRT_CTRL_ADDR,
+	// 		  RTL8373_L2_LRN_CONSTRT_CTRL_PORT_MASK_MASK, downports_mask
+	// 		);
+	// if (ret)
+	// 	return ret;
+
+	ret = rtl837x_reg_bits_write(priv, RTL8373_L2_TBL_FLUSH_ALL_ADDR,
+				  RTL8373_L2_TBL_FLUSH_ALL_FLUSH_ALL_MASK, 1);
 	if (ret)
 		return ret;
-	
+
+    // ret = rtl837x_reg_bits_write(priv, RTL8373_L2_AGE_CTRL_ADDR,
+	// 				  RTL8373_L2_AGE_CTRL_AGE_UNIT_MASK, 128*5);
+	// if (ret)
+	// 	return ret;
+
 	ret = rtl837x_reg_write(priv, RTL8373_VLAN_L2_LRN_DIS_ADDR(0), 0);
 	if (ret)
 		return ret;
@@ -1868,19 +1878,19 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	if (ret)
 		return ret;
 
-	// Disable l2 learning
-	ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_CONSTRT_CTRL_ADDR,
-			  RTL8373_L2_LRN_CONSTRT_CTRL_CONSTRT_NUM_MASK, 2112
-			);
-	if (ret)
-		return ret;
+	// // Enable l2 learning
+	// ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_CONSTRT_CTRL_ADDR,
+	// 		  RTL8373_L2_LRN_CONSTRT_CTRL_CONSTRT_NUM_MASK, 2112
+	// 		);
+	// if (ret)
+	// 	return ret;
 
-	// FORWARD:0, DROP:1, TO_CPU:2
-	ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_PORT_CONSTRT_ACT_ADDR,
-			  RTL8373_L2_LRN_PORT_CONSTRT_ACT_LRN_ACT_MASK, 0
-			);
-	if (ret)
-		return ret;
+	// // FORWARD:0, DROP:1, TO_CPU:2
+	// ret = rtl837x_reg_bits_write(priv, RTL8373_L2_LRN_PORT_CONSTRT_ACT_ADDR,
+	// 		  RTL8373_L2_LRN_PORT_CONSTRT_ACT_LRN_ACT_MASK, 0
+	// 		);
+	// if (ret)
+	// 	return ret;
 
 	// Enable vlan egrFilter
 	ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_CTRL_ADDR,
@@ -1891,7 +1901,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 
 	// Disable vlan leaky
 	ret = rtl837x_reg_bits_write(priv, RTL8373_MIR_CTRL_ADDR,
-			  RTL8373_MIR_CTRL_MIR_TX_VLAN_LKY_MASK | RTL8373_MIR_CTRL_MIR_RX_VLAN_LKY_OFFSET,
+			  RTL8373_MIR_CTRL_MIR_TX_VLAN_LKY_MASK | RTL8373_MIR_CTRL_MIR_RX_VLAN_LKY_MASK,
 			  0
 			);
 	if (ret)
@@ -1904,6 +1914,32 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 			);
 	if (ret)
 		return ret;
+
+
+	struct rtl837x_lut_entry entry = {0};
+	// D2:00:7D:70:CD:D7
+	entry.type = LUT_TYPE_L2_UC;
+	entry.uc.key.mac_addr[0]=0xD2;
+	entry.uc.key.mac_addr[1]=0x00;
+	entry.uc.key.mac_addr[2]=0x7D;
+	entry.uc.key.mac_addr[3]=0x70;
+	entry.uc.key.mac_addr[4]=0xCD;
+	entry.uc.key.mac_addr[5]=0xD7;
+
+	entry.uc.key.ivl = 1;
+	entry.uc.key.vid_fid = 1;
+
+	entry.uc.port = 6;
+	entry.uc.age = 6;
+	entry.uc.is_static = 1;
+
+
+	ret = rtl837x_lut_set(priv, &entry);
+	if (ret)
+		dev_dbg(priv->dev, "rtl837x_lut_set failed :%d\n", ret);
+	else
+		dev_dbg(priv->dev, "new lut entry: addr: %d\n", entry.addr);
+
 
 	rtnl_lock();
 	switch (priv->tag_proto) {

@@ -270,7 +270,7 @@ int rtl837x_lut_query(struct rtl837x_priv *priv,
 	}
 
 	// execute the table cmd
-	ret = rtl837x_reg_write(priv, RTL8373_ITA_CTRL0_ADDR, tmp);
+	ret = rtl837x_reg_write(priv, RTL8373_ITA_CTRL0_ADDR, cmd);
 	if (ret)
 		return ret;
 
@@ -369,7 +369,7 @@ int rtl837x_lut_set(struct rtl837x_priv *priv,
 		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
 
 	// execute the table cmd
-	ret = rtl837x_reg_write(priv, RTL8373_ITA_CTRL0_ADDR, tmp);
+	ret = rtl837x_reg_write(priv, RTL8373_ITA_CTRL0_ADDR, cmd);
 	if (ret)
 		return ret;
 
@@ -393,6 +393,45 @@ int rtl837x_lut_set(struct rtl837x_priv *priv,
 	if (ret)
 		return ret;
 	entry->addr = tmp;
+
+	return 0;
+}
+
+int rtl837x_lut_del(struct rtl837x_priv *priv, 
+                          u32 addr)
+{
+	int ret;
+	u32 tmp, cmd;
+
+	// check busy
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp,
+		  ((tmp & RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
+		  10, 10000);
+	if (ret)
+		return ret;
+
+	ret = rtl837x_reg_bits_write(priv, RTL8373_ITA_L2_CTRL_ADDR,
+						  RTL8373_ITA_L2_CTRL_ENTRY_CLR_MASK, 1);
+
+	cmd = FIELD_PREP(RTL8373_ITA_CTRL0_TBL_ADDR_MASK, addr) |
+		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_L2) |
+		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_ACT_MASK, TB_OP_WRITE) |
+		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
+
+	// execute the table cmd
+	ret = rtl837x_reg_write(priv, RTL8373_ITA_CTRL0_ADDR, cmd);
+	if (ret)
+		return ret;
+
+	// wait busy flag
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp,
+		  ((tmp & RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
+		  10, 10000);
+	if (ret)
+		return ret;
+
+	ret = rtl837x_reg_bits_write(priv, RTL8373_ITA_L2_CTRL_ADDR,
+						  RTL8373_ITA_L2_CTRL_ENTRY_CLR_MASK, 0);
 
 	return 0;
 }

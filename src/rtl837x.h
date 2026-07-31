@@ -178,8 +178,8 @@ struct rtl837x_l2_mc {
 	u16 mbr;
 
 	bool l3lookup;
-	bool igmp_idx;
 	bool igmp_asic;
+	u8 igmp_idx;
 };
 
 struct rtl837x_l3
@@ -189,8 +189,8 @@ struct rtl837x_l3
 
 	bool l3lookup;
 	u16 mbr;
-	bool igmp_idx;
 	bool igmp_asic;
+	u8 igmp_idx;
 };
 
 struct rtl837x_lut_entry {
@@ -285,6 +285,8 @@ extern int rtl837x_lut_query(struct rtl837x_priv *priv,
                           struct rtl837x_lut_entry *entry);
 extern int rtl837x_lut_set(struct rtl837x_priv *priv, 
                           struct rtl837x_lut_entry *entry);
+extern int rtl837x_lut_del(struct rtl837x_priv *priv, 
+                        	  u32 addr);
 
 extern int rtl837x_sds_reset_X(struct rtl837x_priv *priv, u8 sds_idx);
 extern int rtl837x_sds_reset_R(struct rtl837x_priv *priv, u8 sds_idx);
