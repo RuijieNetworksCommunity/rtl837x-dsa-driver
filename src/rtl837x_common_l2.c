@@ -72,7 +72,8 @@ static void rtl837x_l2_data_to_uc(const u32 *data, struct rtl837x_l2_uc *uc)
 	uc->key.mac_addr[0] = FIELD_GET(RTL837X_L2_UC_D1_MAC0_MSK, data[1]);
 
 	uc->key.vid_fid = FIELD_GET(RTL837X_L2_UC_D1_CVIDFID_MSK, data[1]);
-	uc->l3lookup = FIELD_GET(RTL837X_L2_UC_D1_L3LOOKUP_MSK, data[1]);
+	// shoule never be set in uc entry
+	// uc->l3lookup = FIELD_GET(RTL837X_L2_UC_D1_L3LOOKUP_MSK, data[1]);
 	uc->key.ivl = FIELD_GET(RTL837X_L2_UC_D1_IVL_MSK, data[1]);
 
 	uc->port = RTL837X_L2_UC_SPORT_GET(data[1], data[2]);
@@ -102,8 +103,9 @@ static void rtl837x_l2_uc_to_data(const struct rtl837x_l2_uc *uc, u32 *data)
 		FIELD_PREP(RTL837X_L2_UC_D1_CVIDFID_MSK, uc->key.vid_fid);
 	data[1] |= 
 		FIELD_PREP(RTL837X_L2_UC_D1_IVL_MSK, uc->key.ivl);
+	// shoule never be set in uc entry
 	data[1] |= 
-		FIELD_PREP(RTL837X_L2_UC_D1_L3LOOKUP_MSK, uc->l3lookup);
+		FIELD_PREP(RTL837X_L2_UC_D1_L3LOOKUP_MSK, 0);
 
 	data[1] |=
 		FIELD_PREP(RTL837X_L2_UC_D1_SPORT_LO_MSK, uc->port & 0x3);
@@ -129,7 +131,8 @@ static void rtl837x_l2_data_to_mc(const u32 *data, struct rtl837x_l2_mc *mc)
 	mc->key.mac_addr[0] = FIELD_GET(RTL837X_L2_MC_D1_MAC0_MSK, data[1]);
 
 	mc->key.vid_fid = FIELD_GET(RTL837X_L2_MC_D1_CVIDFID_MSK, data[1]);
-	mc->l3lookup    = FIELD_GET(RTL837X_L2_MC_D1_L3LOOKUP_MSK, data[1]);
+	// shoule never be set in mc entry
+	// mc->l3lookup    = FIELD_GET(RTL837X_L2_MC_D1_L3LOOKUP_MSK, data[1]);
 	mc->key.ivl     = FIELD_GET(RTL837X_L2_MC_D1_IVL_MSK, data[1]);
 
 	mc->mbr = RTL837X_L2_MC_MBR_GET(data[1], data[2]);
@@ -158,8 +161,10 @@ static void rtl837x_l2_mc_to_data(const struct rtl837x_l2_mc *mc, u32 *data)
 		FIELD_PREP(RTL837X_L2_MC_D1_CVIDFID_MSK, mc->key.vid_fid);
 	data[1] |= 
 		FIELD_PREP(RTL837X_L2_MC_D1_IVL_MSK, mc->key.ivl);
+
+	// shoule never be set in mc entry
 	data[1] |= 
-		FIELD_PREP(RTL837X_L2_MC_D1_L3LOOKUP_MSK, mc->l3lookup);
+		FIELD_PREP(RTL837X_L2_MC_D1_L3LOOKUP_MSK, 0);
 
 	data[1] |=
 		FIELD_PREP(RTL837X_L2_MC_D1_MBR_LO_MSK, mc->mbr & 0x3);
@@ -205,6 +210,8 @@ static void rtl837x_l3_to_data(const struct rtl837x_l3 *l3, u32 *data)
 	data[2] |=
 		FIELD_PREP(RTL837X_L3_D2_IGMPASIC_MSK, l3->igmp_asic);
 }
+
+// TODO: we need a lock to make sure the ITA read/write is atomic
 
 int rtl837x_lut_query(struct rtl837x_priv *priv, 
                           enum rtl837x_l2_method method,
@@ -327,7 +334,12 @@ int rtl837x_lut_query(struct rtl837x_priv *priv,
 	return 0;
 }
 
-
+/*
+	something interesting:
+	if  multicast macaddress(mac[0] bit0 == 1) is set in the unicast entry
+	the hardware won't record this entry in the lut table
+	it will throw an error (-ENOENT)
+*/
 int rtl837x_lut_set(struct rtl837x_priv *priv, 
                           struct rtl837x_lut_entry *entry)
 {

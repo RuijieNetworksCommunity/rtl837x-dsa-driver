@@ -168,8 +168,7 @@ struct rtl837x_l2_uc {
 	u8 port;
 	u8 age;
 
-	bool l3lookup;
-	bool auth;
+	bool auth; // 802.1X: not used in this driver
 	bool is_static;
 };
 
@@ -177,7 +176,6 @@ struct rtl837x_l2_mc {
 	struct rtl837x_l2_key key;
 	u16 mbr;
 
-	bool l3lookup;
 	bool igmp_asic;
 	u8 igmp_idx;
 };

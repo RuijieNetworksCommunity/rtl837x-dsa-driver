@@ -1524,6 +1524,208 @@ static void rtl8372n_port_disable(struct dsa_switch *ds, int port)
 	priv->ops->phy_write_c45(priv, port, 31, 0xa610, 0x2858);
 }
 
+static int
+rtl8372n_port_fdb_add(struct dsa_switch *ds, int port,
+		    const unsigned char *addr, u16 vid,
+		    struct dsa_db db)
+{
+    struct rtl837x_priv *priv = ds->priv;
+	int ret;
+	struct rtl837x_lut_entry entry = {0};
+	
+	dev_dbg(priv->dev, "[%s]:mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d\n", __func__,
+						  addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
+						  port, vid);
+
+	memcpy(entry.uc.key.mac_addr, addr, ETH_ALEN);
+	entry.type = LUT_TYPE_L2_UC;
+	entry.uc.key.vid_fid = vid;
+	entry.uc.key.ivl = true;
+
+	// age shoule greater than 0, so that the static entry will not be flushed by hardware
+	entry.uc.age = 6;
+	entry.uc.port = port;
+	entry.uc.is_static = true;
+
+	ret = rtl837x_lut_set(priv, &entry);
+	if (ret == -ENOENT)
+	{
+		dev_dbg(priv->dev, "[%s]:mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d Failed to add unicast entry\n", __func__,
+						addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
+						port, vid);
+		return -ENOSPC;
+	}
+	dev_dbg(priv->dev, "[%s]:mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d addr: %04d\n", __func__,
+					addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
+					port, vid, entry.addr);
+	return ret;
+}
+
+static int
+rtl8372n_port_fdb_del(struct dsa_switch *ds, int port,
+		    const unsigned char *addr, u16 vid,
+		    struct dsa_db db)
+{
+	struct rtl837x_priv *priv = ds->priv;
+	int ret;
+	struct rtl837x_lut_entry entry = {0};
+	
+	dev_dbg(priv->dev, "[%s]:mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d\n", __func__,
+						addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
+						port, vid);
+	memcpy(entry.uc.key.mac_addr, addr, ETH_ALEN);
+	entry.type = LUT_TYPE_L2_UC;
+	entry.uc.key.vid_fid = vid;
+	entry.uc.key.ivl = true;
+
+	// query the entry in lut table
+	ret = rtl837x_lut_query(priv, LUT_READ_METHOD_MAC, &entry);
+	if (ret == -ENOENT)
+	{
+		dev_dbg(priv->dev, "[%s]:mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d no lut entry hit\n", __func__,
+						addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
+						port, vid);
+		// Not found in lut table
+		// just return success
+		return 0;
+	}
+	dev_dbg(priv->dev, "[%s]:mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d addr: %04d\n", __func__,
+					addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
+					port, vid, entry.addr);
+	return rtl837x_lut_del(priv, entry.addr);
+}
+
+static int
+rtl8372n_port_fdb_dump(struct dsa_switch *ds, int port,
+		     dsa_fdb_dump_cb_t *cb, void *data)
+{
+	struct rtl837x_priv *priv = ds->priv;
+	int ret;
+	struct rtl837x_lut_entry entry = {0};
+	entry.uc.port = port;
+
+
+	for (int i = 0; i < 4160; i++) {
+		entry.addr = i;
+		ret = rtl837x_lut_query(priv, LUT_READ_METHOD_NEXT_L2UCSPA, &entry);
+		if (ret)
+			break;
+		if (entry.addr < i)
+			break;
+		ret = cb(entry.uc.key.mac_addr, entry.uc.key.vid_fid, entry.uc.is_static,
+				data);
+		if (ret < 0)
+			break;
+		i = entry.addr;
+	}
+	return 0;
+}
+
+static int
+rtl8372n_port_mdb_add(struct dsa_switch *ds, int port,
+		    const struct switchdev_obj_port_mdb *mdb,
+		    struct dsa_db db)
+{
+	struct rtl837x_priv *priv = ds->priv;
+	int ret;
+	const u8 *addr = mdb->addr;
+	u16 vid = mdb->vid;
+	struct rtl837x_lut_entry entry = {0};
+	dev_dbg(priv->dev, "[%s]:mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d\n", __func__,
+					addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
+					port, vid);
+
+	memcpy(entry.mc.key.mac_addr, addr, ETH_ALEN);
+	entry.type = LUT_TYPE_L2_MC;
+	entry.mc.key.vid_fid = vid;
+	entry.mc.key.ivl = true;
+	ret = rtl837x_lut_query(priv, LUT_READ_METHOD_MAC, &entry);
+	if (ret != -ENOENT || ret != 0)
+		return ret;
+
+	if (ret == 0)
+	{
+		dev_dbg(priv->dev, "[%s]:mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d addr:%04d found in lut table\n", __func__,
+						addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
+						port, vid, entry.addr);
+		if (entry.type != LUT_TYPE_L2_MC)
+		{
+			dev_err(priv->dev, "[%s]: got an unexpect entry from lut table, this should not happen\n", __func__);
+			return -EINVAL;
+		}
+	}
+
+	entry.mc.mbr |= BIT(port);
+	ret = rtl837x_lut_set(priv, &entry);
+	if (ret == -ENOENT)
+	{
+		dev_dbg(priv->dev, "[%s]:mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d Failed to add multicast entry\n", __func__,
+						addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
+						port, vid);
+		return -ENOSPC;
+	}
+	dev_dbg(priv->dev, "[%s]:mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d addr: %04d\n", __func__,
+					addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
+					port, vid, entry.addr);
+	return ret;
+}
+
+static int
+rtl8372n_port_mdb_del(struct dsa_switch *ds, int port,
+		    const struct switchdev_obj_port_mdb *mdb,
+		    struct dsa_db db)
+{
+	struct rtl837x_priv *priv = ds->priv;
+	int ret;
+	const u8 *addr = mdb->addr;
+	u16 vid = mdb->vid;
+	struct rtl837x_lut_entry entry = {0};
+	dev_dbg(priv->dev, "[%s]:mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d\n", __func__,
+					addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
+					port, vid);
+
+	memcpy(entry.mc.key.mac_addr, addr, ETH_ALEN);
+	entry.type = LUT_TYPE_L2_MC;
+	entry.mc.key.vid_fid = vid;
+	entry.mc.key.ivl = true;
+	ret = rtl837x_lut_query(priv, LUT_READ_METHOD_MAC, &entry);
+	if (ret == -ENOENT)
+		return 0;
+
+	if (ret == 0)
+	{
+		dev_dbg(priv->dev, "[%s]:mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d addr:%04d found in lut table\n", __func__,
+						addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
+						port, vid, entry.addr);
+		if (entry.type != LUT_TYPE_L2_MC)
+		{
+			dev_err(priv->dev, "[%s]: got an unexpect entry from lut table, this should not happen\n", __func__);
+			return -EINVAL;
+		}
+	}else
+		return ret;
+
+	entry.mc.mbr &= ~BIT(port);
+	if (!entry.mc.mbr)
+	{
+		return rtl837x_lut_del(priv, entry.addr);
+	}
+
+	ret = rtl837x_lut_set(priv, &entry);
+	if (ret == -ENOENT)
+	{
+		dev_dbg(priv->dev, "[%s]:mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d Failed to add multicast entry\n", __func__,
+						addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
+						port, vid);
+		return -ENOSPC;
+	}
+	dev_dbg(priv->dev, "[%s]:mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d addr: %04d\n", __func__,
+					addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
+					port, vid, entry.addr);
+	return ret;
+}
+
+
 enum RTL8373_MSTP_STATE
 {
     MSTP_DISABLE = 0,
@@ -1981,6 +2183,12 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 
 	.port_bridge_join = rtl8372n_port_bridge_join,
 	.port_bridge_leave = rtl8372n_port_bridge_leave,
+
+	.port_fdb_add  = rtl8372n_port_fdb_add,
+	.port_fdb_del  = rtl8372n_port_fdb_del,
+	.port_fdb_dump = rtl8372n_port_fdb_dump,
+	.port_mdb_add  = rtl8372n_port_mdb_add,
+	.port_mdb_del  = rtl8372n_port_mdb_del,
 
 	.tag_8021q_vlan_add = rtl8372n_tag_8021q_vlan_add,
 	.tag_8021q_vlan_del = rtl8372n_tag_8021q_vlan_del,

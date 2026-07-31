@@ -418,8 +418,6 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 					   "auth:%d ", entry.uc.auth);
 			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
 					   "is_static:%d ", entry.uc.is_static);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "l3lookup:%d\n", entry.uc.l3lookup);
 			break;
 		case LUT_TYPE_L2_MC:
 			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
@@ -443,8 +441,6 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 					   "igmp_idx:%d ", entry.mc.igmp_idx);
 			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
 					   "igmp_asic:%d ", entry.mc.igmp_asic);
-			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "l3lookup:%d\n", entry.mc.l3lookup);
 			break;
 		case LUT_TYPE_L3:
 			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
@@ -645,7 +641,7 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 		entry.addr = i;
 		ret = rtl837x_lut_query(priv, LUT_READ_METHOD_NEXT_ADDRESS, &entry);
 		if (ret)
-			continue;
+			break;
 		if (entry.addr < i)
 			break;
 
@@ -669,7 +665,6 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 			L2UC_DUMP_APPEND("age:%03d ", entry.uc.age);
 			L2UC_DUMP_APPEND("auth:%d ", entry.uc.auth);
 			L2UC_DUMP_APPEND("is_static:%d ", entry.uc.is_static);
-			L2UC_DUMP_APPEND("l3lookup:%d\n", entry.uc.l3lookup);
 			break;
 		case LUT_TYPE_L2_MC:
 			L2UC_DUMP_APPEND("type:%s ", "l2mc");
@@ -686,7 +681,6 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 			L2UC_DUMP_APPEND("mbr:0x%04X ", entry.mc.mbr);
 			L2UC_DUMP_APPEND("igmp_idx:%d ", entry.mc.igmp_idx);
 			L2UC_DUMP_APPEND("igmp_asic:%d ", entry.mc.igmp_asic);
-			L2UC_DUMP_APPEND("l3lookup:%d\n", entry.mc.l3lookup);
 			break;
 		case LUT_TYPE_L3:
 			L2UC_DUMP_APPEND("type:%s ", "l3");
