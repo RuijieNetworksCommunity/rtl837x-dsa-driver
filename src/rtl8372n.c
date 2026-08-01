@@ -1533,10 +1533,11 @@ rtl8372n_port_fdb_add(struct dsa_switch *ds, int port,
 	int ret;
 	struct rtl837x_lut_entry entry = {0};
 
-	// if (priv->tag_proto == DSA_TAG_PROTO_MXL862_8021Q && dsa_is_cpu_port(ds, port))
-	// {
-	// 	return -ENOENT;
-	// }
+	// something wrone here.....
+	if (priv->tag_proto == DSA_TAG_PROTO_MXL862_8021Q && dsa_is_cpu_port(ds, port))
+	{
+		return -ENOENT;
+	}
 
 	memcpy(entry.uc.key.mac_addr, addr, ETH_ALEN);
 	entry.type = LUT_TYPE_L2_UC;
