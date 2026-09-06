@@ -1372,9 +1372,9 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
         return -EINVAL;
     }
 
-	if (chip_data->dsa_tag_8021q_vid[vid])
+	if (vid_is_dsa_8021q(vid) && priv->tag_proto == DSA_TAG_PROTO_MXL862_8021Q)
     {
-        NL_SET_ERR_MSG_MOD(extack, "VLAN ID is used by DSA tag");
+        NL_SET_ERR_MSG_MOD(extack, "Range 3072-4095 reserved for dsa_8021q operation");
         return -EINVAL;
     }
 
@@ -1604,8 +1604,18 @@ rtl8372n_port_fdb_add(struct dsa_switch *ds, int port,
 	if (db.type != DSA_DB_PORT && db.type != DSA_DB_BRIDGE)
 		return -EOPNOTSUPP;
 
+	dev_dbg(priv->dev, "[%s]:type: %s port:%d vid:%04d\n", __func__,
+					db.type == DSA_DB_PORT ? "DSA_DB_PORT" : "DSA_DB_BRIDGE",
+					port, vid);
+
 	if (db.type == DSA_DB_BRIDGE && priv->tag_proto == DSA_TAG_PROTO_MXL862_8021Q)
 	{
+		/*
+		* When the DSA tag protocol is DSA_TAG_PROTO_MXL862_8021Q, the L2 VLAN
+		* learned on the CPU port is the 802.1q tag rather than the port's own
+		* VLAN ID. Therefore, write the 802.1q tags of all ports into the
+		* static FDB entries.
+		*/
 		struct dsa_port *dp;
 		dsa_switch_for_each_user_port(dp, ds) {
 			/* Add static fdb entry */
@@ -1634,20 +1644,7 @@ rtl8372n_port_fdb_del(struct dsa_switch *ds, int port,
 	if (dsa_fdb_present_in_other_db(ds, port, addr, vid, db))
 		return 0;
 
-	if (db.type == DSA_DB_BRIDGE && priv->tag_proto == DSA_TAG_PROTO_MXL862_8021Q)
-	{
-		struct dsa_port *dp;
-		dsa_switch_for_each_user_port(dp, ds) {
-			/* Add static fdb entry */
-			ret = rtl8372n_port_fdb_static_del(priv, addr, dsa_tag_8021q_standalone_vid(dp));
-			if (ret)
-				return ret;
-		}
-	} else
-	{
-		return rtl8372n_port_fdb_static_del(priv, addr, vid);
-	}
-	return 0;
+	return rtl8372n_port_fdb_static_del(priv, addr, vid);
 }
 
 static int
@@ -1667,6 +1664,9 @@ rtl8372n_port_fdb_dump(struct dsa_switch *ds, int port,
 			break;
 		if (entry.addr < i)
 			break;
+		/* We need to hide the dsa_8021q VLANs from the user. */
+		if (vid_is_dsa_8021q(entry.uc.key.vid_fid) && priv->tag_proto == DSA_TAG_PROTO_MXL862_8021Q)
+			entry.uc.key.vid_fid = 0;
 		ret = cb(entry.uc.key.mac_addr, entry.uc.key.vid_fid, entry.uc.is_static,
 				data);
 		if (ret < 0)
