@@ -409,7 +409,7 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
 					   "ivl:%d ", entry.uc.key.ivl);
 			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "vid_fid:%d ", entry.uc.key.vid_fid);
+					   "vid_fid:%-4d ", entry.uc.key.vid_fid);
 			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
 					   "port:%d ", entry.uc.port);
 			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
@@ -434,7 +434,7 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
 					   "ivl:%d ", entry.mc.key.ivl);
 			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
-					   "vid_fid:%d ", entry.mc.key.vid_fid);
+					   "vid_fid:%-4d ", entry.mc.key.vid_fid);
 			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
 					   "mbr:0x%04X ", entry.mc.mbr);
 			BUF_APPEND(MK_BUFNAME(l2uc), MK_BUFLEN(l2uc), len, 
@@ -645,12 +645,11 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 		if (entry.addr < i)
 			break;
 
-		L2UC_DUMP_APPEND("addr:%d ", entry.addr);
+		L2UC_DUMP_APPEND("addr:%-4d ", entry.addr);
 		switch (entry.type)
 		{
 		case LUT_TYPE_L2_UC:
-			BUF_APPEND(buf, L2UC_BUF_SIZE, len, "type:%s ", "l2uc");
-			// L2UC_DUMP_APPEND("type:%s ", "l2uc");
+			L2UC_DUMP_APPEND("type:%-4s ", "l2uc");
 			L2UC_DUMP_APPEND("%02X:%02X:%02X:%02X:%02X:%02X ", 
 								entry.uc.key.mac_addr[0],
 								entry.uc.key.mac_addr[1],
@@ -660,14 +659,14 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 								entry.uc.key.mac_addr[5]
 								);
 			L2UC_DUMP_APPEND("ivl:%d ", entry.uc.key.ivl);
-			L2UC_DUMP_APPEND("vid_fid:%d ", entry.uc.key.vid_fid);
+			L2UC_DUMP_APPEND("vid_fid:% -5d ", entry.uc.key.vid_fid);
 			L2UC_DUMP_APPEND("port:%d ", entry.uc.port);
 			L2UC_DUMP_APPEND("age:%03d ", entry.uc.age);
 			L2UC_DUMP_APPEND("auth:%d ", entry.uc.auth);
 			L2UC_DUMP_APPEND("is_static:%d\n", entry.uc.is_static);
 			break;
 		case LUT_TYPE_L2_MC:
-			L2UC_DUMP_APPEND("type:%s ", "l2mc");
+			L2UC_DUMP_APPEND("type:%-4s ", "l2mc");
 			L2UC_DUMP_APPEND("%02X:%02X:%02X:%02X:%02X:%02X ", 
 								entry.mc.key.mac_addr[0],
 								entry.mc.key.mac_addr[1],
@@ -677,13 +676,13 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 								entry.mc.key.mac_addr[5]
 								);
 			L2UC_DUMP_APPEND("ivl:%d ", entry.mc.key.ivl);
-			L2UC_DUMP_APPEND("vid_fid:%d ", entry.mc.key.vid_fid);
+			L2UC_DUMP_APPEND("vid_fid:%-4d ", entry.mc.key.vid_fid);
 			L2UC_DUMP_APPEND("mbr:0x%04X ", entry.mc.mbr);
 			L2UC_DUMP_APPEND("igmp_idx:%d ", entry.mc.igmp_idx);
 			L2UC_DUMP_APPEND("igmp_asic:%d\n", entry.mc.igmp_asic);
 			break;
 		case LUT_TYPE_L3:
-			L2UC_DUMP_APPEND("type:%s ", "l3");
+			L2UC_DUMP_APPEND("type:%-4s ", "l3");
 			L2UC_DUMP_APPEND("sipaddr: 0x%08X", entry.l3.sip);
 			L2UC_DUMP_APPEND("dipaddr: 0x%08X", entry.l3.dip);
 			L2UC_DUMP_APPEND("mbr:0x%04X ", entry.l3.mbr);
