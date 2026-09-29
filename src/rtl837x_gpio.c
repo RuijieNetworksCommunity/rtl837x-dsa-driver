@@ -90,7 +90,7 @@ static int rtl837x_gpio_request(struct gpio_chip *gc, unsigned int offset)
 			break;
 		case 63:
 			ret = rtl837x_reg_bits_write(priv, RTL8373_IO_MUX_SEL_1_ADDR,
-					RTL8373_IO_MUX_SEL_1_GPIO_MDIO0_SEL_OFFSET, 1);
+					RTL8373_IO_MUX_SEL_1_GPIO_MDIO0_SEL_MASK, 1);
 			break;
 		default:
 			dev_err(priv->dev, "gpio(%d): failed to request gpio, Out of range\n", offset);
