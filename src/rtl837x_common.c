@@ -10,6 +10,7 @@
 #include <linux/irqchip/chained_irq.h>
 #include <linux/of_irq.h>
 #include <linux/regmap.h>
+#include <linux/version.h>
 
 #include "rtl837x.h"
 
@@ -865,7 +866,9 @@ static int _rtl837x_serdes_an_patch(struct rtl837x_priv *priv, bool is_8224,
 
 	switch (interface)
 	{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,44)
 	case PHY_INTERFACE_MODE_10G_QXGMII:
+#endif
 	case PHY_INTERFACE_MODE_USXGMII:
 	case PHY_INTERFACE_MODE_10GBASER:
 		if ((!is_8224 ? priv->chip_ver == 0 : priv->chip_ver_8224 == 0))

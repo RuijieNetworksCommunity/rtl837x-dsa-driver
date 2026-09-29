@@ -236,6 +236,17 @@ struct rtl8372n {
 	bool dsa_tag_8021q_vid[RTL8372N_VLAN_MAX+1];
 };
 
+static bool is_8021q_tag(enum dsa_tag_protocol tag_proto)
+{
+	switch (tag_proto)
+	{
+	case DSA_TAG_PROTO_MXL862_8021Q:
+		return true;
+	default:
+		return false;
+	}
+}
+
 static int rtl8372n_detect(struct rtl837x_priv *priv)
 {
 	struct device *dev = priv->dev;
@@ -1695,7 +1706,7 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
         return -EINVAL;
     }
 
-	if (vid_is_dsa_8021q(vid) && priv->tag_proto == DSA_TAG_PROTO_MXL862_8021Q)
+	if (vid_is_dsa_8021q(vid) && is_8021q_tag(priv->tag_proto))
     {
         NL_SET_ERR_MSG_MOD(extack, "Range 3072-4095 reserved for dsa_8021q operation");
         return -EINVAL;
@@ -1991,7 +2002,7 @@ rtl8372n_port_fdb_add(struct dsa_switch *ds, int port,
 					db.type == DSA_DB_PORT ? "DSA_DB_PORT" : "DSA_DB_BRIDGE",
 					port, vid);
 
-	if (db.type == DSA_DB_BRIDGE && priv->tag_proto == DSA_TAG_PROTO_MXL862_8021Q)
+	if (db.type == DSA_DB_BRIDGE && is_8021q_tag(priv->tag_proto))
 	{
 		/*
 		* When the DSA tag protocol is DSA_TAG_PROTO_MXL862_8021Q, the L2 VLAN
@@ -2035,7 +2046,7 @@ rtl8372n_port_fdb_del(struct dsa_switch *ds, int port,
 	if (dsa_fdb_present_in_other_db(ds, port, addr, vid, db))
 		return 0;
 
-	if (db.type == DSA_DB_BRIDGE && priv->tag_proto == DSA_TAG_PROTO_MXL862_8021Q)
+	if (db.type == DSA_DB_BRIDGE && is_8021q_tag(priv->tag_proto))
 	{
 		if (vid == 0)
 		{
@@ -2074,7 +2085,7 @@ rtl8372n_port_fdb_dump(struct dsa_switch *ds, int port,
 		if (entry.addr < i)
 			break;
 		/* We need to hide the dsa_8021q VLANs from the user. */
-		if (vid_is_dsa_8021q(entry.uc.key.vid_fid) && priv->tag_proto == DSA_TAG_PROTO_MXL862_8021Q)
+		if (vid_is_dsa_8021q(entry.uc.key.vid_fid) && is_8021q_tag(priv->tag_proto))
 			entry.uc.key.vid_fid = 0;
 		ret = cb(entry.uc.key.mac_addr, entry.uc.key.vid_fid, entry.uc.is_static,
 				data);
@@ -2789,7 +2800,9 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.port_enable = rtl8372n_port_enable,
 	.port_disable = rtl8372n_port_disable,
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,44)
 	.support_eee		= dsa_supports_eee,
+#endif
 	.set_mac_eee		= rtl8372n_set_mac_eee,
 };
 
