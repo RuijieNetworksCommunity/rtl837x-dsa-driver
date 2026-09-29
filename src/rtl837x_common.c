@@ -11,7 +11,7 @@
 #include <linux/of_irq.h>
 #include <linux/regmap.h>
 
-#include "./rtl837x.h"
+#include "rtl837x.h"
 
 static const u16 patch_an_10p3125g_a[][3] ={
 	{0x0021, 0x0010, 0x4480},
