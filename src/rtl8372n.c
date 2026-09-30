@@ -452,9 +452,18 @@ static int rtl8372n_set_pvid(struct rtl837x_priv *priv, int port,
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_switch *ds = priv->ds;
 	bool pvid_enabled;
+	bool pvid_enabled_bak = chip_data->pvid_enabled[port];
+	u32 pvid_bak = 0;
 
 	dev_dbg(priv->dev, "[%s]: port (%d), vid (%d)\n", __func__, port, vid);
 	pvid_enabled = !!vid;
+
+	ret = rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_PB_VLAN_ADDR(port),
+			  RTL8373_VLAN_PORT_PB_VLAN_PVID_MASK(port),
+			  &pvid_bak
+			);
+	if (ret)
+		return ret;
 
 	ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_PB_VLAN_ADDR(port),
 			  RTL8373_VLAN_PORT_PB_VLAN_PVID_MASK(port), vid
@@ -468,8 +477,26 @@ static int rtl8372n_set_pvid(struct rtl837x_priv *priv, int port,
 	 * not drop any untagged or C-tagged frames. Make sure to update the
 	 * filtering setting.
 	 */
-	if (dsa_port_is_vlan_filtering(dsa_to_port(ds, port)))
+	if (dsa_port_is_vlan_filtering(dsa_to_port(ds, port))) {
 		ret = rtl8372n_port_igr_drop_untagged(priv, port, !pvid_enabled);
+		if (ret)
+			goto fail_rollback;
+	}
+
+	return 0;
+
+fail_rollback:
+	{
+		int r = rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_PB_VLAN_ADDR(port),
+				RTL8373_VLAN_PORT_PB_VLAN_PVID_MASK(port),
+				pvid_bak
+				);
+		if (r)
+			dev_err(priv->dev,
+				"failed to restore PVID of port %d: %d\n",
+				port, r);
+		chip_data->pvid_enabled[port] = pvid_enabled_bak;
+	}
 	return ret;
 }
 
@@ -1545,7 +1572,7 @@ static void rtl8372n_get_ethtool_stats(struct dsa_switch *ds, int port, uint64_t
 		mib = &priv->mib_counters[i];
 		ret = priv->ops->get_mib_counter(priv, port, mib, &mibvalue);
 		if (ret) {
-			dev_err(priv->dev, "[%s]: Error reading MIB counter %s\n", __func__,
+			dev_err(priv->dev, "Error reading MIB counter %s\n",
 				mib->name);
 		}
 		data[i] = mibvalue;
@@ -1660,56 +1687,87 @@ static void rtl8372n_get_ctrl_stats(struct dsa_switch *ds, int port,
 	mutex_unlock(&priv->mib_lock);
 }
 
-// TODO: Fail rollback
 static int rtl8372n_vlan_filtering(struct dsa_switch *ds, int port,
                                         bool vlan_filtering, struct netlink_ext_ack *extack)
 {
-    int ret;
-    struct rtl837x_priv *priv = ds->priv;
+	int ret;
+	u32 vlan_filter_bak;
+	struct rtl837x_priv *priv = ds->priv;
 	struct rtl8372n *chip_data = priv->chip_data;
-    
+
 	dev_dbg(priv->dev, "[%s]: port (%d), filtering: %s\n", __func__,
 				  port, !!vlan_filtering ? "true" : "false");
 
-	// Set Ingress filter
+	ret = rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_IGR_FLTR_ADDR(port),
+			  RTL8373_VLAN_PORT_IGR_FLTR_IGR_FLTR_ACT_MASK(port),
+			  &vlan_filter_bak
+			);
+	if (ret)
+		return ret;
+
 	ret = rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_IGR_FLTR_ADDR(port),
 			  RTL8373_VLAN_PORT_IGR_FLTR_IGR_FLTR_ACT_MASK(port),
 			  vlan_filtering ? 1 : 0
 			);
+	if (ret)
+		return ret;
 
+	/*
+	 * when a port enable vlan ingress filter and not set pvid 
+	 * drop the untagged frame, only accept tagged frame came in
+	 * else
+	 * when when a port enable vlan ingress filter and have pvid 
+	 * we accept the untagged frame came in, the untagged frame
+	 * will marked the port pvid and forward
+	*/
 	if (vlan_filtering)
 		ret = rtl8372n_port_igr_drop_untagged(priv, port, !chip_data->pvid_enabled[port]);
 	else
 		ret = rtl8372n_port_igr_drop_untagged(priv, port, false);
+	if (ret)
+		goto fail_rollback;
 
-    return ret;
+ 	return 0;
+
+fail_rollback:
+	{
+		int r = rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_IGR_FLTR_ADDR(port),
+				    RTL8373_VLAN_PORT_IGR_FLTR_IGR_FLTR_ACT_MASK(port),
+				    vlan_filter_bak
+				);
+		if (r)
+		dev_err(priv->dev,
+			"failed to restore ingress filter of port %d: %d\n",
+			port, r);
+	}
+	return ret;
 }
 
-// TODO: Fail rollback
 static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
                             const struct switchdev_obj_port_vlan *vlan,
                             struct netlink_ext_ack *extack)
 {
-    int ret;
+	int ret;
+	struct rtl837x_vlan_4k vlan4k_bak = {0};
 	bool untagged = !!(vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED);
 	bool pvid = !!(vlan->flags & BRIDGE_VLAN_INFO_PVID);
-    struct rtl837x_priv *priv = ds->priv;
+	struct rtl837x_priv *priv = ds->priv;
 
-    u16 vid = vlan->vid;
+	u16 vid = vlan->vid;
 	u32 member = 0;
 	u32 untag = 0;
 
-    if (vid > RTL8372N_VLAN_MAX)
-    {
-        NL_SET_ERR_MSG_MOD(extack, "VLAN ID not valid");
-        return -EINVAL;
-    }
+	if (vid > RTL8372N_VLAN_MAX)
+	{
+		NL_SET_ERR_MSG_MOD(extack, "VLAN ID not valid");
+		return -EINVAL;
+	}
 
 	if (vid_is_dsa_8021q(vid) && is_8021q_tag(priv->tag_proto))
-    {
-        NL_SET_ERR_MSG_MOD(extack, "Range 3072-4095 reserved for dsa_8021q operation");
-        return -EINVAL;
-    }
+	{
+		NL_SET_ERR_MSG_MOD(extack, "Range 3072-4095 reserved for dsa_8021q operation");
+		return -EINVAL;
+	}
 
 	member |= BIT(port);
 
@@ -1720,11 +1778,15 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 		vlan->vid, port, untagged ? "untagged" : "tagged",
 		pvid ? "PVID" : "no PVID");
 
+	ret = priv->ops->get_vlan_4k(priv, vid, &vlan4k_bak);
+	if (ret)
+		return ret;
+
 	ret = rtl8372n_vlan_update(priv, vid, member, untag, 0);
 	if (ret) {
-		dev_err(priv->dev, "[%s]: Failed to set up VLAN %04x", __func__,
-										  vid);
-		return ret;
+		dev_err(priv->dev, "failed to set up VLAN %04x\n",
+			vid);
+		goto fail_rollback;
 	}
 
 	if (!pvid)
@@ -1732,15 +1794,24 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 
 	ret = rtl8372n_set_pvid(priv, port, vid);
 	if (ret) {
-		dev_err(priv->dev, "[%s]: Failed to set PVID on port %d to VLAN %04x", __func__,
+		dev_err(priv->dev, "failed to set PVID on port %d to VLAN %04x\n",
 			port, vid);
-		return ret;
+		goto fail_rollback;
 	}
 
-    return 0;
+	return 0;
+
+fail_rollback:
+	{
+		int r = priv->ops->set_vlan_4k(priv, &vlan4k_bak);
+		if (r)
+		dev_err(priv->dev,
+			"failed to restore VLAN %04x: %d\n",
+			vid, r);
+	}
+	return ret;
 }
 
-// TODO: Fail rollback
 static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
                                  const struct switchdev_obj_port_vlan *vlan)
 {
@@ -1775,7 +1846,6 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 	return 0;
 }
 
-// TODO: Fail rollback
 static int
 rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 			   struct dsa_bridge bridge,
@@ -1799,8 +1869,12 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 
 		/* Join this port to each other port on the bridge */
 		ret = rtl8372n_port_add_isolation(priv, dp->index, BIT(port));
-		if (ret)
-			dev_err(priv->dev, "failed to join port %d\n", port);
+		if (ret) {
+			dev_err(priv->dev,
+				"failed to join port %d to port %d: %d\n",
+				dp->index, port, ret);
+			goto fail_rollback;
+		}
 
 		port_bitmap |= BIT(dp->index);
 	}
@@ -1809,32 +1883,79 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 
 	/* Set the bits for the ports we can access */
 	ret = rtl8372n_port_add_isolation(priv, port, port_bitmap);
-	if (ret)
-		return ret;
+	if (ret) {
+		dev_err(priv->dev, "failed to join port %d: %d\n", port, ret);
+		goto fail_rollback;
+	}
 
 	/*
 	 * Filter and forward the frame by vlan table
 	*/
 	ret = rtl8372n_port_remove_cpu_vlan_transparent(priv, port);
-	if (ret)
+	if (ret) {
 		dev_err(priv->dev, "failed to remove port(%d)<->cpu vlan transparent err: %d\n", port, ret);
+		goto fail_rollback;
+	}
 
 	if (!dsa_is_cpu_port(ds, port))
 	{
 		ret = rtl8372n_port_vlan_egr_tag_rewrite(priv, port, true);
-		if (ret)
-			return ret;
+		if (ret) {
+			dev_err(priv->dev,
+				"failed to enable egr tag rewrite on port %d: %d\n",
+				port, ret);
+			goto fail_rollback;
+		}
 	}
 
 	return 0;
+
+fail_rollback:
+	{
+		int r;
+
+		if (!dsa_is_cpu_port(ds, port)) {
+			r = rtl8372n_port_vlan_egr_tag_rewrite(priv, port, false);
+			if (r)
+				dev_err(priv->dev,
+					"failed to restore egr tag rewrite on port %d: %d\n",
+					port, r);
+		}
+
+		/* Restore CPU<->port VLAN transparency */
+		r = rtl8372n_port_add_cpu_vlan_transparent(priv, port);
+		if (r)
+			dev_err(priv->dev,
+				"failed to restore CPU<->port %d VLAN transparency: %d\n",
+				port, r);
+
+		/* Drop the access rights of this port */
+		r = rtl8372n_port_remove_isolation(priv, port, port_bitmap);
+		if (r)
+			dev_err(priv->dev,
+				"failed to drop access rights of port %d: %d\n",
+				port, r);
+
+		/* And drop the access rights other ports gained towards us */
+		dsa_switch_for_each_user_port(dp, ds) {
+			if (!(port_bitmap & BIT(dp->index)))
+				continue;
+
+			r = rtl8372n_port_remove_isolation(priv, dp->index, BIT(port));
+			if (r)
+				dev_err(priv->dev,
+					"failed to drop port %d access to port %d: %d\n",
+					dp->index, port, r);
+		}
+	}
+	return ret;
 }
 
-// TODO: Fail rollback?
 static void
 rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 			    struct dsa_bridge bridge)
 {
-    struct rtl837x_priv *priv = ds->priv;
+	struct rtl837x_priv *priv = ds->priv;
 	struct dsa_port *dp;
 	u32 port_bitmap = 0;
 	int ret;
@@ -1854,8 +1975,11 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 		/* Remove this port from any other port on the bridge */
 		ret = rtl8372n_port_remove_isolation(priv, dp->index,
 					  BIT(port));
-		if (ret)
-			dev_err(priv->dev, "failed to leave port %d\n", port);
+		if (ret) {
+			dev_err(priv->dev,
+				"failed to leave port %d from port %d: %d\n",
+				dp->index, port, ret);
+		}
 
 		port_bitmap |= BIT(dp->index);
 	}
@@ -1865,13 +1989,13 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 		dev_err(priv->dev, "failed to remove port(%d) isolation err: %d\n", port, ret);
 
 	/*
-	 * When the port is not in the bridge, in order 
-	 * to allow all VLAN tags to be accepted, 
+	 * When the port is not in the bridge, in order
+	 * to allow all VLAN tags to be accepted,
 	 * VLAN transparent is set
 	*/
 	ret = rtl8372n_port_add_cpu_vlan_transparent(priv, port);
 	if (ret)
-		dev_err(priv->dev, "failed to add port(%d)<->cpu vlan transparent err: %d\n", dp->index, ret);
+		dev_err(priv->dev, "failed to add port(%d)<->cpu vlan transparent err: %d\n", port, ret);
 
 	/*
 	 * Set the hardware do not add/remove/edit the vlan tag
