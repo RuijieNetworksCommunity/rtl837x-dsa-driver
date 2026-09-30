@@ -407,7 +407,7 @@ static int rtl8372n_vlan_update(struct rtl837x_priv *priv, int vid, u32 member,
 		     u32 untag, u32 fid)
 {
 	int ret;
-	struct rtl837x_vlan_4k vlan4k;
+	struct rtl837x_vlan_4k vlan4k = {0};
 
 	ret = priv->ops->get_vlan_4k(priv, vid, &vlan4k);
 	if (ret)
@@ -1283,8 +1283,7 @@ static int rtl8372n_teardown_tag_8021q(struct dsa_switch *ds)
 	// Clean service port
 	rtl837x_reg_write(priv, RTL8373_VS_UPLINK_PORT_ADDR, 0);
 
-	struct rtl837x_vlan_4k vlan4k;
-	memset(&vlan4k, 0, sizeof(vlan4k));
+	struct rtl837x_vlan_4k vlan4k = {0};
 	vlan4k.member = 0;
 	vlan4k.untag = 0;
 	vlan4k.fid = 0;
@@ -1360,7 +1359,7 @@ static int rtl8372n_tag_8021q_vlan_del(struct dsa_switch *ds, int port,
     struct rtl837x_priv *priv = ds->priv;
 	struct rtl8372n *chip_data = priv->chip_data;
 
-	struct rtl837x_vlan_4k vlan4k;
+	struct rtl837x_vlan_4k vlan4k = {0};
 	dev_dbg(priv->dev, "[%s]: port: %d, vid: %u\n", __func__, port, vid);
 
 	ret = priv->ops->get_vlan_4k(priv, vid, &vlan4k);
@@ -1751,7 +1750,7 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 	dev_dbg(priv->dev, "[%s]: port (%d) vid (%d)\n", __func__,
 							  port, vlan->vid);
 
-	struct rtl837x_vlan_4k vlan4k;
+	struct rtl837x_vlan_4k vlan4k = {0};
 
 	ret = priv->ops->get_vlan_4k(priv, vlan->vid, &vlan4k);
 	if (ret)

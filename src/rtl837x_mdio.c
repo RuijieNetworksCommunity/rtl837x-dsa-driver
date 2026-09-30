@@ -269,6 +269,7 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	}
 
 	mutex_init(&priv->mib_lock);
+	mutex_init(&priv->ita_lock);
 
 	priv->ds = devm_kzalloc(dev, sizeof(*priv->ds), GFP_KERNEL);
 	if (!priv->ds){

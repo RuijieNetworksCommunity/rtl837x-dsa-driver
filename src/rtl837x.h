@@ -175,6 +175,9 @@ struct rtl837x_priv {
 	struct mutex		map_lock;
 	struct regmap		*map_8224;
 	struct mutex		map_8224_lock;
+
+	struct mutex		ita_lock;
+
 	int			mdio_addr;
 	enum dsa_tag_protocol tag_proto;
 
