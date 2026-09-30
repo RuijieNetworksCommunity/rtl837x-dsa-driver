@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2025 StarField Xu <air_jinkela@163.com>
  */
@@ -33,7 +33,7 @@ static int simple_debugfs_open(struct inode *inode, struct file *file)
 		.open = simple_debugfs_open,   \
 		.write = MAKE_WRITE_FUNCNAME(name),   \
 		.read = _##name##_rw_read   \
-	};
+	}
 
 #define BUF_APPEND(_bname, fmt, ...) do { \
 	size_t _l = strlen(MK_BUFNAME(_bname)); \
@@ -42,22 +42,21 @@ static int simple_debugfs_open(struct inode *inode, struct file *file)
 			 fmt, ##__VA_ARGS__); \
 } while (0)
 
-#define BUF_PRINTF(_bname, fmt, ...) do { \
+#define BUF_PRINTF(_bname, fmt, ...) \
 		snprintf(MK_BUFNAME(_bname), MK_BUFLEN(_bname), \
-			 fmt, ##__VA_ARGS__); \
-} while (0)
+			 fmt, ##__VA_ARGS__)
 
-REGRWFUNC(vlan, 128)
-REGRWFUNC(pvid, 64)
-REGRWFUNC(reg, 64)
-REGRWFUNC(phyreg_mmd, 64)
-REGRWFUNC(phyreg_mii, 64)
-REGRWFUNC(phyreg_ocp, 64)
-REGRWFUNC(sdsreg, 64)
-REGRWFUNC(l2uc, 256)
-REGRWFUNC(vlan_trans, 64)
-REGRWFUNC(vlan_tag_rewrite, 64)
-REGRWFUNC(vlan_keep, 64)
+REGRWFUNC(vlan, 128);
+REGRWFUNC(pvid, 64);
+REGRWFUNC(reg, 64);
+REGRWFUNC(phyreg_mmd, 64);
+REGRWFUNC(phyreg_mii, 64);
+REGRWFUNC(phyreg_ocp, 64);
+REGRWFUNC(sdsreg, 64);
+REGRWFUNC(l2uc, 256);
+REGRWFUNC(vlan_trans, 64);
+REGRWFUNC(vlan_tag_rewrite, 64);
+REGRWFUNC(vlan_keep, 64);
 
 ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 				   size_t count, loff_t *offp)
@@ -73,47 +72,50 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
 	buf = memdup_user_nul(ubuf, count);
 	if (IS_ERR(buf))
 		return PTR_ERR(buf);
-	
-	if(buf[0] == 'r') {
-		if(sscanf(buf, "r %d", &vlan_id) != 1) {
+
+	if (buf[0] == 'r') {
+		struct rtl837x_vlan_4k vlan4k;
+
+		if (sscanf(buf, "r %d", &vlan_id) != 1) {
 			kfree(buf);
 			return -EFAULT;
-		} else {
-			struct rtl837x_vlan_4k vlan4k;
-			memset(&vlan4k, 0, sizeof(vlan4k));
-			priv->ops->get_vlan_4k(priv, vlan_id,  &vlan4k);
-			BUF_PRINTF(vlan, "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
-						  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
 		}
-	} else if(buf[0] == 'd') {
-		if(sscanf(buf, "d %d", &vlan_id) != 1) {
+
+		memset(&vlan4k, 0, sizeof(vlan4k));
+		priv->ops->get_vlan_4k(priv, vlan_id, &vlan4k);
+		BUF_PRINTF(vlan, "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
+			  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
+	} else if (buf[0] == 'd') {
+		struct rtl837x_vlan_4k vlan4k;
+
+		if (sscanf(buf, "d %d", &vlan_id) != 1) {
 			kfree(buf);
 			return -EFAULT;
-		} else {
-			struct rtl837x_vlan_4k vlan4k;
-			memset(&vlan4k, 0, sizeof(vlan4k));
-			priv->ops->get_vlan_4k(priv, vlan_id, &vlan4k);
-			BUF_PRINTF(vlan, "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
-						  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
-			vlan4k.member=0;
-			vlan4k.untag=0;
-			priv->ops->set_vlan_4k(priv, &vlan4k);
 		}
-	} else if(buf[0] == 'w') {
-		if(sscanf(buf, "w %d %x %x %d", &vlan_id, &member, &untag, &fid) != 4) {
+
+		memset(&vlan4k, 0, sizeof(vlan4k));
+		priv->ops->get_vlan_4k(priv, vlan_id, &vlan4k);
+		BUF_PRINTF(vlan, "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
+			  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
+		vlan4k.member = 0;
+		vlan4k.untag = 0;
+		priv->ops->set_vlan_4k(priv, &vlan4k);
+	} else if (buf[0] == 'w') {
+		struct rtl837x_vlan_4k vlan4k;
+
+		if (sscanf(buf, "w %d %x %x %d", &vlan_id, &member, &untag, &fid) != 4) {
 			kfree(buf);
 			return -EFAULT;
-		} else {
-			struct rtl837x_vlan_4k vlan4k;
-			memset(&vlan4k, 0, sizeof(vlan4k));
-			vlan4k.vid = vlan_id;
-			vlan4k.member = member;
-			vlan4k.untag = untag;
-			vlan4k.fid = fid;
-			priv->ops->set_vlan_4k(priv, &vlan4k);
-			BUF_PRINTF(vlan, "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
-						  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
 		}
+
+		memset(&vlan4k, 0, sizeof(vlan4k));
+		vlan4k.vid = vlan_id;
+		vlan4k.member = member;
+		vlan4k.untag = untag;
+		vlan4k.fid = fid;
+		priv->ops->set_vlan_4k(priv, &vlan4k);
+		BUF_PRINTF(vlan, "vid: %d, mbr: 0x%04X, utag: 0x%04X, fid: %d\n",
+			  vlan4k.vid, vlan4k.member, vlan4k.untag, vlan4k.fid);
 	} else {
 		BUF_PRINTF(vlan, "echo \"r/d <Dvlan_id> | w <Dvlan_id> <Xmbr> <Xutag> <Dfid>\" > vlan_dump\n");
 	}
@@ -136,9 +138,9 @@ ssize_t MAKE_WRITE_FUNCNAME(pvid)(struct file *filep, const char __user *ubuf,
 	buf = memdup_user_nul(ubuf, count);
 	if (IS_ERR(buf))
 		return PTR_ERR(buf);
-	
-	if(buf[0] == 'w') {
-		if(sscanf(buf, "w %d %d", &port, &pvid) != 2) {
+
+	if (buf[0] == 'w') {
+		if (sscanf(buf, "w %d %d", &port, &pvid) != 2) {
 			kfree(buf);
 			return -EFAULT;
 		}
@@ -148,8 +150,8 @@ ssize_t MAKE_WRITE_FUNCNAME(pvid)(struct file *filep, const char __user *ubuf,
 		}
 		rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_PB_VLAN_ADDR(port),
 				  RTL8373_VLAN_PORT_PB_VLAN_PVID_MASK(port), pvid);
-	} else if(buf[0] == 'r') {
-		if(sscanf(buf, "r %d", &port) != 1) {
+	} else if (buf[0] == 'r') {
+		if (sscanf(buf, "r %d", &port) != 1) {
 			kfree(buf);
 			return -EFAULT;
 		}
@@ -186,9 +188,9 @@ ssize_t MAKE_WRITE_FUNCNAME(sdsreg)(struct file *filep, const char __user *ubuf,
 	buf = memdup_user_nul(ubuf, count);
 	if (IS_ERR(buf))
 		return PTR_ERR(buf);
-	
-	if(buf[0] == 'w') {
-		if(sscanf(buf, "w %d %x %x %x", &sds_id, &page, &reg, &val) != 4) {
+
+	if (buf[0] == 'w') {
+		if (sscanf(buf, "w %d %x %x %x", &sds_id, &page, &reg, &val) != 4) {
 			kfree(buf);
 			return -EFAULT;
 		}
@@ -197,8 +199,8 @@ ssize_t MAKE_WRITE_FUNCNAME(sdsreg)(struct file *filep, const char __user *ubuf,
 			return -EFAULT;
 		}
 		rtl837x_sds_reg_write(priv, sds_id, page, reg, val);
-	} else if(buf[0] == 'r') {
-		if(sscanf(buf, "r %d %x %x", &sds_id, &page, &reg) != 3) {
+	} else if (buf[0] == 'r') {
+		if (sscanf(buf, "r %d %x %x", &sds_id, &page, &reg) != 3) {
 			kfree(buf);
 			return -EFAULT;
 		}
@@ -230,9 +232,9 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mmd)(struct file *filep, const char __user *u
 	buf = memdup_user_nul(ubuf, count);
 	if (IS_ERR(buf))
 		return PTR_ERR(buf);
-	
-	if(buf[0] == 'w') {
-		if(sscanf(buf, "w %d %x %x %x", &port, &devad, &reg, &val) != 4) {
+
+	if (buf[0] == 'w') {
+		if (sscanf(buf, "w %d %x %x %x", &port, &devad, &reg, &val) != 4) {
 			kfree(buf);
 			return -EFAULT;
 		}
@@ -241,8 +243,8 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mmd)(struct file *filep, const char __user *u
 			return -EFAULT;
 		}
 		priv->ops->phy_write_c45(priv, port, devad, reg, val);
-	} else if(buf[0] == 'r') {
-		if(sscanf(buf, "r %d %x %x", &port, &devad, &reg) != 3) {
+	} else if (buf[0] == 'r') {
+		if (sscanf(buf, "r %d %x %x", &port, &devad, &reg) != 3) {
 			kfree(buf);
 			return -EFAULT;
 		}
@@ -278,9 +280,9 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mii)(struct file *filep, const char __user *u
 	buf = memdup_user_nul(ubuf, count);
 	if (IS_ERR(buf))
 		return PTR_ERR(buf);
-	
-	if(buf[0] == 'w') {
-		if(sscanf(buf, "w %d %x %x", &port, &reg, &val) != 3) {
+
+	if (buf[0] == 'w') {
+		if (sscanf(buf, "w %d %x %x", &port, &reg, &val) != 3) {
 			kfree(buf);
 			return -EFAULT;
 		}
@@ -289,8 +291,8 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_mii)(struct file *filep, const char __user *u
 			return -EFAULT;
 		}
 		rtl837x_phy_write_c22(priv, port, reg, val);
-	} else if(buf[0] == 'r') {
-		if(sscanf(buf, "r %d %x", &port, &reg) != 2) {
+	} else if (buf[0] == 'r') {
+		if (sscanf(buf, "r %d %x", &port, &reg) != 2) {
 			kfree(buf);
 			return -EFAULT;
 		}
@@ -325,9 +327,9 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_ocp)(struct file *filep, const char __user *u
 	buf = memdup_user_nul(ubuf, count);
 	if (IS_ERR(buf))
 		return PTR_ERR(buf);
-	
-	if(buf[0] == 'w') {
-		if(sscanf(buf, "w %d %x %x", &port, &reg, &val) != 3) {
+
+	if (buf[0] == 'w') {
+		if (sscanf(buf, "w %d %x %x", &port, &reg, &val) != 3) {
 			kfree(buf);
 			return -EFAULT;
 		}
@@ -336,8 +338,8 @@ ssize_t MAKE_WRITE_FUNCNAME(phyreg_ocp)(struct file *filep, const char __user *u
 			return -EFAULT;
 		}
 		rtl837x_phy_write_c22(priv, port, reg, val);
-	} else if(buf[0] == 'r') {
-		if(sscanf(buf, "r %d %x", &port, &reg) != 2) {
+	} else if (buf[0] == 'r') {
+		if (sscanf(buf, "r %d %x", &port, &reg) != 2) {
 			kfree(buf);
 			return -EFAULT;
 		}
@@ -364,6 +366,7 @@ ssize_t MAKE_WRITE_FUNCNAME(reg)(struct file *filep, const char __user *ubuf,
 	u32 reg, val;
 	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
+
 	if (*offp)
 		return 0;
 
@@ -374,15 +377,15 @@ ssize_t MAKE_WRITE_FUNCNAME(reg)(struct file *filep, const char __user *ubuf,
 	if (IS_ERR(buf))
 		return PTR_ERR(buf);
 
-	if(buf[0] == 'w') {
-		if(sscanf(buf, "w %x %x", &reg, &val) != 2) {
+	if (buf[0] == 'w') {
+		if (sscanf(buf, "w %x %x", &reg, &val) != 2) {
 			kfree(buf);
 			return -EFAULT;
 		}
 		rtl837x_reg_write(priv, reg, val);
 		goto reg_readback;
-	} else if(buf[0] == 'r') {
-		if(sscanf(buf, "r %x", &reg) != 1) {
+	} else if (buf[0] == 'r') {
+		if (sscanf(buf, "r %x", &reg) != 1) {
 			kfree(buf);
 			return -EFAULT;
 		}
@@ -415,24 +418,22 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 
 	/* reset the static output buffer before generating new result */
 	MK_BUFNAME(l2uc)[0] = '\0';
-	
-	if(buf[0] == 'r') {
-		if(sscanf(buf, "r %d", &index) != 1) {
+
+	if (buf[0] == 'r') {
+		if (sscanf(buf, "r %d", &index) != 1) {
 			kfree(buf);
 			return -EFAULT;
 		}
 		entry.addr = index;
 		ret = rtl837x_lut_query(priv, LUT_READ_METHOD_ADDRESS, &entry);
-		if (ret)
-		{
+		if (ret) {
 			BUF_APPEND(l2uc, "addr: %d Not Hit\n", index);
 			goto out;
 		}
-		switch (entry.type)
-		{
+		switch (entry.type) {
 		case LUT_TYPE_L2_UC:
 			BUF_APPEND(l2uc, "type:%s ", "l2uc");
-			BUF_APPEND(l2uc, "%02X:%02X:%02X:%02X:%02X:%02X ", 
+			BUF_APPEND(l2uc, "%02X:%02X:%02X:%02X:%02X:%02X ",
 								entry.uc.key.mac_addr[0],
 								entry.uc.key.mac_addr[1],
 								entry.uc.key.mac_addr[2],
@@ -449,7 +450,7 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 			break;
 		case LUT_TYPE_L2_MC:
 			BUF_APPEND(l2uc, "type:%s ", "l2mc");
-			BUF_APPEND(l2uc, "%02X:%02X:%02X:%02X:%02X:%02X ", 
+			BUF_APPEND(l2uc, "%02X:%02X:%02X:%02X:%02X:%02X ",
 								entry.mc.key.mac_addr[0],
 								entry.mc.key.mac_addr[1],
 								entry.mc.key.mac_addr[2],
@@ -475,8 +476,8 @@ ssize_t MAKE_WRITE_FUNCNAME(l2uc)(struct file *filep, const char __user *ubuf,
 		default:
 			break;
 		}
-	} else if(buf[0] == 'd'){
-		if(sscanf(buf, "d %d", &index) != 1) {
+	} else if (buf[0] == 'd') {
+		if (sscanf(buf, "d %d", &index) != 1) {
 			kfree(buf);
 			return -EFAULT;
 		}
@@ -505,27 +506,27 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_trans)(struct file *filep, const char __user *u
 	buf = memdup_user_nul(ubuf, count);
 	if (IS_ERR(buf))
 		return PTR_ERR(buf);
-	
-	if(buf[0] == 'r') {
-		if(sscanf(buf, "r %d", &port) != 1) {
+
+	if (buf[0] == 'r') {
+		if (sscanf(buf, "r %d", &port) != 1) {
 			kfree(buf);
 			return -EFAULT;
-		} else {
-			rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_EGR_TRANS_ADDR(port),
-				  RTL8373_VLAN_PORT_EGR_TRANS_PMSK_MASK(port), &mbr);
-			BUF_PRINTF(vlan_trans, "port: %d, mbr: 0x%04X\n",
-						  port, mbr);
 		}
-	} else if(buf[0] == 'w') {
-		if(sscanf(buf, "w %d %x", &port, &mbr) != 2) {
+
+		rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_EGR_TRANS_ADDR(port),
+			  RTL8373_VLAN_PORT_EGR_TRANS_PMSK_MASK(port), &mbr);
+		BUF_PRINTF(vlan_trans, "port: %d, mbr: 0x%04X\n",
+			  port, mbr);
+	} else if (buf[0] == 'w') {
+		if (sscanf(buf, "w %d %x", &port, &mbr) != 2) {
 			kfree(buf);
 			return -EFAULT;
-		} else {
-			rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TRANS_ADDR(port),
-				  RTL8373_VLAN_PORT_EGR_TRANS_PMSK_MASK(port), mbr);
-			BUF_PRINTF(vlan_trans, "port: %d, mbr: 0x%04X\n",
-						  port, mbr);
 		}
+
+		rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TRANS_ADDR(port),
+			  RTL8373_VLAN_PORT_EGR_TRANS_PMSK_MASK(port), mbr);
+		BUF_PRINTF(vlan_trans, "port: %d, mbr: 0x%04X\n",
+			  port, mbr);
 	} else {
 		BUF_PRINTF(vlan_trans, "echo \"r/w <Dport> [<Xval>]\" > vlan_trans\n");
 	}
@@ -548,27 +549,27 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_keep)(struct file *filep, const char __user *ub
 	buf = memdup_user_nul(ubuf, count);
 	if (IS_ERR(buf))
 		return PTR_ERR(buf);
-	
-	if(buf[0] == 'r') {
-		if(sscanf(buf, "r %d", &port) != 1) {
+
+	if (buf[0] == 'r') {
+		if (sscanf(buf, "r %d", &port) != 1) {
 			kfree(buf);
 			return -EFAULT;
-		} else {
-			rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_EGR_KEEP_ADDR(port),
-				  RTL8373_VLAN_PORT_EGR_KEEP_PMSK_MASK(port), &mbr);
-			BUF_PRINTF(vlan_keep, "port: %d, mbr: 0x%04X\n",
-						  port, mbr);
 		}
-	} else if(buf[0] == 'w') {
-		if(sscanf(buf, "w %d %x", &port, &mbr) != 2) {
+
+		rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_EGR_KEEP_ADDR(port),
+			  RTL8373_VLAN_PORT_EGR_KEEP_PMSK_MASK(port), &mbr);
+		BUF_PRINTF(vlan_keep, "port: %d, mbr: 0x%04X\n",
+			  port, mbr);
+	} else if (buf[0] == 'w') {
+		if (sscanf(buf, "w %d %x", &port, &mbr) != 2) {
 			kfree(buf);
 			return -EFAULT;
-		} else {
-			rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_KEEP_ADDR(port),
-				  RTL8373_VLAN_PORT_EGR_KEEP_PMSK_MASK(port), mbr);
-			BUF_PRINTF(vlan_keep, "port: %d, mbr: 0x%04X\n",
-						  port, mbr);
 		}
+
+		rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_KEEP_ADDR(port),
+			  RTL8373_VLAN_PORT_EGR_KEEP_PMSK_MASK(port), mbr);
+		BUF_PRINTF(vlan_keep, "port: %d, mbr: 0x%04X\n",
+			  port, mbr);
 	} else {
 		BUF_PRINTF(vlan_keep, "echo \"r/w <Dport> [<Xval>]\" > vlan_keep\n");
 	}
@@ -591,46 +592,44 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __u
 	buf = memdup_user_nul(ubuf, count);
 	if (IS_ERR(buf))
 		return PTR_ERR(buf);
-	
-	if(buf[0] == 'r') {
-		if(sscanf(buf, "r %d", &port) != 1) {
-			kfree(buf);
-			return -EFAULT;
-		} else {
 
-			rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_EGR_TAG_ADDR(port),
-				  RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port), &tmp
-			);
-			const char *stmp = "Unknow";
-			switch (tmp)
-			{
-			case 0:
-				stmp = "ORIGINAL(0)";
-				break;
-			case 1:
-				stmp = "KEEP_FORMAT(1)";
-				break;
-			case 2:
-				stmp = "PRI(2)";
-				break;
-			case 3:
-				stmp = "REAL_KEEP(3)";
-				break;
-			default:
-				break;
-			}
-			BUF_PRINTF(vlan_tag_rewrite, "port: %d, mode: %s\n",
-					  port, stmp);
-		}
-	} else if(buf[0] == 'w') {
-		if(sscanf(buf, "w %d %x", &port, &tmp) != 2) {
+	if (buf[0] == 'r') {
+		const char *stmp = "Unknow";
+
+		if (sscanf(buf, "r %d", &port) != 1) {
 			kfree(buf);
 			return -EFAULT;
-		} else {
-			rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TAG_ADDR(port),
-				  RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port), tmp
-			);
 		}
+
+		rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_EGR_TAG_ADDR(port),
+			  RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port), &tmp);
+
+		switch (tmp) {
+		case 0:
+			stmp = "ORIGINAL(0)";
+			break;
+		case 1:
+			stmp = "KEEP_FORMAT(1)";
+			break;
+		case 2:
+			stmp = "PRI(2)";
+			break;
+		case 3:
+			stmp = "REAL_KEEP(3)";
+			break;
+		default:
+			break;
+		}
+		BUF_PRINTF(vlan_tag_rewrite, "port: %d, mode: %s\n",
+			  port, stmp);
+	} else if (buf[0] == 'w') {
+		if (sscanf(buf, "w %d %x", &port, &tmp) != 2) {
+			kfree(buf);
+			return -EFAULT;
+		}
+
+		rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TAG_ADDR(port),
+			  RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port), tmp);
 	} else {
 		BUF_PRINTF(vlan_tag_rewrite, "echo \"r/w <Dport> [<Xval>]\" > vlan_tag_rewrite\n");
 	}
@@ -779,7 +778,7 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 	sfile = filep->private_data;
 	priv = sfile->private;
 
-	const int MK_BUFLEN(l2uc_dump) = PAGE_SIZE*64; 
+	const int MK_BUFLEN(l2uc_dump) = PAGE_SIZE*64;
 	char *MK_BUFNAME(l2uc_dump) = kmalloc(MK_BUFLEN(l2uc_dump), GFP_KERNEL);
 
 	if (!MK_BUFNAME(l2uc_dump))
@@ -796,11 +795,10 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 			break;
 
 		BUF_APPEND(l2uc_dump, "addr:%-4d ", entry.addr);
-		switch (entry.type)
-		{
+		switch (entry.type) {
 		case LUT_TYPE_L2_UC:
 			BUF_APPEND(l2uc_dump, "type:%-4s ", "l2uc");
-			BUF_APPEND(l2uc_dump, "%02X:%02X:%02X:%02X:%02X:%02X ", 
+			BUF_APPEND(l2uc_dump, "%02X:%02X:%02X:%02X:%02X:%02X ",
 								entry.uc.key.mac_addr[0],
 								entry.uc.key.mac_addr[1],
 								entry.uc.key.mac_addr[2],
@@ -817,7 +815,7 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 			break;
 		case LUT_TYPE_L2_MC:
 			BUF_APPEND(l2uc_dump, "type:%-4s ", "l2mc");
-			BUF_APPEND(l2uc_dump, "%02X:%02X:%02X:%02X:%02X:%02X ", 
+			BUF_APPEND(l2uc_dump, "%02X:%02X:%02X:%02X:%02X:%02X ",
 								entry.mc.key.mac_addr[0],
 								entry.mc.key.mac_addr[1],
 								entry.mc.key.mac_addr[2],
@@ -920,6 +918,7 @@ static const struct file_operations _port_eee_status_dump_fops = {
 int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 {
 	char name[64];
+
 	snprintf(name, 64, "rtl837x-%d-ds", priv->ds->index);
 	priv->debugfs_parent = debugfs_create_dir(name, NULL);
 	debugfs_create_file("reg", 0600,

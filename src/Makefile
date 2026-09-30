@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: GPL-2.0-or-later 
+# SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2025 StarField Xu <air_jinkela@163.com>
 
 ccflags-y += -Wall

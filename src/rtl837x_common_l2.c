@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2025 StarField Xu <air_jinkela@163.com>
  */
@@ -8,7 +8,7 @@
 
 #define RTL837X_LUT_TABLE_SIZE         (3)
 
-/*  unicast field define  */
+/* unicast field define */
 #define RTL837X_L2_UC_D0_MAC5_MSK		GENMASK(7, 0)
 #define RTL837X_L2_UC_D0_MAC4_MSK		GENMASK(15, 8)
 #define RTL837X_L2_UC_D0_MAC3_MSK		GENMASK(23, 16)
@@ -30,7 +30,7 @@
 #define RTL837X_L2_UC_D2_AUTH_MSK		GENMASK(5, 5)
 #define RTL837X_L2_UC_D2_STATIC_MSK		GENMASK(16, 16)
 
-/*  multicast field define  */
+/* multicast field define */
 #define RTL837X_L2_MC_D0_MAC5_MSK		GENMASK(7, 0)
 #define RTL837X_L2_MC_D0_MAC4_MSK		GENMASK(15, 8)
 #define RTL837X_L2_MC_D0_MAC3_MSK		GENMASK(23, 16)
@@ -45,13 +45,13 @@
 #define RTL837X_L2_MC_D1_MBR_LO_MSK	    GENMASK(31, 30)
 #define  RTL837X_L2_MC_D2_MBR_HI_MSK	GENMASK(7, 0)
 #define  RTL837X_L2_MC_MBR_GET(_D1, _D2) \
-            ((FIELD_GET(RTL837X_L2_MC_D1_MBR_LO_MSK, _D1))| \
-             (FIELD_GET(RTL837X_L2_MC_D2_MBR_HI_MSK, _D2) << 2))
+	    ((FIELD_GET(RTL837X_L2_MC_D1_MBR_LO_MSK, _D1))| \
+	     (FIELD_GET(RTL837X_L2_MC_D2_MBR_HI_MSK, _D2) << 2))
 
 #define RTL837X_L2_MC_D2_IGMPIDX_MSK	GENMASK(15, 8)
 #define RTL837X_L2_MC_D2_IGMPASIC_MSK	GENMASK(16, 16)
 
-/*  L3 field define  */
+/* L3 field define */
 /* this chip support l3? Interesting */
 #define RTL837X_L3_D0_SIP_MSK           GENMASK(31, 0)
 #define RTL837X_L3_D1_DIP_MSK           GENMASK(27, 0)
@@ -60,8 +60,8 @@
 #define RTL837X_L3_D1_MBR_LO_MSK	    GENMASK(31, 30)
 #define  RTL837X_L3_D2_MBR_HI_MSK	GENMASK(7, 0)
 #define  RTL837X_L3_MBR_GET(_D1, _D2) \
-            ((FIELD_GET(RTL837X_L3_D1_MBR_LO_MSK, _D1))| \
-             (FIELD_GET(RTL837X_L3_D2_MBR_HI_MSK, _D2) << 2))
+	    ((FIELD_GET(RTL837X_L3_D1_MBR_LO_MSK, _D1))| \
+	     (FIELD_GET(RTL837X_L3_D2_MBR_HI_MSK, _D2) << 2))
 
 #define RTL837X_L3_D2_IGMPIDX_MSK	GENMASK(15, 8)
 #define RTL837X_L3_D2_IGMPASIC_MSK	GENMASK(16, 16)
@@ -103,12 +103,12 @@ static void rtl837x_l2_uc_to_data(const struct rtl837x_l2_uc *uc, u32 *data)
 	data[1] |=
 		FIELD_PREP(RTL837X_L2_UC_D1_MAC0_MSK, uc->key.mac_addr[0]);
 
-	data[1] |= 
+	data[1] |=
 		FIELD_PREP(RTL837X_L2_UC_D1_CVIDFID_MSK, uc->key.vid_fid);
-	data[1] |= 
+	data[1] |=
 		FIELD_PREP(RTL837X_L2_UC_D1_IVL_MSK, uc->key.ivl);
 	// shoule never be set in uc entry
-	data[1] |= 
+	data[1] |=
 		FIELD_PREP(RTL837X_L2_UC_D1_L3LOOKUP_MSK, 0);
 
 	data[1] |=
@@ -161,13 +161,13 @@ static void rtl837x_l2_mc_to_data(const struct rtl837x_l2_mc *mc, u32 *data)
 	data[1] |=
 		FIELD_PREP(RTL837X_L2_MC_D1_MAC0_MSK, mc->key.mac_addr[0]);
 
-	data[1] |= 
+	data[1] |=
 		FIELD_PREP(RTL837X_L2_MC_D1_CVIDFID_MSK, mc->key.vid_fid);
-	data[1] |= 
+	data[1] |=
 		FIELD_PREP(RTL837X_L2_MC_D1_IVL_MSK, mc->key.ivl);
 
 	// shoule never be set in mc entry
-	data[1] |= 
+	data[1] |=
 		FIELD_PREP(RTL837X_L2_MC_D1_L3LOOKUP_MSK, 0);
 
 	data[1] |=
@@ -215,9 +215,9 @@ static void rtl837x_l3_to_data(const struct rtl837x_l3 *l3, u32 *data)
 		FIELD_PREP(RTL837X_L3_D2_IGMPASIC_MSK, l3->igmp_asic);
 }
 
-int rtl837x_lut_query(struct rtl837x_priv *priv, 
-                          enum rtl837x_l2_method method,
-                          struct rtl837x_lut_entry *entry)
+int rtl837x_lut_query(struct rtl837x_priv *priv,
+			  enum rtl837x_l2_method method,
+			  struct rtl837x_lut_entry *entry)
 {
 	int ret;
 	u32 tmp, cmd;
@@ -237,8 +237,7 @@ int rtl837x_lut_query(struct rtl837x_priv *priv,
 	if (ret)
 		goto out;
 
-	switch (method)
-	{
+	switch (method) {
 	case LUT_READ_METHOD_ADDRESS:
 	case LUT_READ_METHOD_NEXT_ADDRESS:
 	case LUT_READ_METHOD_NEXT_L2UC:
@@ -252,8 +251,7 @@ int rtl837x_lut_query(struct rtl837x_priv *priv,
 		break;
 	case LUT_READ_METHOD_MAC:
 		rtl837x_l2_uc_to_data(&entry->uc, tb_data);
-		for(int i=0; i<RTL837X_LUT_TABLE_SIZE; i++)
-		{
+		for (int i = 0; i < RTL837X_LUT_TABLE_SIZE; i++) {
 			ret = rtl837x_reg_write(priv, RTL8373_ITA_WRITE_DATA0_ADDR(i), tb_data[i]);
 			if (ret)
 				goto out;
@@ -298,8 +296,7 @@ int rtl837x_lut_query(struct rtl837x_priv *priv,
 				  RTL8373_ITA_L2_CTRL_ACT_STS_MASK, &tmp);
 	if (ret)
 		goto out;
-	if (!tmp)
-	{
+	if (!tmp) {
 		ret = -ENOENT; // not hit
 		goto out;
 	}
@@ -311,8 +308,7 @@ int rtl837x_lut_query(struct rtl837x_priv *priv,
 	entry->addr = tmp;
 
 	// read the table data
-	for (int i=0; i<RTL837X_LUT_TABLE_SIZE; i++)
-	{
+	for (int i = 0; i < RTL837X_LUT_TABLE_SIZE; i++) {
 		ret = rtl837x_reg_read(priv, RTL8373_ITA_READ_DATA0_ADDR(i), &tb_data[i]);
 		if (ret)
 			goto out;
@@ -326,8 +322,7 @@ int rtl837x_lut_query(struct rtl837x_priv *priv,
 	else
 		entry->type = LUT_TYPE_L2_UC;
 
-	switch (entry->type)
-	{
+	switch (entry->type) {
 	case LUT_TYPE_L2_UC:
 		rtl837x_l2_data_to_uc(tb_data, &(entry->uc));
 		break;
@@ -346,13 +341,13 @@ out:
 }
 
 /*
-	something interesting:
-	if  multicast macaddress(mac[0] bit0 == 1) is set in the unicast entry
-	the hardware won't record this entry in the lut table
-	it will throw an error (-ENOENT)
-*/
-int rtl837x_lut_set(struct rtl837x_priv *priv, 
-                          struct rtl837x_lut_entry *entry)
+ * something interesting:
+ * if  multicast macaddress(mac[0] bit0 == 1) is set in the unicast entry
+ * the hardware won't record this entry in the lut table
+ * it will throw an error (-ENOENT)
+ */
+int rtl837x_lut_set(struct rtl837x_priv *priv,
+			  struct rtl837x_lut_entry *entry)
 {
 	int ret;
 	u32 tmp, cmd;
@@ -367,8 +362,7 @@ int rtl837x_lut_set(struct rtl837x_priv *priv,
 	if (ret)
 		goto out;
 
-	switch (entry->type)
-	{
+	switch (entry->type) {
 	case LUT_TYPE_L2_UC:
 		rtl837x_l2_uc_to_data(&entry->uc, tb_data);
 		break;
@@ -383,8 +377,7 @@ int rtl837x_lut_set(struct rtl837x_priv *priv,
 		goto out;
 	}
 
-	for (int i=0; i<RTL837X_LUT_TABLE_SIZE; i++)
-	{
+	for (int i = 0; i < RTL837X_LUT_TABLE_SIZE; i++) {
 		ret = rtl837x_reg_write(priv, RTL8373_ITA_WRITE_DATA0_ADDR(i), tb_data[i]);
 		if (ret)
 			goto out;
@@ -421,15 +414,15 @@ int rtl837x_lut_set(struct rtl837x_priv *priv,
 	if (ret)
 		goto out;
 	entry->addr = tmp;
-	
+
 	ret = 0;
 out:
 	mutex_unlock(&priv->ita_lock);
 	return ret;
 }
 
-int rtl837x_lut_del(struct rtl837x_priv *priv, 
-                          u32 addr)
+int rtl837x_lut_del(struct rtl837x_priv *priv,
+			  u32 addr)
 {
 	int ret;
 	u32 tmp, cmd;

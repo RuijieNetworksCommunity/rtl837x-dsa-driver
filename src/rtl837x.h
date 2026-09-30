@@ -26,9 +26,9 @@
 /*
  * As Realtek has not released the register manual
  * for the internal SerDes, the register definitions
- * below have been inferred from comments and names 
+ * below have been inferred from comments and names
  * found in OEM code and code for similar IP chips.
-*/
+ */
 /* PAGE_FRC */
 #define SDS_PAGE_FRC            0x20
 #define SDS_REG_FRC             0x00
@@ -62,7 +62,7 @@
   * 0: NWAY_AUTO
   * 1: NWAY_FORCE_DIS
   * 3: NWAY_FORCE_EN (maybe?)
- */
+  */
 
  #define SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN    BIT(8)
  #define SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN BIT(9)
@@ -109,57 +109,52 @@
  #define SDS_CTRL1F_10GR_AN_AsymmetricPause_MASK  BIT(3)
 
 // deprecated
-typedef enum
-{
-    SERDES_10GQXG,
-    SERDES_10GUSXG = 0xD,
-    SERDES_10GR = 0x1A,
-    SERDES_HSG = 0x12,
-    SERDES_2500BASEX = 0x16,
-    SERDES_SG = 2,
-    SERDES_1000BASEX = 4,
-    SERDES_100FX = 5,  
-    SERDES_OFF = 0x1F,
-    SERDES_8221B = 0x21,
-    SERDES_ON = 0x22,
-    SERDES_END
-} rtk_sds_mode_t;
-
-enum _rtk_tb_op
-{
-    TB_OP_READ = 0,
-    TB_OP_WRITE
+enum rtk_sds_mode {
+	SERDES_10GQXG,
+	SERDES_10GUSXG = 0xD,
+	SERDES_10GR = 0x1A,
+	SERDES_HSG = 0x12,
+	SERDES_2500BASEX = 0x16,
+	SERDES_SG = 2,
+	SERDES_1000BASEX = 4,
+	SERDES_100FX = 5,
+	SERDES_OFF = 0x1F,
+	SERDES_8221B = 0x21,
+	SERDES_ON = 0x22,
+	SERDES_END
 };
 
-enum _rtk_tb_access_execute
-{
-    TB_NOT_EXECUTE = 0,
-    TB_EXECUTE,
+enum _rtk_tb_op {
+	TB_OP_READ = 0,
+	TB_OP_WRITE
 };
 
-enum _rtk_tb_access_target
-{
-    TB_TARGET_ACLRULE = 1,
-    TB_TARGET_ACLACT,
-    TB_TARGET_CVLAN,
-    TB_TARGET_L2,
-    TB_TARGET_IGMP_GROUP,
-    TB_TARGET_HSA,
-    TB_TARGET_HSB
+enum _rtk_tb_access_execute {
+	TB_NOT_EXECUTE = 0,
+	TB_EXECUTE,
 };
 
-typedef enum switch_chip_e
-{
-    CHIP_RTL8373 = 0,
-    CHIP_RTL8224 = 1,
+enum _rtk_tb_access_target {
+	TB_TARGET_ACLRULE = 1,
+	TB_TARGET_ACLACT,
+	TB_TARGET_CVLAN,
+	TB_TARGET_L2,
+	TB_TARGET_IGMP_GROUP,
+	TB_TARGET_HSA,
+	TB_TARGET_HSB
+};
+
+enum switch_chip {
+	CHIP_RTL8373 = 0,
+	CHIP_RTL8224 = 1,
 	CHIP_RTL8372,
 	CHIP_RTL8373N,
 	CHIP_RTL8221B,
 	CHIP_RTL8366U,
 	CHIP_RTL8372N,
 	CHIP_RTL8224N,
-    CHIP_END
-}switch_chip_t;
+	CHIP_END
+};
 
 struct rtl837x_mib_counter {
 	unsigned int	offset;
@@ -168,9 +163,9 @@ struct rtl837x_mib_counter {
 };
 
 struct rtl837x_priv {
- 	struct device *dev;
+	struct device *dev;
 	struct gpio_desc	*reset;
- 	struct mii_bus *bus;
+	struct mii_bus *bus;
 	struct regmap		*map;
 	struct mutex		map_lock;
 	struct regmap		*map_8224;
@@ -190,7 +185,7 @@ struct rtl837x_priv {
 
 	struct dsa_switch	*ds;
 
-    const struct rtl837x_mib_counter *mib_counters;
+	const struct rtl837x_mib_counter *mib_counters;
 	unsigned int num_mib_counters;
 	struct mutex mib_lock;
 
@@ -213,7 +208,7 @@ struct rtl837x_vlan_data {
 		struct {
 			u32 mbr  : 10;
 			u32 untag: 10;
-			u32 fid  : 4 ;
+			u32 fid  : 4;
 			u32 svlan_chk_ivl_svl: 1;
 			u32 ivl_en: 1;
 			u32 resv : 6;
@@ -262,8 +257,7 @@ struct rtl837x_l2_mc {
 	u8 igmp_idx;
 };
 
-struct rtl837x_l3
-{
+struct rtl837x_l3 {
 	u32 sip;
 	u32 dip;
 
@@ -276,8 +270,7 @@ struct rtl837x_l3
 struct rtl837x_lut_entry {
 	enum rtl837x_lut_type type;
 	u16 addr;
-	union
-	{
+	union {
 		struct rtl837x_l2_uc uc;
 		struct rtl837x_l2_mc mc;
 		struct rtl837x_l3 l3;
@@ -317,7 +310,7 @@ struct rtl837x_ops {
 				u16 val);
 };
 
-char* chipid_to_chip_name(switch_chip_t id);
+char *chipid_to_chip_name(enum switch_chip id);
 
 #define rtl837x_reg_read(priv, reg, pval) regmap_read(priv->map, reg, pval)
 #define rtl837x_reg_write(priv, reg, val) regmap_write(priv->map, reg, val)
@@ -326,7 +319,7 @@ extern int rtl837x_reg_bits_read(struct rtl837x_priv *priv, u32 reg, u32 mask, u
 extern int rtl837x_reg_bits_write(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 val);
 
 extern int rtl837x_gpiochip_init(struct rtl837x_priv *priv);
-extern rtk_sds_mode_t phy_interface_to_rtk_sds_mode(phy_interface_t interface);
+extern enum rtk_sds_mode phy_interface_to_rtk_sds_mode(phy_interface_t interface);
 
 extern int rtl837x_debug_proc_init(struct rtl837x_priv *priv);
 extern int rtl837x_debug_proc_deinit(struct rtl837x_priv *priv);
@@ -358,19 +351,19 @@ extern int rtl837x_rtl8224_sds_reg_bits_write(struct rtl837x_priv *priv, u8 sds_
 extern int rtl837x_vlan_set(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan);
 extern int rtl837x_vlan_get(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan);
 
-extern int rtl837x_lut_query(struct rtl837x_priv *priv, 
-                          enum rtl837x_l2_method method,
-                          struct rtl837x_lut_entry *entry);
-extern int rtl837x_lut_set(struct rtl837x_priv *priv, 
-                          struct rtl837x_lut_entry *entry);
-extern int rtl837x_lut_del(struct rtl837x_priv *priv, 
-                        	  u32 addr);
+extern int rtl837x_lut_query(struct rtl837x_priv *priv,
+			  enum rtl837x_l2_method method,
+			  struct rtl837x_lut_entry *entry);
+extern int rtl837x_lut_set(struct rtl837x_priv *priv,
+			  struct rtl837x_lut_entry *entry);
+extern int rtl837x_lut_del(struct rtl837x_priv *priv,
+				  u32 addr);
 
 extern int rtl837x_sds_reset_X(struct rtl837x_priv *priv, u8 sds_idx);
 extern int rtl837x_sds_reset_R(struct rtl837x_priv *priv, u8 sds_idx);
 extern int rtl837x_rtl8224_sds_reset_R(struct rtl837x_priv *priv, u8 sds_idx);
 
-extern int __deprecated rtl837x_serdes_set_mode(struct rtl837x_priv *priv, u8 sds_idx, rtk_sds_mode_t mode);
+extern int __deprecated rtl837x_serdes_set_mode(struct rtl837x_priv *priv, u8 sds_idx, enum rtk_sds_mode mode);
 
 extern int rtl837x_serdes_on(struct rtl837x_priv *priv, u8 sds_idx);
 extern int rtl837x_serdes_off(struct rtl837x_priv *priv, u8 sds_idx);

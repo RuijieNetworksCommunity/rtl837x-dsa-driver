@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0-or-later */
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (C) 2025 StarField Xu <air_jinkela@163.com>
  */
@@ -14,7 +14,7 @@
 
 #include "rtl837x.h"
 
-static const u16 patch_an_10p3125g_a[][3] ={
+static const u16 patch_an_10p3125g_a[][3] = {
 	{0x0021, 0x0010, 0x4480},
 	{0x0021, 0x0013, 0x0400},
 	{0x0021, 0x0018, 0x6D02},
@@ -31,7 +31,7 @@ static const u16 patch_an_10p3125g_a[][3] ={
 	{0x002E, 0x001D, 0xABB0}
 };
 
-static const u16 patch_an_10p3125g_b[][3] ={
+static const u16 patch_an_10p3125g_b[][3] = {
 	{0x0021, 0x0010, 0x4480},
 	{0x0021, 0x0013, 0x0400},
 	{0x0021, 0x0018, 0x6D02},
@@ -52,7 +52,7 @@ static const u16 patch_an_10p3125g_b[][3] ={
 	{0x002E, 0x001D, 0xABB0}
 };
 
-static const u16 patch_an_3p125g_a[][3]={
+static const u16 patch_an_3p125g_a[][3] = {
 	{0x0021, 0x0010, 0x6480},
 	{0x0021, 0x0013, 0x0400},
 	{0x0021, 0x0018, 0x6D02},
@@ -68,7 +68,7 @@ static const u16 patch_an_3p125g_a[][3]={
 	{0x0028, 0x001D, 0xABB0}
 };
 
-static const u16 patch_an_3p125g_b[][3]={
+static const u16 patch_an_3p125g_b[][3] = {
 	{0x0021, 0x0010, 0x6480},
 	{0x0021, 0x0013, 0x0400},
 	{0x0021, 0x0018, 0x6D02},
@@ -88,7 +88,7 @@ static const u16 patch_an_3p125g_b[][3]={
 	{0x0028, 0x001D, 0xABB0}
 };
 
-static const u16 patch_an_1p25g_a[][3]={
+static const u16 patch_an_1p25g_a[][3] = {
 	{0x0021, 0x0010, 0x6480},
 	{0x0021, 0x0013, 0x0400},
 	{0x0021, 0x0018, 0x6D02},
@@ -108,7 +108,7 @@ static const u16 patch_an_1p25g_a[][3]={
 	{0x0024, 0x001D, 0xABB0}
 };
 
-static const u16 patch_an_1p25g_b[][3]={
+static const u16 patch_an_1p25g_b[][3] = {
 	{0x0021, 0x0010, 0x6480},
 	{0x0021, 0x0013, 0x0400},
 	{0x0021, 0x0018, 0x6D02},
@@ -128,7 +128,7 @@ static const u16 patch_an_1p25g_b[][3]={
 	{0x0024, 0x001D, 0xABB0}
 };
 
-static const u16 patch_an_125m_a[][3]={
+static const u16 patch_an_125m_a[][3] = {
 	{0x0021, 0x0010, 0x6480},
 	{0x0021, 0x0013, 0x0400},
 	{0x0021, 0x0018, 0x6D02},
@@ -144,7 +144,7 @@ static const u16 patch_an_125m_a[][3]={
 	{0x0026, 0x001D, 0xABB0}
 };
 
-static const u16 patch_an_125m_b[][3]={
+static const u16 patch_an_125m_b[][3] = {
 	{0x0021, 0x0010, 0x6480},
 	{0x0021, 0x0013, 0x0400},
 	{0x0021, 0x0018, 0x6D02},
@@ -175,40 +175,38 @@ static const u16 patch_data_mac[][3] = {
 	{0x0006, 0x001F, 0x2100}
 };
 
-static const u16 patch_data_phy[][3]= {
+static const u16 patch_data_phy[][3] = {
 	{0x0006, 0x0012, 0x5078},
 	{0x0006, 0x0003, 0xc45c},
 	{0x0006, 0x001E, 0x000C},
-	{0x0006, 0x001F, 0x2100} 
+	{0x0006, 0x001F, 0x2100}
 };
 
-char* chipid_to_chip_name(switch_chip_t id)
+char *chipid_to_chip_name(enum switch_chip id)
 {
-    switch (id)
-    {
-    case CHIP_RTL8373:
-        return "RTL8373";
-    case CHIP_RTL8372:
-        return "RTL8372";
-    case CHIP_RTL8224:
-        return "RTL8224";
-    case CHIP_RTL8373N:
-        return "RTL8373N";
-    case CHIP_RTL8372N:
-        return "RTL8372N";
-    case CHIP_RTL8224N:
-        return "RTL8224N";
-    case CHIP_RTL8366U:
-        return "RTL8366U";
-    default:
-        return "Unknow";
-    }
+	switch (id) {
+	case CHIP_RTL8373:
+	return "RTL8373";
+	case CHIP_RTL8372:
+	return "RTL8372";
+	case CHIP_RTL8224:
+	return "RTL8224";
+	case CHIP_RTL8373N:
+	return "RTL8373N";
+	case CHIP_RTL8372N:
+	return "RTL8372N";
+	case CHIP_RTL8224N:
+	return "RTL8224N";
+	case CHIP_RTL8366U:
+	return "RTL8366U";
+	default:
+	return "Unknow";
+	}
 }
 
-rtk_sds_mode_t phy_interface_to_rtk_sds_mode(phy_interface_t interface)
+enum rtk_sds_mode phy_interface_to_rtk_sds_mode(phy_interface_t interface)
 {
-	switch (interface)
-	{
+	switch (interface) {
 	case PHY_INTERFACE_MODE_USXGMII:
 		return SERDES_10GUSXG;
 	case PHY_INTERFACE_MODE_1000BASEX:
@@ -232,23 +230,23 @@ int rtl837x_reg_bits_read(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 *pva
 	int ret;
 	u32 tmp;
 
-    ret = rtl837x_reg_read(priv, reg, &tmp);
+	ret = rtl837x_reg_read(priv, reg, &tmp);
 	if (ret)
 		return ret;
 
-    *pval = (tmp & mask) >> __ffs(mask);
+	*pval = (tmp & mask) >> __ffs(mask);
 	return 0;
 }
 
 int rtl837x_reg_bits_write(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 val)
 {
-    return regmap_update_bits(priv->map, reg, mask, (val << __ffs(mask)) & mask);
+	return regmap_update_bits(priv->map, reg, mask, (val << __ffs(mask)) & mask);
 }
 
 int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 *pval)
 {
 	int ret;
-    u32 tmp;
+	u32 tmp;
 
 	ret = rtl837x_reg_bits_write(priv, RTL8373_SMI_ACCESS_PHY_CTRL_3_ADDR,
 			  RTL8373_SMI_ACCESS_PHY_CTRL_3_INDATA_15_0_MASK, phy);
@@ -265,8 +263,8 @@ int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regn
 	if (ret)
 		return ret;
 
-	ret = regmap_read_poll_timeout(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp, 
-		((tmp & (RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK | RTL8373_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK))==0),
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp,
+		((tmp & (RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK | RTL8373_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK)) == 0),
 		0, 1000);
 	if (ret)
 		return ret;
@@ -275,14 +273,15 @@ int rtl837x_phy_read_c45(struct rtl837x_priv *priv, int phy, int devad, int regn
 	if (ret)
 		return ret;
 
-	*pval = (tmp & RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK) >> __ffs(RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK); 
+	*pval = (tmp & RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK) >> __ffs(RTL8373_SMI_ACCESS_PHY_CTRL_2_DATA_15_0_MASK);
 	return 0;
 }
 
 int rtl837x_phy_read_ocp(struct rtl837x_priv *priv, u16 phy, int regnum, u16 *pval)
 {
 	int ret;
-    u32 tmp;
+	u32 tmp;
+
 	tmp = FIELD_PREP(RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_ADDR_MASK, regnum) |
 		  FIELD_PREP(RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_PHYADR_MASK, phy) |
 		  FIELD_PREP(RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_RW_MASK, 0) |
@@ -291,8 +290,8 @@ int rtl837x_phy_read_ocp(struct rtl837x_priv *priv, u16 phy, int regnum, u16 *pv
 	ret = rtl837x_reg_write(priv, RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp);
 	if (ret)
 		return ret;
-	ret = regmap_read_poll_timeout(priv->map, RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp, 
-		((tmp & (RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_CMD_MASK | RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_FAIL_MASK))==0),
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp,
+		((tmp & (RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_CMD_MASK | RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_FAIL_MASK)) == 0),
 		0, 1000);
 	if (ret)
 		return ret;
@@ -300,14 +299,15 @@ int rtl837x_phy_read_ocp(struct rtl837x_priv *priv, u16 phy, int regnum, u16 *pv
 	ret = rtl837x_reg_read(priv, RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_1_ADDR, &tmp);
 	if (ret)
 		return ret;
-	*pval = (tmp & RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_1_INT_PHY_OCP_INDACC_RDDATA_MASK) >> __ffs(RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_1_INT_PHY_OCP_INDACC_RDDATA_MASK); 
-    return 0;
+	*pval = (tmp & RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_1_INT_PHY_OCP_INDACC_RDDATA_MASK) >> __ffs(RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_1_INT_PHY_OCP_INDACC_RDDATA_MASK);
+	return 0;
 }
 
 int rtl837x_phy_write_ocp(struct rtl837x_priv *priv, u16 phy, int regnum, u16 val)
 {
 	int ret;
-    u32 tmp;
+	u32 tmp;
+
 	ret = rtl837x_reg_write(priv, RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_2_ADDR, val);
 	if (ret)
 		return ret;
@@ -320,12 +320,12 @@ int rtl837x_phy_write_ocp(struct rtl837x_priv *priv, u16 phy, int regnum, u16 va
 	ret = rtl837x_reg_write(priv, RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp);
 	if (ret)
 		return ret;
-	ret = regmap_read_poll_timeout(priv->map, RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp, 
-		((tmp & (RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_CMD_MASK | RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_FAIL_MASK))==0),
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_ADDR, tmp,
+		((tmp & (RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_CMD_MASK | RTL8373_INT_PHY_OCP_INDR_ACC_CTRL_0_INT_PHY_OCP_INDACC_FAIL_MASK)) == 0),
 		0, 1000);
 	if (ret)
 		return ret;
-    return 0;
+	return 0;
 }
 
 // It seems that the C22 function is incomplete on phy rtl8224?
@@ -342,7 +342,7 @@ int rtl837x_phy_write_c22(struct rtl837x_priv *priv, u16 phy, int regnum, u16 va
 int rtl837x_phys_write_c45(struct rtl837x_priv *priv, u16 phy_mask, int devad, int regnum, u16 val)
 {
 	int ret;
-    u32 tmp;
+	u32 tmp;
 
 	ret = rtl837x_reg_write(priv, RTL8373_SMI_ACCESS_PHY_CTRL_0_ADDR, phy_mask);
 	if (ret)
@@ -364,12 +364,12 @@ int rtl837x_phys_write_c45(struct rtl837x_priv *priv, u16 phy_mask, int devad, i
 	if (ret)
 		return ret;
 
-	ret = regmap_read_poll_timeout(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp, 
-		((tmp & (RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK | RTL8373_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK))==0),
+	ret = regmap_read_poll_timeout(priv->map, RTL8373_SMI_ACCESS_PHY_CTRL_1_ADDR, tmp,
+		((tmp & (RTL8373_SMI_ACCESS_PHY_CTRL_1_CMD_MASK | RTL8373_SMI_ACCESS_PHY_CTRL_1_FAIL_MASK)) == 0),
 		0, 1000);
 	if (ret)
 		return ret;
-    return 0;
+	return 0;
 }
 
 int rtl837x_phy_write_c45(struct rtl837x_priv *priv, int phy, int devad, int regnum, u16 val)
@@ -517,7 +517,7 @@ int rtl837x_rtl8224_reg_bits_write(struct rtl837x_priv *priv, u32 reg, u32 mask,
 {
 	if (!priv->map_8224)
 		return -ENODEV;
-    return regmap_update_bits(priv->map_8224, reg, mask, (val << __ffs(mask)) & mask);
+	return regmap_update_bits(priv->map_8224, reg, mask, (val << __ffs(mask)) & mask);
 }
 
 int rtl837x_rtl8224_sds_reg_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 *pdata)
@@ -622,30 +622,30 @@ int rtl837x_rtl8224_sds_reg_bits_write(struct rtl837x_priv *priv, u8 sds_idx, u1
 }
 
 #define _reg_read(is_8224, priv, reg, pval) \
-	  (is_8224 ? rtl837x_rtl8224_reg_read(priv, reg, pval): \
-	             rtl837x_reg_read(priv, reg, pval))
+	  (is_8224 ? rtl837x_rtl8224_reg_read(priv, reg, pval) : \
+		     rtl837x_reg_read(priv, reg, pval))
 #define _reg_write(is_8224, priv, reg, val) \
-	  (is_8224 ? rtl837x_rtl8224_reg_write(priv, reg, val): \
-	             rtl837x_reg_write(priv, reg, val))
+	  (is_8224 ? rtl837x_rtl8224_reg_write(priv, reg, val) : \
+		     rtl837x_reg_write(priv, reg, val))
 #define _reg_bits_read(is_8224, priv, reg, mask, pval) \
-	  (is_8224 ? rtl837x_rtl8224_reg_bits_read(priv, reg, mask, pval): \
-	             rtl837x_reg_bits_read(priv, reg, mask, pval))
+	  (is_8224 ? rtl837x_rtl8224_reg_bits_read(priv, reg, mask, pval) : \
+		     rtl837x_reg_bits_read(priv, reg, mask, pval))
 #define _reg_bits_write(is_8224, priv, reg, mask, val) \
-	  (is_8224 ? rtl837x_rtl8224_reg_bits_write(priv, reg, mask, val): \
-	             rtl837x_reg_bits_write(priv, reg, mask, val))
+	  (is_8224 ? rtl837x_rtl8224_reg_bits_write(priv, reg, mask, val) : \
+		     rtl837x_reg_bits_write(priv, reg, mask, val))
 
 #define _sds_reg_read(is_8224, priv, sds_idx, page, reg, pval) \
-	  (is_8224 ? rtl837x_rtl8224_sds_reg_read(priv, sds_idx, page, reg, pval): \
-	             rtl837x_sds_reg_read(priv, sds_idx, page, reg, pval))
+	  (is_8224 ? rtl837x_rtl8224_sds_reg_read(priv, sds_idx, page, reg, pval) : \
+		     rtl837x_sds_reg_read(priv, sds_idx, page, reg, pval))
 #define _sds_reg_write(is_8224, priv, sds_idx, page, reg, val) \
-	  (is_8224 ? rtl837x_rtl8224_sds_reg_write(priv, sds_idx, page, reg, val): \
-	             rtl837x_sds_reg_write(priv, sds_idx, page, reg, val))
+	  (is_8224 ? rtl837x_rtl8224_sds_reg_write(priv, sds_idx, page, reg, val) : \
+		     rtl837x_sds_reg_write(priv, sds_idx, page, reg, val))
 #define _sds_reg_bits_read(is_8224, priv, sds_idx, page, reg, mask, pval) \
-	  (is_8224 ? rtl837x_rtl8224_sds_reg_bits_read(priv, sds_idx, page, reg, mask, pval): \
-	             rtl837x_sds_reg_bits_read(priv, sds_idx, page, reg, mask, pval))
+	  (is_8224 ? rtl837x_rtl8224_sds_reg_bits_read(priv, sds_idx, page, reg, mask, pval) : \
+		     rtl837x_sds_reg_bits_read(priv, sds_idx, page, reg, mask, pval))
 #define _sds_reg_bits_write(is_8224, priv, sds_idx, page, reg, mask, val) \
-	  (is_8224 ? rtl837x_rtl8224_sds_reg_bits_write(priv, sds_idx, page, reg, mask, val): \
-	             rtl837x_sds_reg_bits_write(priv, sds_idx, page, reg, mask, val))
+	  (is_8224 ? rtl837x_rtl8224_sds_reg_bits_write(priv, sds_idx, page, reg, mask, val) : \
+		     rtl837x_sds_reg_bits_write(priv, sds_idx, page, reg, mask, val))
 
 /** ================================================= **/
 /** --------------------Common Funcs------------------**/
@@ -685,6 +685,7 @@ int rtl837x_vlan_get(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan)
 {
 	int ret;
 	u32 tmp;
+
 	mutex_lock(&priv->ita_lock);
 
 	ret = regmap_read_poll_timeout(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp,
@@ -724,6 +725,7 @@ static inline int _rtl837x_sds_reset_R(bool is_8224, struct rtl837x_priv *priv, 
 	int ret;
 	u16 rx_sts, tmp;
 	bool rx_idle, nsq, sync_ok, link_ok, hi_ber; // nsq:(Noise Squelch) hi_ber:(High bit error rate)
+
 	ret = _sds_reg_bits_read(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 			  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
 			  &rx_sts
@@ -757,7 +759,7 @@ static inline int _rtl837x_sds_reset_R(bool is_8224, struct rtl837x_priv *priv, 
 	nsq = !!((tmp>>6)&1);
 
 	// Do reset when RX is not idle or RX Noise Squelch
-	if (!(nsq==1 || rx_idle==0))
+	if (!(nsq == 1 || rx_idle == 0))
 		return 0;
 
 	// check sync_ok
@@ -772,33 +774,37 @@ static inline int _rtl837x_sds_reset_R(bool is_8224, struct rtl837x_priv *priv, 
 	if (sync_ok == 0)
 		goto do_reset;
 	else
-		if ((link_ok==0) || (hi_ber==1))
+		if ((link_ok == 0) || (hi_ber == 1))
 			goto do_reset;
 	return 0;
 
 do_reset:
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC, 
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 		  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
 		  0x3
 		);
-	if (ret) return ret;
-	msleep(1);
+	if (ret)
+		return ret;
+	msleep(20);
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 		  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
 		  0x1);
-	if (ret) return ret;
-	msleep(1);
-	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC, 
+	if (ret)
+		return ret;
+	msleep(20);
+	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 		  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
 		  0x3
 		);
-	if (ret) return ret;
-	msleep(1);
+	if (ret)
+		return ret;
+	msleep(20);
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 		  SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
 		  0x0);
-	if (ret) return ret;
-	msleep(1);
+	if (ret)
+		return ret;
+	msleep(20);
 
 	return 0;
 }
@@ -844,23 +850,26 @@ int rtl837x_sds_reset_X(struct rtl837x_priv *priv, u8 sds_idx)
 	if (!sig_ok)
 		return 0;
 
-	if (sync_ok==0)
+	if (sync_ok == 0)
 		goto do_reset;
 	else
-		if (link_ok==0)
+		if (link_ok == 0)
 			goto do_reset;
 	return 0;
 
 do_reset:
 	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x00, 0x00, BIT(1), 1);
-	if (ret) return ret;
-	msleep(1);
+	if (ret)
+		return ret;
+	msleep(20);
 	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x00, 0x00, BIT(1), 0);
-	if (ret) return ret;
-	msleep(1);
+	if (ret)
+		return ret;
+	msleep(20);
 	ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x00, 0x00, BIT(1), 1);
-	if (ret) return ret;
-	msleep(1);
+	if (ret)
+		return ret;
+	msleep(20);
 	return 0;
 }
 
@@ -871,54 +880,45 @@ static int _rtl837x_serdes_an_patch(struct rtl837x_priv *priv, bool is_8224,
 	const u16 (*an_patch)[3];
 	int an_patch_len;
 
-	switch (interface)
-	{
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,44)
+	switch (interface) {
+#if KERNEL_VERSION(6, 12, 44) <= LINUX_VERSION_CODE
 	case PHY_INTERFACE_MODE_10G_QXGMII:
 #endif
 	case PHY_INTERFACE_MODE_USXGMII:
 	case PHY_INTERFACE_MODE_10GBASER:
-		if ((!is_8224 ? priv->chip_ver == 0 : priv->chip_ver_8224 == 0))
-		{
+		if ((!is_8224 ? priv->chip_ver == 0 : priv->chip_ver_8224 == 0)) {
 			an_patch = patch_an_10p3125g_a;
 			an_patch_len = sizeof(patch_an_10p3125g_a)/(sizeof(u16)*3);
-		} else
-		{
+		} else {
 			an_patch = patch_an_10p3125g_b;
 			an_patch_len = sizeof(patch_an_10p3125g_b)/(sizeof(u16)*3);
 		}
 		break;
 	//HSGMII ?
 	case PHY_INTERFACE_MODE_2500BASEX:
-		if ((!is_8224 ? priv->chip_ver == 0 : priv->chip_ver_8224 == 0))
-		{
+		if ((!is_8224 ? priv->chip_ver == 0 : priv->chip_ver_8224 == 0)) {
 			an_patch = patch_an_3p125g_a;
 			an_patch_len = sizeof(patch_an_3p125g_a)/(sizeof(u16)*3);
-		} else
-		{
+		} else {
 			an_patch = patch_an_3p125g_b;
 			an_patch_len = sizeof(patch_an_3p125g_b)/(sizeof(u16)*3);
 		}
 		break;
 	case PHY_INTERFACE_MODE_SGMII:
 	case PHY_INTERFACE_MODE_1000BASEX:
-		if ((!is_8224 ? priv->chip_ver == 0 : priv->chip_ver_8224 == 0))
-		{
+		if ((!is_8224 ? priv->chip_ver == 0 : priv->chip_ver_8224 == 0)) {
 			an_patch = patch_an_1p25g_a;
 			an_patch_len = sizeof(patch_an_1p25g_a)/(sizeof(u16)*3);
-		} else
-		{
+		} else {
 			an_patch = patch_an_1p25g_b;
 			an_patch_len = sizeof(patch_an_1p25g_b)/(sizeof(u16)*3);
 		}
 		break;
 	case PHY_INTERFACE_MODE_100BASEX:
-		if ((!is_8224 ? priv->chip_ver == 0 : priv->chip_ver_8224 == 0))
-		{
+		if ((!is_8224 ? priv->chip_ver == 0 : priv->chip_ver_8224 == 0)) {
 			an_patch = patch_an_125m_a;
 			an_patch_len = sizeof(patch_an_125m_a)/(sizeof(u16)*3);
-		} else
-		{
+		} else {
 			an_patch = patch_an_125m_b;
 			an_patch_len = sizeof(patch_an_125m_b)/(sizeof(u16)*3);
 		}
@@ -927,9 +927,10 @@ static int _rtl837x_serdes_an_patch(struct rtl837x_priv *priv, bool is_8224,
 		return 0;
 	}
 
-	for(int i = 0; i < an_patch_len; i++){
+	for (int i = 0; i < an_patch_len; i++) {
 		ret = _sds_reg_write(is_8224, priv, sds_idx, an_patch[i][0], an_patch[i][1], an_patch[i][2]);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 	}
 	return 0;
 }
@@ -942,9 +943,11 @@ int rtl837x_serdes_an_patch(struct rtl837x_priv *priv, u8 sds_idx, phy_interface
 static int _rtl837x_serdes_mac_patch(struct rtl837x_priv *priv, bool is_8224, u8 sds_idx)
 {
 	int ret;
+
 	for (int i = 0; i < sizeof(patch_data_mac)/(sizeof(u16)*3); i++) {
 		ret = _sds_reg_write(is_8224, priv, sds_idx, patch_data_mac[i][0], patch_data_mac[i][1], patch_data_mac[i][2]);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 	}
 	return 0;
 }
@@ -962,40 +965,46 @@ static int _rtl837x_serdes_off(struct rtl837x_priv *priv, bool is_8224, u8 sds_i
 			    SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
 			    0x3
 		);
-	if (ret) return ret;
-	msleep(5);
+	if (ret)
+		return ret;
+	msleep(20);
 	// Force disable Rx
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 			    SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
 			    0x1
 		);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 	msleep(50);
 
 	// Force Power ON
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 			    SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
 			    0x1);
-	if (ret) return ret;
-	msleep(5);
+	if (ret)
+		return ret;
+	msleep(20);
 	// Force Power OFF
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 			    SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
 			    0x3);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 	msleep(50);
 
 	// Force enable CMU(Clock Multiplier Unit(PLL))
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 			    SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
 			    0x3);
-	if (ret) return ret;
-	msleep(5);
+	if (ret)
+		return ret;
+	msleep(20);
 	// Force disable CMU(Clock Multiplier Unit(PLL))
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 			    SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
 			    0x1);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 	msleep(50);
 
 	return 0;
@@ -1013,60 +1022,69 @@ static int _rtl837x_serdes_on(struct rtl837x_priv *priv, bool is_8224, u8 sds_id
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 		    SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
 		    0x1);
-	if (ret) return ret;
-	msleep(5);
+	if (ret)
+		return ret;
+	msleep(20);
 	// Force enable CMU(Clock Multiplier Unit(PLL))
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 		    SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
 		    0x3);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 	msleep(50);
 	// Switch to auto Mode CMU(Clock Multiplier Unit(PLL))
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 		    SDS_FRC_CMU_EN_ON_MASK | SDS_FRC_CMU_EN_VAL_MASK,
 		    0x0);
-	if (ret) return ret;
-	msleep(5);
+	if (ret)
+		return ret;
+	msleep(20);
 
 	// Force Power OFF
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 		    SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
 		    0x3);
-	if (ret) return ret;
-	msleep(5);
+	if (ret)
+		return ret;
+	msleep(20);
 	// Force Power ON
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 		    SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
 		    0x1);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 	msleep(50);
 	// Power Auto Mode
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 		    SDS_FRC_PDOWN_ON_MASK | SDS_FRC_PDOWN_VAL_MASK,
 		    0x0);
-	if (ret) return ret;
-	msleep(5);
+	if (ret)
+		return ret;
+	msleep(20);
 
 	// Force disable Rx
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 		    SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
 		    0x1
 		);
-	if (ret) return ret;
-	msleep(5);
+	if (ret)
+		return ret;
+	msleep(20);
 	// Force enable Rx
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 		    SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
 		    0x3
 		);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 	msleep(50);
 	// Rx auto
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, SDS_PAGE_FRC, SDS_REG_FRC,
 		    SDS_FRC_RX_EN_VAL_MASK | SDS_FRC_RX_EN_ON_MASK,
 		    0x0
 		);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 	msleep(50);
 
 	return 0;
@@ -1079,150 +1097,157 @@ int rtl837x_serdes_on(struct rtl837x_priv *priv, u8 sds_idx)
 
 
 // __deprecated
-static inline int rtl837x_fiber_fc_en(struct rtl837x_priv *priv, u8 sds_idx, rtk_sds_mode_t mode, bool fc_en)
+static inline int rtl837x_fiber_fc_en(struct rtl837x_priv *priv, u8 sds_idx, enum rtk_sds_mode mode, bool fc_en)
 {
 	int ret;
-	switch(mode)
-	{
-		case SERDES_100FX:
-			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<2, 0x1);
-			if (ret) return ret;
-			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<3, 0x1);
-			if (ret) return ret;
-			if(fc_en)
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
-						  SDS_CTRL02_XSG_AN_10_100_Pause_MASK | SDS_CTRL02_XSG_AN_10_100_AsymmetricPause_MASK,
-						  0x3
-						);
-			else
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
-						  SDS_CTRL02_XSG_AN_10_100_Pause_MASK | SDS_CTRL02_XSG_AN_10_100_AsymmetricPause_MASK,
-						  0x0
-						);
-			if (ret) return ret;
-			break;
-		case SERDES_1000BASEX:
-		case SERDES_2500BASEX:
-			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<2, 0x1);
-			if (ret) return ret;
-			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<3, 0x0);
-			if (ret) return ret;
-			if(fc_en)
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
-						  SDS_CTRL02_XSG_AN_1G_Pause_MASK | SDS_CTRL02_XSG_AN_1G_AsymmetricPause_MASK,
-						  0x3
-						);
-			else
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
-						  SDS_CTRL02_XSG_AN_1G_Pause_MASK | SDS_CTRL02_XSG_AN_1G_AsymmetricPause_MASK,
-						  0x0
-						);
-			if (ret) return ret;
-			break;  
-		case SERDES_10GR:
-			if(fc_en)
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL1F, SDS_REG_CTRL1F_10GR_AN,
-					  SDS_CTRL1F_10GR_AN_Pause_MASK | SDS_CTRL1F_10GR_AN_AsymmetricPause_MASK,
+
+	switch (mode) {
+	case SERDES_100FX:
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<2, 0x1);
+		if (ret)
+			return ret;
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<3, 0x1);
+		if (ret)
+			return ret;
+		if (fc_en)
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
+					  SDS_CTRL02_XSG_AN_10_100_Pause_MASK | SDS_CTRL02_XSG_AN_10_100_AsymmetricPause_MASK,
 					  0x3
 					);
-			else
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL1F, SDS_REG_CTRL1F_10GR_AN,
-					  SDS_CTRL1F_10GR_AN_Pause_MASK | SDS_CTRL1F_10GR_AN_AsymmetricPause_MASK,
+		else
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
+					  SDS_CTRL02_XSG_AN_10_100_Pause_MASK | SDS_CTRL02_XSG_AN_10_100_AsymmetricPause_MASK,
 					  0x0
 					);
-			if (ret) return ret;
-			break; 	 
-		default:
-			break;  
+		if (ret)
+			return ret;
+		break;
+	case SERDES_1000BASEX:
+	case SERDES_2500BASEX:
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<2, 0x1);
+		if (ret)
+			return ret;
+		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<3, 0x0);
+		if (ret)
+			return ret;
+		if (fc_en)
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
+					  SDS_CTRL02_XSG_AN_1G_Pause_MASK | SDS_CTRL02_XSG_AN_1G_AsymmetricPause_MASK,
+					  0x3
+					);
+		else
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
+					  SDS_CTRL02_XSG_AN_1G_Pause_MASK | SDS_CTRL02_XSG_AN_1G_AsymmetricPause_MASK,
+					  0x0
+					);
+		if (ret)
+			return ret;
+		break;
+	case SERDES_10GR:
+		if (fc_en)
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL1F, SDS_REG_CTRL1F_10GR_AN,
+				  SDS_CTRL1F_10GR_AN_Pause_MASK | SDS_CTRL1F_10GR_AN_AsymmetricPause_MASK,
+				  0x3
+				);
+		else
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL1F, SDS_REG_CTRL1F_10GR_AN,
+				  SDS_CTRL1F_10GR_AN_Pause_MASK | SDS_CTRL1F_10GR_AN_AsymmetricPause_MASK,
+				  0x0
+				);
+		if (ret)
+			return ret;
+		break;
+	default:
+		break;
 	}
 	return 0;
 }
 
 // __deprecated
-static inline int rtl837x_sds_nway_set(struct rtl837x_priv *priv, u8 sds_idx, rtk_sds_mode_t mode, bool an_en)
+static inline int rtl837x_sds_nway_set(struct rtl837x_priv *priv, u8 sds_idx, enum rtk_sds_mode mode, bool an_en)
 {
 	int ret;
-	switch(mode)
-	{
-		case SERDES_100FX:
-		case SERDES_10GR:			 
-			break;
-		case SERDES_1000BASEX:
-		case SERDES_2500BASEX:
-		case SERDES_SG:
-		case SERDES_HSG:
-			if(an_en)
-			{
-				// Force Enable NWAY
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
-							  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN, 
-							  0x3
-							);
-				if (ret) return ret;
-				// Set link partner mode to force mode
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG04,
-					  SDS_CTRL00_REG04_SP_CFG_EN_LINK_FIB1G_MASK,
-					  0x1
-					);
-				if (ret) return ret;
-			}
-			else
-			{
-				// Force Disable NWAY
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
-							  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN, 
-							  0x1
-							);
-				if (ret) return ret;
-				// Set link partner mode to force mode
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG04,
-					  SDS_CTRL00_REG04_SP_CFG_EN_LINK_FIB1G_MASK,
-					  0x1
-					);
-				if (ret) return ret;
-			}
-			break;
-		case SERDES_10GUSXG:
-		case SERDES_10GQXG:
-			if(an_en)
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_NWAY_AN, SDS_REG_NWAY_AN,
-						  SDS_NWAY_QHSG_AN_CH0_EN_MASK | SDS_NWAY_QHSG_AN_CH1_EN_MASK |
-						  SDS_NWAY_QHSG_AN_CH2_EN_MASK | SDS_NWAY_QHSG_AN_CH3_EN_MASK,
-						  0xf
+
+	switch (mode) {
+	case SERDES_100FX:
+	case SERDES_10GR:
+		break;
+	case SERDES_1000BASEX:
+	case SERDES_2500BASEX:
+	case SERDES_SG:
+	case SERDES_HSG:
+		if (an_en) {
+			// Force Enable NWAY
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
+						  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN,
+						  0x3
 						);
-			else
-				ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_NWAY_AN, SDS_REG_NWAY_AN,
-						  SDS_NWAY_QHSG_AN_CH0_EN_MASK | SDS_NWAY_QHSG_AN_CH1_EN_MASK |
-						  SDS_NWAY_QHSG_AN_CH2_EN_MASK | SDS_NWAY_QHSG_AN_CH3_EN_MASK,
-						  0x0
+			if (ret)
+				return ret;
+			// Set link partner mode to force mode
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG04,
+				  SDS_CTRL00_REG04_SP_CFG_EN_LINK_FIB1G_MASK,
+				  0x1
+				);
+			if (ret)
+				return ret;
+		} else {
+			// Force Disable NWAY
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
+						  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN,
+						  0x1
 						);
-			if (ret) return ret;	
-			break;
-		default:
-			break;
+			if (ret)
+				return ret;
+			// Set link partner mode to force mode
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG04,
+				  SDS_CTRL00_REG04_SP_CFG_EN_LINK_FIB1G_MASK,
+				  0x1
+				);
+			if (ret)
+				return ret;
+		}
+		break;
+	case SERDES_10GUSXG:
+	case SERDES_10GQXG:
+		if (an_en)
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_NWAY_AN, SDS_REG_NWAY_AN,
+					  SDS_NWAY_QHSG_AN_CH0_EN_MASK | SDS_NWAY_QHSG_AN_CH1_EN_MASK |
+					  SDS_NWAY_QHSG_AN_CH2_EN_MASK | SDS_NWAY_QHSG_AN_CH3_EN_MASK,
+					  0xf
+					);
+		else
+			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_NWAY_AN, SDS_REG_NWAY_AN,
+					  SDS_NWAY_QHSG_AN_CH0_EN_MASK | SDS_NWAY_QHSG_AN_CH1_EN_MASK |
+					  SDS_NWAY_QHSG_AN_CH2_EN_MASK | SDS_NWAY_QHSG_AN_CH3_EN_MASK,
+					  0x0
+					);
+		if (ret)
+			return ret;
+		break;
+	default:
+		break;
 	}
 	return 0;
 }
 
 // __deprecated
-static int _rtl837x_serdes_patch(struct rtl837x_priv *priv, bool is_8224, u8 sds_idx, rtk_sds_mode_t mode)
+static int _rtl837x_serdes_patch(struct rtl837x_priv *priv, bool is_8224, u8 sds_idx, enum rtk_sds_mode mode)
 {
 	int ret;
 	const u16 (*an_patch)[3];
 	int an_patch_len;
+
 	dev_dbg(priv->dev, "[%s] patch Serdes(%d); is_8224(%d); mode(0x%02X)\n", __func__, sds_idx, is_8224, mode);
 
-	switch (mode)
-	{
+	switch (mode) {
 	case SERDES_10GUSXG:
 	case SERDES_10GQXG:
 	case SERDES_10GR:
-		if ((!is_8224 ? priv->chip_ver == 0 : priv->chip_ver_8224 == 0))
-		{
+		if ((!is_8224 ? priv->chip_ver == 0 : priv->chip_ver_8224 == 0)) {
 			an_patch = patch_an_10p3125g_a;
 			an_patch_len = sizeof(patch_an_10p3125g_a)/(sizeof(u16)*3);
-		} else
-		{
+		} else {
 			an_patch = patch_an_10p3125g_b;
 			an_patch_len = sizeof(patch_an_10p3125g_b)/(sizeof(u16)*3);
 		}
@@ -1230,35 +1255,29 @@ static int _rtl837x_serdes_patch(struct rtl837x_priv *priv, bool is_8224, u8 sds
 		break;
 	case SERDES_HSG:
 	case SERDES_2500BASEX:
-		if ((!is_8224 ? priv->chip_ver == 0 : priv->chip_ver_8224 == 0))
-		{
+		if ((!is_8224 ? priv->chip_ver == 0 : priv->chip_ver_8224 == 0)) {
 			an_patch = patch_an_3p125g_a;
 			an_patch_len = sizeof(patch_an_3p125g_a)/(sizeof(u16)*3);
-		} else
-		{
+		} else {
 			an_patch = patch_an_3p125g_b;
 			an_patch_len = sizeof(patch_an_3p125g_b)/(sizeof(u16)*3);
 		}
 		break;
 	case SERDES_SG:
 	case SERDES_1000BASEX:
-		if ((!is_8224 ? priv->chip_ver == 0 : priv->chip_ver_8224 == 0))
-		{
+		if ((!is_8224 ? priv->chip_ver == 0 : priv->chip_ver_8224 == 0)) {
 			an_patch = patch_an_1p25g_a;
 			an_patch_len = sizeof(patch_an_1p25g_a)/(sizeof(u16)*3);
-		} else
-		{
+		} else {
 			an_patch = patch_an_1p25g_b;
 			an_patch_len = sizeof(patch_an_1p25g_b)/(sizeof(u16)*3);
 		}
 		break;
 	case SERDES_100FX:
-		if ((!is_8224 ? priv->chip_ver == 0 : priv->chip_ver_8224 == 0))
-		{
+		if ((!is_8224 ? priv->chip_ver == 0 : priv->chip_ver_8224 == 0)) {
 			an_patch = patch_an_125m_a;
 			an_patch_len = sizeof(patch_an_125m_a)/(sizeof(u16)*3);
-		} else
-		{
+		} else {
 			an_patch = patch_an_125m_b;
 			an_patch_len = sizeof(patch_an_125m_b)/(sizeof(u16)*3);
 		}
@@ -1267,22 +1286,23 @@ static int _rtl837x_serdes_patch(struct rtl837x_priv *priv, bool is_8224, u8 sds
 		return 0;
 	}
 
-	for(int i = 0; i < an_patch_len; i++){
+	for (int i = 0; i < an_patch_len; i++) {
 		ret = _sds_reg_write(is_8224, priv, sds_idx, an_patch[i][0], an_patch[i][1], an_patch[i][2]);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 	}
 
-	if (is_8224 && mode == SERDES_HSG)
-	{
+	if (is_8224 && mode == SERDES_HSG) {
 		for (int i = 0; i < sizeof(patch_data_phy)/(sizeof(u16)*3); i++) {
 			ret = _sds_reg_write(is_8224, priv, sds_idx, patch_data_phy[i][0], patch_data_phy[i][1], patch_data_phy[i][2]);
-			if (ret) return ret;
+			if (ret)
+				return ret;
 		}
-	} else
-	{
+	} else {
 		for (int i = 0; i < sizeof(patch_data_mac)/(sizeof(u16)*3); i++) {
 			ret = _sds_reg_write(is_8224, priv, sds_idx, patch_data_mac[i][0], patch_data_mac[i][1], patch_data_mac[i][2]);
-			if (ret) return ret;
+			if (ret)
+				return ret;
 		}
 	}
 
@@ -1290,122 +1310,133 @@ static int _rtl837x_serdes_patch(struct rtl837x_priv *priv, bool is_8224, u8 sds
 }
 
 // __deprecated
-static int _set_serdes_mode(struct rtl837x_priv *priv, bool is_8224, u8 sds_idx, rtk_sds_mode_t mode)
+static int _set_serdes_mode(struct rtl837x_priv *priv, bool is_8224, u8 sds_idx, enum rtk_sds_mode mode)
 {
 	int ret;
 	u32 SDS_USX_SUB_MODE = 0;
-	
+
 	dev_dbg(priv->dev, "[%s] is_8224: %d\n", __func__, is_8224);
-	if (mode==SERDES_10GQXG)
-	{
+	if (mode == SERDES_10GQXG) {
 		mode = SERDES_10GUSXG;
 		SDS_USX_SUB_MODE = 2;
 	}
 
-	if(sds_idx == 0)
-	{
-		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, 
+	if (sds_idx == 0) {
+		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
 			   RTL8373_SDS_MODE_SEL_SDS0_USX_SUB_MODE_MASK, SDS_USX_SUB_MODE);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
 			   RTL8373_SDS_MODE_SEL_SDS0_MODE_SEL_MASK, mode);
-		if (ret) return ret;
-	}
-	else if(sds_idx == 1)
-	{
-		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, 
+		if (ret)
+			return ret;
+	} else if (sds_idx == 1) {
+		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
 			   RTL8373_SDS_MODE_SEL_SDS1_USX_SUB_MODE_MASK, SDS_USX_SUB_MODE);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
 			   RTL8373_SDS_MODE_SEL_SDS1_MODE_SEL_MASK, mode);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 	}
 
-	if (is_8224)
-	{
-        ret = rtl837x_rtl8224_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, RTL8373_SDS_MODE_SEL_CFG_MAC3_8221B_MASK, 0);
-		if (ret) return ret;
-        ret = rtl837x_rtl8224_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, RTL8373_SDS_MODE_SEL_CFG_MAC8_8221B_MASK, 0);
-		if (ret) return ret;
+	if (is_8224) {
+		ret = rtl837x_rtl8224_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, RTL8373_SDS_MODE_SEL_CFG_MAC3_8221B_MASK, 0);
+		if (ret)
+			return ret;
+		ret = rtl837x_rtl8224_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, RTL8373_SDS_MODE_SEL_CFG_MAC8_8221B_MASK, 0);
+		if (ret)
+			return ret;
 		ret = _rtl837x_serdes_patch(priv, is_8224, sds_idx, mode);
-		if (ret) return ret;
-	} else
-	{
+		if (ret)
+			return ret;
+	} else {
 		ret = _rtl837x_serdes_patch(priv, is_8224, sds_idx, mode);
-		if (ret) return ret;
-        ret = rtl837x_fiber_fc_en(priv, sds_idx, mode, true);
-		if (ret) return ret;
-        ret = rtl837x_sds_nway_set(priv, sds_idx, mode, true);
-		if (ret) return ret;
-		
+		if (ret)
+			return ret;
+		ret = rtl837x_fiber_fc_en(priv, sds_idx, mode, true);
+		if (ret)
+			return ret;
+		ret = rtl837x_sds_nway_set(priv, sds_idx, mode, true);
+		if (ret)
+			return ret;
+
 	}
 
 	msleep(500);
 
 	ret = _rtl837x_serdes_off(priv, is_8224, sds_idx);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 
 	ret = _rtl837x_serdes_on(priv, is_8224, sds_idx);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x1F, 0x00, 0xffff<<0, 0xB);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 	msleep(50);
 	ret = _sds_reg_bits_write(is_8224, priv, sds_idx, 0x1F, 0x00, 0xffff<<0, 0x0);
-	if (ret) return ret;
+	if (ret)
+		return ret;
 	msleep(50);
 
 	return 0;
 }
 
-int __deprecated rtl837x_serdes_set_mode(struct rtl837x_priv *priv, u8 sds_idx, rtk_sds_mode_t mode)
+int __deprecated rtl837x_serdes_set_mode(struct rtl837x_priv *priv, u8 sds_idx, enum rtk_sds_mode mode)
 {
 	int ret;
 
-	switch (mode)
-	{
+	switch (mode) {
 	case SERDES_8221B:
 		// TODO (I think this can be managered by linux phy driver)
-		return -ENOSYS;
+		return -EOPNOTSUPP;
 	case SERDES_OFF:
 		ret = _rtl837x_serdes_off(priv, false, sds_idx);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 		break;
 	case SERDES_ON:
 		ret = _rtl837x_serdes_on(priv, false, sds_idx);
 		break;
 	default:
-		if (sds_idx==0)
-            ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, RTL8373_SDS_MODE_SEL_CFG_MAC3_8221B_MASK, 0);
+		if (sds_idx == 0)
+			ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, RTL8373_SDS_MODE_SEL_CFG_MAC3_8221B_MASK, 0);
 		else
-            ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, RTL8373_SDS_MODE_SEL_CFG_MAC8_8221B_MASK, 0);
-		if (ret) return ret;
+			ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, RTL8373_SDS_MODE_SEL_CFG_MAC8_8221B_MASK, 0);
+		if (ret)
+			return ret;
 		msleep(200);
 
 		ret = _rtl837x_serdes_off(priv, false, sds_idx);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 
 		ret = _set_serdes_mode(priv, false, sds_idx, mode);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 		msleep(50);
 		break;
 	}
 
-	switch (mode)
-	{
-		case SERDES_10GQXG:
-		case SERDES_10GR:
-		case SERDES_10GUSXG:
-			dev_dbg(priv->dev, "[%s]Reset Serdes RX R\n", __func__);
-			ret = rtl837x_sds_reset_R(priv, sds_idx);
-			break;
-		default:
-			dev_dbg(priv->dev, "[%s]Reset Serdes RX X\n", __func__);
-			ret = rtl837x_sds_reset_X(priv, sds_idx);
-			break;
+	switch (mode) {
+	case SERDES_10GQXG:
+	case SERDES_10GR:
+	case SERDES_10GUSXG:
+		dev_dbg(priv->dev, "[%s]Reset Serdes RX R\n", __func__);
+		ret = rtl837x_sds_reset_R(priv, sds_idx);
+		break;
+	default:
+		dev_dbg(priv->dev, "[%s]Reset Serdes RX X\n", __func__);
+		ret = rtl837x_sds_reset_X(priv, sds_idx);
+		break;
 	}
-	if (ret) return ret;
-    msleep(50);
+	if (ret)
+		return ret;
+	msleep(50);
 
 	return 0;
 }

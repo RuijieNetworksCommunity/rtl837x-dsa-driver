@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright (C) 2025 StarField Xu <air_jinkela@163.com>
+ */
 #include <linux/version.h>
 #include <linux/regmap.h>
 #include <linux/if_bridge.h>
@@ -12,9 +16,9 @@
 #define RTL8372N_LUT_MAX 4160
 
 // TODO: this should check port is serdes mode or port mode
-#define IS_SERDES_PORT(port) (((port)==3)||((port)==8))
+#define IS_SERDES_PORT(port) (((port) == 3) || ((port) == 8))
 
-#define PORT_TO_SERDES_IDX(port) ((port==3)?0:1)
+#define PORT_TO_SERDES_IDX(port) ((port == 3)?0:1)
 
 enum rtl8372n_mib_counter_index {
 	RTL837X_MIB_ifInOctets,
@@ -120,110 +124,109 @@ enum rtl8372n_mib_counter_index {
 #define RTL837X_MAKE_MIB_COUNTER(_offset, _length, _name) \
 		[RTL837X_MIB_ ## _name] = { _offset, _length, #_name }
 
-static const struct rtl837x_mib_counter rtl8372n_mib_counters[] ={
-	RTL837X_MAKE_MIB_COUNTER(0,  2, ifInOctets        ),
-	RTL837X_MAKE_MIB_COUNTER(2,  2, ifOutOctets       ),
-	RTL837X_MAKE_MIB_COUNTER(4,  2, ifInUcastPkts     ),
-	RTL837X_MAKE_MIB_COUNTER(6,  2, ifInMulticastPkts ),
-	RTL837X_MAKE_MIB_COUNTER(8,  2, ifInBroadcastPkts ),
-	RTL837X_MAKE_MIB_COUNTER(10, 2, ifOutUcastPkts    ),
+static const struct rtl837x_mib_counter rtl8372n_mib_counters[] = {
+	RTL837X_MAKE_MIB_COUNTER(0,  2, ifInOctets),
+	RTL837X_MAKE_MIB_COUNTER(2,  2, ifOutOctets),
+	RTL837X_MAKE_MIB_COUNTER(4,  2, ifInUcastPkts),
+	RTL837X_MAKE_MIB_COUNTER(6,  2, ifInMulticastPkts),
+	RTL837X_MAKE_MIB_COUNTER(8,  2, ifInBroadcastPkts),
+	RTL837X_MAKE_MIB_COUNTER(10, 2, ifOutUcastPkts),
 	RTL837X_MAKE_MIB_COUNTER(12, 2, ifOutMulticastPkts),
 	RTL837X_MAKE_MIB_COUNTER(14, 2, ifOutBroadcastPkts),
 
-	RTL837X_MAKE_MIB_COUNTER(16, 1, ifOutDiscards                    ),
-	RTL837X_MAKE_MIB_COUNTER(17, 1, dot1dTpPortInDiscards            ),
-	RTL837X_MAKE_MIB_COUNTER(18, 1, dot3StatsSingleCollisionFrames   ),
-	RTL837X_MAKE_MIB_COUNTER(19, 1, dot3StatsMultipleCollisionFrames ),
-	RTL837X_MAKE_MIB_COUNTER(20, 1, dot3StatsDeferredTransmissions   ),
-	RTL837X_MAKE_MIB_COUNTER(21, 1, dot3StatsLateCollisions          ),
-	RTL837X_MAKE_MIB_COUNTER(22, 1, dot3StatsExcessiveCollisions     ),
-	RTL837X_MAKE_MIB_COUNTER(23, 1, dot3StatsSymbolErrors            ),
-	RTL837X_MAKE_MIB_COUNTER(24, 1, dot3ControlInUnknownOpcodes      ),
-	RTL837X_MAKE_MIB_COUNTER(25, 1, dot3InPauseFrames                ),
-	RTL837X_MAKE_MIB_COUNTER(26, 1, dot3OutPauseFrames               ),
-	RTL837X_MAKE_MIB_COUNTER(27, 1, etherStatsDropEvents             ),
-	RTL837X_MAKE_MIB_COUNTER(28, 1, tx_etherStatsBroadcastPkts       ),
-	RTL837X_MAKE_MIB_COUNTER(29, 1, tx_etherStatsMulticastPkts       ),
-	RTL837X_MAKE_MIB_COUNTER(30, 1, tx_etherStatsCRCAlignErrors      ),
-	RTL837X_MAKE_MIB_COUNTER(31, 1, rx_etherStatsCRCAlignErrors      ),
-	RTL837X_MAKE_MIB_COUNTER(32, 1, tx_etherStatsUndersizePkts       ),
-	RTL837X_MAKE_MIB_COUNTER(33, 1, rx_etherStatsUndersizePkts       ),
-	RTL837X_MAKE_MIB_COUNTER(34, 1, tx_etherStatsOversizePkts        ),
-	RTL837X_MAKE_MIB_COUNTER(35, 1, rx_etherStatsOversizePkts        ),
-	RTL837X_MAKE_MIB_COUNTER(36, 1, tx_etherStatsFragments           ),
-	RTL837X_MAKE_MIB_COUNTER(37, 1, rx_etherStatsFragments           ),
-	RTL837X_MAKE_MIB_COUNTER(38, 1, tx_etherStatsJabbers             ),
-	RTL837X_MAKE_MIB_COUNTER(39, 1, rx_etherStatsJabbers             ),
-	RTL837X_MAKE_MIB_COUNTER(40, 1, tx_etherStatsCollisions          ),
-	RTL837X_MAKE_MIB_COUNTER(41, 1, tx_etherStatsPkts64Octets        ),
-	RTL837X_MAKE_MIB_COUNTER(42, 1, rx_etherStatsPkts64Octets        ),
-	RTL837X_MAKE_MIB_COUNTER(43, 1, tx_etherStatsPkts65to127Octets   ),
-	RTL837X_MAKE_MIB_COUNTER(44, 1, rx_etherStatsPkts65to127Octets   ),
-	RTL837X_MAKE_MIB_COUNTER(45, 1, tx_etherStatsPkts128to255Octets  ),
-	RTL837X_MAKE_MIB_COUNTER(46, 1, rx_etherStatsPkts128to255Octets  ),
-	RTL837X_MAKE_MIB_COUNTER(47, 1, tx_etherStatsPkts256to511Octets  ),
-	RTL837X_MAKE_MIB_COUNTER(48, 1, rx_etherStatsPkts256to511Octets  ),
-	RTL837X_MAKE_MIB_COUNTER(49, 1, tx_etherStatsPkts512to1023Octets ),
-	RTL837X_MAKE_MIB_COUNTER(50, 1, rx_etherStatsPkts512to1023Octets ),
+	RTL837X_MAKE_MIB_COUNTER(16, 1, ifOutDiscards),
+	RTL837X_MAKE_MIB_COUNTER(17, 1, dot1dTpPortInDiscards),
+	RTL837X_MAKE_MIB_COUNTER(18, 1, dot3StatsSingleCollisionFrames),
+	RTL837X_MAKE_MIB_COUNTER(19, 1, dot3StatsMultipleCollisionFrames),
+	RTL837X_MAKE_MIB_COUNTER(20, 1, dot3StatsDeferredTransmissions),
+	RTL837X_MAKE_MIB_COUNTER(21, 1, dot3StatsLateCollisions),
+	RTL837X_MAKE_MIB_COUNTER(22, 1, dot3StatsExcessiveCollisions),
+	RTL837X_MAKE_MIB_COUNTER(23, 1, dot3StatsSymbolErrors),
+	RTL837X_MAKE_MIB_COUNTER(24, 1, dot3ControlInUnknownOpcodes),
+	RTL837X_MAKE_MIB_COUNTER(25, 1, dot3InPauseFrames),
+	RTL837X_MAKE_MIB_COUNTER(26, 1, dot3OutPauseFrames),
+	RTL837X_MAKE_MIB_COUNTER(27, 1, etherStatsDropEvents),
+	RTL837X_MAKE_MIB_COUNTER(28, 1, tx_etherStatsBroadcastPkts),
+	RTL837X_MAKE_MIB_COUNTER(29, 1, tx_etherStatsMulticastPkts),
+	RTL837X_MAKE_MIB_COUNTER(30, 1, tx_etherStatsCRCAlignErrors),
+	RTL837X_MAKE_MIB_COUNTER(31, 1, rx_etherStatsCRCAlignErrors),
+	RTL837X_MAKE_MIB_COUNTER(32, 1, tx_etherStatsUndersizePkts),
+	RTL837X_MAKE_MIB_COUNTER(33, 1, rx_etherStatsUndersizePkts),
+	RTL837X_MAKE_MIB_COUNTER(34, 1, tx_etherStatsOversizePkts),
+	RTL837X_MAKE_MIB_COUNTER(35, 1, rx_etherStatsOversizePkts),
+	RTL837X_MAKE_MIB_COUNTER(36, 1, tx_etherStatsFragments),
+	RTL837X_MAKE_MIB_COUNTER(37, 1, rx_etherStatsFragments),
+	RTL837X_MAKE_MIB_COUNTER(38, 1, tx_etherStatsJabbers),
+	RTL837X_MAKE_MIB_COUNTER(39, 1, rx_etherStatsJabbers),
+	RTL837X_MAKE_MIB_COUNTER(40, 1, tx_etherStatsCollisions),
+	RTL837X_MAKE_MIB_COUNTER(41, 1, tx_etherStatsPkts64Octets),
+	RTL837X_MAKE_MIB_COUNTER(42, 1, rx_etherStatsPkts64Octets),
+	RTL837X_MAKE_MIB_COUNTER(43, 1, tx_etherStatsPkts65to127Octets),
+	RTL837X_MAKE_MIB_COUNTER(44, 1, rx_etherStatsPkts65to127Octets),
+	RTL837X_MAKE_MIB_COUNTER(45, 1, tx_etherStatsPkts128to255Octets),
+	RTL837X_MAKE_MIB_COUNTER(46, 1, rx_etherStatsPkts128to255Octets),
+	RTL837X_MAKE_MIB_COUNTER(47, 1, tx_etherStatsPkts256to511Octets),
+	RTL837X_MAKE_MIB_COUNTER(48, 1, rx_etherStatsPkts256to511Octets),
+	RTL837X_MAKE_MIB_COUNTER(49, 1, tx_etherStatsPkts512to1023Octets),
+	RTL837X_MAKE_MIB_COUNTER(50, 1, rx_etherStatsPkts512to1023Octets),
 	RTL837X_MAKE_MIB_COUNTER(51, 1, tx_etherStatsPkts1024to1518Octets),
 	RTL837X_MAKE_MIB_COUNTER(52, 1, rx_etherStatsPkts1024to1518Octets),
 
-	RTL837X_MAKE_MIB_COUNTER(54, 1, rx_etherStatsUndersizedropPkts        ),
-	RTL837X_MAKE_MIB_COUNTER(55, 1, tx_etherStatsPkts1519toMaxOctets      ),
-	RTL837X_MAKE_MIB_COUNTER(56, 1, rx_etherStatsPkts1519toMaxOctets      ),
-	RTL837X_MAKE_MIB_COUNTER(57, 1, tx_etherStatsPktsOverMaxOctets        ),
-	RTL837X_MAKE_MIB_COUNTER(58, 1, rx_etherStatsPktsOverMaxOctets        ),
-	RTL837X_MAKE_MIB_COUNTER(59, 1, tx_etherStatsPktsFlexibleOctetsSET1   ),
-	RTL837X_MAKE_MIB_COUNTER(60, 1, rx_etherStatsPktsFlexibleOctetsSET1   ),
+	RTL837X_MAKE_MIB_COUNTER(54, 1, rx_etherStatsUndersizedropPkts),
+	RTL837X_MAKE_MIB_COUNTER(55, 1, tx_etherStatsPkts1519toMaxOctets),
+	RTL837X_MAKE_MIB_COUNTER(56, 1, rx_etherStatsPkts1519toMaxOctets),
+	RTL837X_MAKE_MIB_COUNTER(57, 1, tx_etherStatsPktsOverMaxOctets),
+	RTL837X_MAKE_MIB_COUNTER(58, 1, rx_etherStatsPktsOverMaxOctets),
+	RTL837X_MAKE_MIB_COUNTER(59, 1, tx_etherStatsPktsFlexibleOctetsSET1),
+	RTL837X_MAKE_MIB_COUNTER(60, 1, rx_etherStatsPktsFlexibleOctetsSET1),
 	RTL837X_MAKE_MIB_COUNTER(61, 1, tx_etherStatsPktsFlexibleOctetsCRCSET1),
 	RTL837X_MAKE_MIB_COUNTER(62, 1, rx_etherStatsPktsFlexibleOctetsCRCSET1),
-	RTL837X_MAKE_MIB_COUNTER(63, 1, tx_etherStatsPktsFlexibleOctetsSET0   ),
-	RTL837X_MAKE_MIB_COUNTER(64, 1, rx_etherStatsPktsFlexibleOctetsSET0   ),
+	RTL837X_MAKE_MIB_COUNTER(63, 1, tx_etherStatsPktsFlexibleOctetsSET0),
+	RTL837X_MAKE_MIB_COUNTER(64, 1, rx_etherStatsPktsFlexibleOctetsSET0),
 	RTL837X_MAKE_MIB_COUNTER(65, 1, tx_etherStatsPktsFlexibleOctetsCRSET0C),
 	RTL837X_MAKE_MIB_COUNTER(66, 1, rx_etherStatsPktsFlexibleOctetsCRSET0C),
-	RTL837X_MAKE_MIB_COUNTER(67, 1, lengthFieldError                      ),
-	RTL837X_MAKE_MIB_COUNTER(68, 1, falseCarrieimes                       ),
-	RTL837X_MAKE_MIB_COUNTER(69, 1, underSizeOctets                       ),
-	RTL837X_MAKE_MIB_COUNTER(70, 1, framingErrors                         ),
+	RTL837X_MAKE_MIB_COUNTER(67, 1, lengthFieldError),
+	RTL837X_MAKE_MIB_COUNTER(68, 1, falseCarrieimes),
+	RTL837X_MAKE_MIB_COUNTER(69, 1, underSizeOctets),
+	RTL837X_MAKE_MIB_COUNTER(70, 1, framingErrors),
 
-	RTL837X_MAKE_MIB_COUNTER(72, 1, rxMacDiscards              ),
-	RTL837X_MAKE_MIB_COUNTER(73, 1, rxMacIPGShortDropRT        ),
+	RTL837X_MAKE_MIB_COUNTER(72, 1, rxMacDiscards),
+	RTL837X_MAKE_MIB_COUNTER(73, 1, rxMacIPGShortDropRT),
 
 	RTL837X_MAKE_MIB_COUNTER(75, 1, dot1dTpLearnedEntryDiscards),
-	RTL837X_MAKE_MIB_COUNTER(76, 1, egrQueue7DropPktRT         ),
-	RTL837X_MAKE_MIB_COUNTER(77, 1, egrQueue6DropPktRT         ),
-	RTL837X_MAKE_MIB_COUNTER(78, 1, egrQueue5DropPktRT         ),
-	RTL837X_MAKE_MIB_COUNTER(79, 1, egrQueue4DropPktRT         ),
-	RTL837X_MAKE_MIB_COUNTER(80, 1, egrQueue3DropPktRT         ),
-	RTL837X_MAKE_MIB_COUNTER(81, 1, egrQueue2DropPktRT         ),
-	RTL837X_MAKE_MIB_COUNTER(82, 1, egrQueue1DropPktRT         ),
-	RTL837X_MAKE_MIB_COUNTER(83, 1, egrQueue0DropPktRT         ),
-	RTL837X_MAKE_MIB_COUNTER(84, 1, egrQueue7OutPktRT          ),
-	RTL837X_MAKE_MIB_COUNTER(85, 1, egrQueue6OutPktRT          ),
-	RTL837X_MAKE_MIB_COUNTER(86, 1, egrQueue5OutPktRT          ),
-	RTL837X_MAKE_MIB_COUNTER(87, 1, egrQueue4OutPktRT          ),
-	RTL837X_MAKE_MIB_COUNTER(88, 1, egrQueue3OutPktRT          ),
-	RTL837X_MAKE_MIB_COUNTER(89, 1, egrQueue2OutPktRT          ),
-	RTL837X_MAKE_MIB_COUNTER(90, 1, egrQueue1OutPktRT          ),
-	RTL837X_MAKE_MIB_COUNTER(91, 1, egrQueue0OutPktRT          ),
+	RTL837X_MAKE_MIB_COUNTER(76, 1, egrQueue7DropPktRT),
+	RTL837X_MAKE_MIB_COUNTER(77, 1, egrQueue6DropPktRT),
+	RTL837X_MAKE_MIB_COUNTER(78, 1, egrQueue5DropPktRT),
+	RTL837X_MAKE_MIB_COUNTER(79, 1, egrQueue4DropPktRT),
+	RTL837X_MAKE_MIB_COUNTER(80, 1, egrQueue3DropPktRT),
+	RTL837X_MAKE_MIB_COUNTER(81, 1, egrQueue2DropPktRT),
+	RTL837X_MAKE_MIB_COUNTER(82, 1, egrQueue1DropPktRT),
+	RTL837X_MAKE_MIB_COUNTER(83, 1, egrQueue0DropPktRT),
+	RTL837X_MAKE_MIB_COUNTER(84, 1, egrQueue7OutPktRT),
+	RTL837X_MAKE_MIB_COUNTER(85, 1, egrQueue6OutPktRT),
+	RTL837X_MAKE_MIB_COUNTER(86, 1, egrQueue5OutPktRT),
+	RTL837X_MAKE_MIB_COUNTER(87, 1, egrQueue4OutPktRT),
+	RTL837X_MAKE_MIB_COUNTER(88, 1, egrQueue3OutPktRT),
+	RTL837X_MAKE_MIB_COUNTER(89, 1, egrQueue2OutPktRT),
+	RTL837X_MAKE_MIB_COUNTER(90, 1, egrQueue1OutPktRT),
+	RTL837X_MAKE_MIB_COUNTER(91, 1, egrQueue0OutPktRT),
 
-	RTL837X_MAKE_MIB_COUNTER(92, 2, TxGoodCnt                  ),
-	RTL837X_MAKE_MIB_COUNTER(94, 2, RxGoodCnt                  ),
+	RTL837X_MAKE_MIB_COUNTER(92, 2, TxGoodCnt),
+	RTL837X_MAKE_MIB_COUNTER(94, 2, RxGoodCnt),
 
-	RTL837X_MAKE_MIB_COUNTER(96, 1, RxErrorCnt                 ),
-	RTL837X_MAKE_MIB_COUNTER(97, 1, TxErrorCnt                 ),
+	RTL837X_MAKE_MIB_COUNTER(96, 1, RxErrorCnt),
+	RTL837X_MAKE_MIB_COUNTER(97, 1, TxErrorCnt),
 
-	RTL837X_MAKE_MIB_COUNTER(98, 2, TxGoodCnt_phy              ),
-	RTL837X_MAKE_MIB_COUNTER(100,2, RxGoodCnt_phy              ),
+	RTL837X_MAKE_MIB_COUNTER(98, 2, TxGoodCnt_phy),
+	RTL837X_MAKE_MIB_COUNTER(100, 2, RxGoodCnt_phy),
 
-	RTL837X_MAKE_MIB_COUNTER(102, 1,RxErrorCnt_phy             ),
-	RTL837X_MAKE_MIB_COUNTER(103, 1,TxErrorCnt_phy             )
+	RTL837X_MAKE_MIB_COUNTER(102, 1, RxErrorCnt_phy),
+	RTL837X_MAKE_MIB_COUNTER(103, 1, TxErrorCnt_phy)
 };
 
 static_assert(ARRAY_SIZE(rtl8372n_mib_counters) == RTL837X_MIB_END);
 
-struct rtl8372n_pcs
-{
+struct rtl8372n_pcs {
 	struct phylink_pcs pcs;
 	struct rtl837x_priv *priv;
 	int index;
@@ -238,8 +241,7 @@ struct rtl8372n {
 
 static bool is_8021q_tag(enum dsa_tag_protocol tag_proto)
 {
-	switch (tag_proto)
-	{
+	switch (tag_proto) {
 	case DSA_TAG_PROTO_MXL862_8021Q:
 		return true;
 	default:
@@ -253,59 +255,58 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
 	int ret;
 	u32 val;
 
-    switch_chip_t sw_chip;
+	enum switch_chip sw_chip;
 
 	ret = rtl837x_reg_read(priv, RTL8373_MODEL_NAME_INFO_ADDR, &val);
-    dev_info(dev, "CHIP_ID: 0x%08x \n", val);
+	dev_info(dev, "CHIP_ID: 0x%08x\n", val);
 
-	switch (val >> 8)
-	{
-		case 0x837300:
-			sw_chip = CHIP_RTL8373;
-			break;
-		case 0x837200:
-			sw_chip = CHIP_RTL8372;
-			break;
-		case 0x822400:
-			sw_chip = CHIP_RTL8224;
-			break;
-		case 0x837370:
-			sw_chip = CHIP_RTL8373N;
-			break;
-		case 0x837270:
-			sw_chip = CHIP_RTL8372N;
-			break;
-		case 0x822470:
-			sw_chip = CHIP_RTL8224N;
-			break;
-		case 0x8366A8:
-			sw_chip = CHIP_RTL8366U;
-			break;
-		default:
-			sw_chip = CHIP_END;
-			break;
+	switch (val >> 8) {
+	case 0x837300:
+		sw_chip = CHIP_RTL8373;
+		break;
+	case 0x837200:
+		sw_chip = CHIP_RTL8372;
+		break;
+	case 0x822400:
+		sw_chip = CHIP_RTL8224;
+		break;
+	case 0x837370:
+		sw_chip = CHIP_RTL8373N;
+		break;
+	case 0x837270:
+		sw_chip = CHIP_RTL8372N;
+		break;
+	case 0x822470:
+		sw_chip = CHIP_RTL8224N;
+		break;
+	case 0x8366A8:
+		sw_chip = CHIP_RTL8366U;
+		break;
+	default:
+		sw_chip = CHIP_END;
+		break;
 	}
 
 	switch (sw_chip) {
-        case CHIP_RTL8372N:
-            dev_info(dev, "found an %s switch\n", chipid_to_chip_name(sw_chip));
-            priv->num_ports = RTL8372N_NUM_PORTS;
-            priv->mib_counters = rtl8372n_mib_counters;
-            priv->num_mib_counters = ARRAY_SIZE(rtl8372n_mib_counters);
-            break;
-        case CHIP_RTL8373:
-        case CHIP_RTL8224:
-        case CHIP_RTL8372:
-        case CHIP_RTL8373N:
-        case CHIP_RTL8221B:
-        case CHIP_RTL8224N:
-            dev_info(dev, "found an %s switch\n", chipid_to_chip_name(sw_chip));
-            dev_err(dev, "This switch is not yet supported!\n");
-            return -ENODEV;
-        default:
-            dev_info(dev, "found an Unknown Realtek switch (id=0x%04x)\n",
-                val);
-            return -ENODEV;
+	case CHIP_RTL8372N:
+		dev_info(dev, "found an %s switch\n", chipid_to_chip_name(sw_chip));
+		priv->num_ports = RTL8372N_NUM_PORTS;
+		priv->mib_counters = rtl8372n_mib_counters;
+		priv->num_mib_counters = ARRAY_SIZE(rtl8372n_mib_counters);
+		break;
+	case CHIP_RTL8373:
+	case CHIP_RTL8224:
+	case CHIP_RTL8372:
+	case CHIP_RTL8373N:
+	case CHIP_RTL8221B:
+	case CHIP_RTL8224N:
+		dev_info(dev, "found an %s switch\n", chipid_to_chip_name(sw_chip));
+		dev_err(dev, "This switch is not yet supported!\n");
+		return -ENODEV;
+	default:
+		dev_info(dev, "found an Unknown Realtek switch (id=0x%04x)\n",
+		val);
+		return -ENODEV;
 	}
 
 	return 0;
@@ -314,6 +315,7 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
 static int rtl8372n_soft_reset_chip(struct rtl837x_priv *priv)
 {
 	u32 tmp;
+
 	if (priv->write_reg_noack)
 		priv->write_reg_noack(priv, RTL8373_RST_GLB_CTRL_0_ADDR,
 			      FIELD_PREP(RTL8373_RST_GLB_CTRL_0_SW_CHIP_RST_MASK, 1));
@@ -366,11 +368,11 @@ static int rtl8372n_get_vlan_4k(struct rtl837x_priv *priv, u32 vid,
 	int ret;
 
 	struct rtl837x_vlan_data vlan;
+
 	vlan.vid = vid;
 
 	ret = rtl837x_vlan_get(priv, &vlan);
-	if (ret)
-	{
+	if (ret) {
 		dev_dbg(priv->dev, "[%s]: failed: ret: %d\n", __func__, ret);
 		return ret;
 	}
@@ -386,17 +388,17 @@ static int rtl8372n_set_vlan_4k(struct rtl837x_priv *priv,
 			       const struct rtl837x_vlan_4k *vlan4k)
 {
 	int ret;
-	
+
 	struct rtl837x_vlan_data vlan = {0};
+
 	vlan.vid = vlan4k->vid;
 	vlan.mbr = vlan4k->member;
 	vlan.untag = vlan4k->untag;
-    vlan.fid = vlan4k->fid;
-    vlan.ivl_en = 1;
+	vlan.fid = vlan4k->fid;
+	vlan.ivl_en = 1;
 
 	ret = rtl837x_vlan_set(priv, &vlan);
-	if (ret)
-	{
+	if (ret) {
 		dev_dbg(priv->dev, "rtl837x_vlan_set: failed: ret: %d\n", ret);
 		return ret;
 	}
@@ -429,7 +431,7 @@ static int rtl8372n_vlan_update(struct rtl837x_priv *priv, int vid, u32 member,
  * frame will ignore the vlan tag config, frames can be sent out as they enter
  * else
  * the tag will remove/keep by vlan config
-*/
+ */
 static int rtl8372n_port_vlan_egr_tag_rewrite(struct rtl837x_priv *priv, int port,
 		     bool enable)
 {
@@ -439,7 +441,7 @@ static int rtl8372n_port_vlan_egr_tag_rewrite(struct rtl837x_priv *priv, int por
 	 *	VLAN_EGRESS_TAG_MODE_PRI,
 	 *	VLAN_EGRESS_TAG_MODE_REAL_KEEP,
 	 *	VLAN_EGRESS_TAG_MODE_END
-	*/
+	 */
 	return rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TAG_ADDR(port),
 		 RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port), enable == true ? 0 : 1
 		);
@@ -501,51 +503,54 @@ fail_rollback:
 }
 
 static int rtl8372n_get_mib_counter(struct rtl837x_priv *priv,
-                int port,
-                const struct rtl837x_mib_counter *mib,
-                u64 *mibvalue)
+		int port,
+		const struct rtl837x_mib_counter *mib,
+		u64 *mibvalue)
 {
-    int ret;
+	int ret;
 	u32 val_h, val_l, val;
 
-    int mib_id = (mib->offset)/2;
+	int mib_id = (mib->offset)/2;
 
 	u32 tmp = (FIELD_PREP(RTL8373_INDIRECT_ACCESS_CTRL_PORT_ID_MASK, port) |
 					FIELD_PREP(RTL8373_INDIRECT_ACCESS_CTRL_MIB_ID_MASK, mib_id) |
 					FIELD_PREP(RTL8373_INDIRECT_ACCESS_CTRL_ACC_CMD_MASK, 1));
 
 	ret = rtl837x_reg_write(priv, RTL8373_INDIRECT_ACCESS_CTRL_ADDR, tmp);
-    if(ret) return ret;
+	if (ret)
+		return ret;
 
 	ret = regmap_read_poll_timeout(priv->map, RTL8373_INDIRECT_ACCESS_CTRL_ADDR, tmp, ((tmp & RTL8373_INDIRECT_ACCESS_CTRL_ACC_CMD_MASK) == 0), 0, 1000);
-    if(ret) return ret;
+	if (ret)
+		return ret;
 
-	if (mib->length > 1)
-	{
+	if (mib->length > 1) {
 		ret = rtl837x_reg_read(priv, RTL8373_INDIRECT_ACCESS_CNT_L_ADDR, &val_l);
-		if(ret) return ret;
+		if (ret)
+			return ret;
 		ret = rtl837x_reg_read(priv, RTL8373_INDIRECT_ACCESS_CNT_H_ADDR, &val_h);
-		if(ret) return ret;
+		if (ret)
+			return ret;
 		*mibvalue = ((u64)val_l << 32) | val_h;
 		return 0;
-	} else
-	{
-		if(mib->offset % 2)
-			ret = rtl837x_reg_read(priv, RTL8373_INDIRECT_ACCESS_CNT_H_ADDR, &val);
-		else
-			ret = rtl837x_reg_read(priv, RTL8373_INDIRECT_ACCESS_CNT_L_ADDR, &val);
-		*mibvalue = val;
-		return ret;
 	}
+
+	if (mib->offset % 2)
+		ret = rtl837x_reg_read(priv, RTL8373_INDIRECT_ACCESS_CNT_H_ADDR, &val);
+	else
+		ret = rtl837x_reg_read(priv, RTL8373_INDIRECT_ACCESS_CNT_L_ADDR, &val);
+	*mibvalue = val;
+	return ret;
 }
 
 static enum dsa_tag_protocol rtl8372n_get_tag_protocol(struct dsa_switch *ds,
-                                                        int port,
-                                                        enum dsa_tag_protocol mp)
+							int port,
+							enum dsa_tag_protocol mp)
 {
-    struct rtl837x_priv *priv = ds->priv;
+	struct rtl837x_priv *priv = ds->priv;
 	struct device *dev = priv->dev;
-    dev_dbg(dev, "get_DSA_PROTO port:%d\n", port);
+
+	dev_dbg(dev, "get_DSA_PROTO port:%d\n", port);
 
 	return priv->tag_proto;
 }
@@ -556,6 +561,7 @@ static int rtl8372n_mdio_phy_read_c22(struct mii_bus *bus, int addr, int regnum)
 	u16 val;
 
 	int ret = priv->ops->phy_read_c22(priv, addr, regnum, &val);
+
 	if (ret)
 		return ret;
 
@@ -574,6 +580,7 @@ static int rtl8372n_mdio_phy_read_c45(struct mii_bus *bus, int port, int devad, 
 	struct rtl837x_priv *priv = bus->priv;
 	u16 val;
 	int ret = priv->ops->phy_read_c45(priv, port, devad, regnum, &val);
+
 	if (ret)
 		return ret;
 
@@ -590,14 +597,14 @@ static int rtl8372n_mdio_phy_write_c45(struct mii_bus *bus, int port, int devad,
 static int rtl8372n_setup_mdio(struct rtl837x_priv *priv)
 {
 	struct device_node *np = priv->dev->of_node;
-    struct device_node *mnp;
+	struct device_node *mnp;
 	struct dsa_switch *ds = priv->ds;
 	struct device *dev = priv->dev;
 	struct mii_bus *bus;
 	static int idx;
 	int ret = 0;
 
-    mnp = of_get_child_by_name(np, "mdio");
+	mnp = of_get_child_by_name(np, "mdio");
 
 	if (mnp && !of_device_is_available(mnp))
 		goto out;
@@ -608,12 +615,12 @@ static int rtl8372n_setup_mdio(struct rtl837x_priv *priv)
 		goto out;
 	}
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,44)
+#if KERNEL_VERSION(6, 12, 44) <= LINUX_VERSION_CODE
 	if (!mnp)
 		ds->user_mii_bus = bus;
 #endif
 
-    bus->priv = priv;
+	bus->priv = priv;
 	bus->name = KBUILD_MODNAME "-mii";
 	snprintf(bus->id, MII_BUS_ID_SIZE, KBUILD_MODNAME "-%d", idx++);
 	bus->read = rtl8372n_mdio_phy_read_c22;
@@ -624,9 +631,8 @@ static int rtl8372n_setup_mdio(struct rtl837x_priv *priv)
 	bus->phy_mask = ~ds->phys_mii_mask;
 
 	ret = devm_of_mdiobus_register(dev, bus, mnp);
-	if (ret) {
+	if (ret)
 		dev_err(dev, "failed to register MDIO bus: %d\n", ret);
-	}
 
 out:
 	of_node_put(mnp);
@@ -638,12 +644,11 @@ static unsigned int rtl8372n_sds_pcs_inband_caps(struct phylink_pcs *pcs,
 {
 	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
 	int port = _pcs->index;
-	switch (port)
-	{
+
+	switch (port) {
 	case 3:
 	case 8:
-		switch (interface)
-		{
+		switch (interface) {
 		case PHY_INTERFACE_MODE_1000BASEX:
 		case PHY_INTERFACE_MODE_2500BASEX:
 		case PHY_INTERFACE_MODE_SGMII:
@@ -660,7 +665,7 @@ static unsigned int rtl8372n_sds_pcs_inband_caps(struct phylink_pcs *pcs,
 	}
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,18,0)
+#if KERNEL_VERSION(6, 18, 0) <= LINUX_VERSION_CODE
 static void rtl8372n_sds_pcs_get_state(struct phylink_pcs *pcs, unsigned int neg_mode,
 				 struct phylink_link_state *state)
 #else
@@ -750,7 +755,7 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 	u8 sds_idx = PORT_TO_SERDES_IDX(port);
 
 	dev_dbg(priv->dev, "[%s]PCS config serdes(%d) mode(%s) neg_mode(0x%x)\n", __func__,
-			  sds_idx, 
+			  sds_idx,
 			  phy_modes(interface), neg_mode);
 
 	if (sds_idx == 0)
@@ -765,17 +770,16 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 		return ret;
 
 	// Chip rtl8372n doesn't support 10G QSXGMII, The sub mode always be zero
-	u32 sds_sub_mode_mask = sds_idx==0 ? 
+	u32 sds_sub_mode_mask = sds_idx == 0 ?
 		  RTL8373_SDS_MODE_SEL_SDS0_USX_SUB_MODE_MASK : RTL8373_SDS_MODE_SEL_SDS1_USX_SUB_MODE_MASK;
-	ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR, 
+	ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
 			  sds_sub_mode_mask, 0);
 	if (ret)
 		return ret;
 
-	u32 sds_mode_mask = sds_idx==0 ? 
+	u32 sds_mode_mask = sds_idx == 0 ?
 		  RTL8373_SDS_MODE_SEL_SDS0_MODE_SEL_MASK : RTL8373_SDS_MODE_SEL_SDS1_MODE_SEL_MASK;
-	switch (interface)
-	{
+	switch (interface) {
 	case PHY_INTERFACE_MODE_USXGMII:
 		ret = rtl837x_reg_bits_write(priv, RTL8373_SDS_MODE_SEL_ADDR,
 			   sds_mode_mask, 0x0d);
@@ -820,13 +824,15 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 
 	// Set Auto Negotiation Pause/AsymPause
 	int adv = 0;
-	switch (interface)
-	{
+
+	switch (interface) {
 	case PHY_INTERFACE_MODE_100BASEX:
 		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<2, 0x1);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<3, 0x1);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 		if (linkmode_test_bit(ETHTOOL_LINK_MODE_Pause_BIT,
 				      advertising))
 			adv |= BIT(0);
@@ -837,14 +843,17 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 				  SDS_CTRL02_XSG_AN_10_100_AsymmetricPause_MASK | SDS_CTRL02_XSG_AN_10_100_Pause_MASK,
 				  adv
 				);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 		break;
 	case PHY_INTERFACE_MODE_1000BASEX:
 	case PHY_INTERFACE_MODE_2500BASEX:
 		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<2, 0x1);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<3, 0x0);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 		if (linkmode_test_bit(ETHTOOL_LINK_MODE_Pause_BIT,
 				      advertising))
 			adv |= BIT(0);
@@ -855,7 +864,8 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 				  SDS_CTRL02_XSG_AN_1G_AsymmetricPause_MASK | SDS_CTRL02_XSG_AN_1G_Pause_MASK,
 				  adv
 				);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 		break;
 	case PHY_INTERFACE_MODE_10GBASER:
 		if (linkmode_test_bit(ETHTOOL_LINK_MODE_Pause_BIT,
@@ -868,36 +878,38 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 			  SDS_CTRL1F_10GR_AN_AsymmetricPause_MASK | SDS_CTRL1F_10GR_AN_Pause_MASK,
 			  adv
 			);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 		break;
 	default:
 		break;
 	}
 
 	// Auto Negotiation
-	switch (interface)
-	{
+	switch (interface) {
 	case PHY_INTERFACE_MODE_SGMII:
 	case PHY_INTERFACE_MODE_1000BASEX:
 	case PHY_INTERFACE_MODE_2500BASEX:
 		if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED)
 			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
-						  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN, 
+						  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN,
 						  0x3
 						);
 		else
 			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
-						  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN, 
+						  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN,
 						  0x1
 						);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 
-    	/* set SP_CFG_EN_LINK_FIB1G for enable fiberNwayForceLink */
+	/* set SP_CFG_EN_LINK_FIB1G for enable fiberNwayForceLink */
 		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG04,
 			  SDS_CTRL00_REG04_SP_CFG_EN_LINK_FIB1G_MASK,
 			  0x1
 			);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 		break;
 	case PHY_INTERFACE_MODE_USXGMII:
 		if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED)
@@ -912,7 +924,8 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 					  SDS_NWAY_QHSG_AN_CH2_EN_MASK | SDS_NWAY_QHSG_AN_CH3_EN_MASK,
 					  0x0
 					);
-		if (ret) return ret;
+		if (ret)
+			return ret;
 		break;
 	default:
 		break;
@@ -931,17 +944,16 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 		return ret;
 	msleep(50);
 
-	switch (interface)
-	{
-		case PHY_INTERFACE_MODE_USXGMII:
-		case PHY_INTERFACE_MODE_10GBASER:
-			dev_dbg(priv->dev, "[%s]Reset Serdes RX R\n", __func__);
-			rtl837x_sds_reset_R(priv, PORT_TO_SERDES_IDX(port));
-			break;
-		default:
-			dev_dbg(priv->dev, "[%s]Reset Serdes RX X\n", __func__);
-			rtl837x_sds_reset_X(priv, PORT_TO_SERDES_IDX(port));
-			break;
+	switch (interface) {
+	case PHY_INTERFACE_MODE_USXGMII:
+	case PHY_INTERFACE_MODE_10GBASER:
+		dev_dbg(priv->dev, "[%s]Reset Serdes RX R\n", __func__);
+		rtl837x_sds_reset_R(priv, PORT_TO_SERDES_IDX(port));
+		break;
+	default:
+		dev_dbg(priv->dev, "[%s]Reset Serdes RX X\n", __func__);
+		rtl837x_sds_reset_X(priv, PORT_TO_SERDES_IDX(port));
+		break;
 	}
 
 	return 0;
@@ -953,8 +965,9 @@ static void rtl8372n_sds_pcs_link_up(struct phylink_pcs *pcs, unsigned int neg_m
 	struct rtl8372n_pcs *_pcs = container_of(pcs, struct rtl8372n_pcs, pcs);
 	struct rtl837x_priv *priv = _pcs->priv;
 	int port = _pcs->index;
+
 	dev_dbg(priv->dev, "[%s]PCS link up serdes (%d) mode (%s)\n", __func__,
-			  PORT_TO_SERDES_IDX(port), 
+			  PORT_TO_SERDES_IDX(port),
 			  phy_modes(interface));
 }
 
@@ -974,19 +987,19 @@ static void rtl8372n_phylink_get_caps(struct dsa_switch *ds, int port,
 				       struct phylink_config *config)
 {
 	if ((port == 3) || (port == 8)) {
-        __set_bit(PHY_INTERFACE_MODE_100BASEX, config->supported_interfaces); // Are you sure about this?
-        __set_bit(PHY_INTERFACE_MODE_SGMII, config->supported_interfaces);
-        __set_bit(PHY_INTERFACE_MODE_1000BASEX, config->supported_interfaces);
-        __set_bit(PHY_INTERFACE_MODE_2500BASEX, config->supported_interfaces);
+		__set_bit(PHY_INTERFACE_MODE_100BASEX, config->supported_interfaces); // Are you sure about this?
+		__set_bit(PHY_INTERFACE_MODE_SGMII, config->supported_interfaces);
+		__set_bit(PHY_INTERFACE_MODE_1000BASEX, config->supported_interfaces);
+		__set_bit(PHY_INTERFACE_MODE_2500BASEX, config->supported_interfaces);
 		__set_bit(PHY_INTERFACE_MODE_10GBASER, config->supported_interfaces);
-        __set_bit(PHY_INTERFACE_MODE_USXGMII, config->supported_interfaces); // Do we really support this mode?
+		__set_bit(PHY_INTERFACE_MODE_USXGMII, config->supported_interfaces); // Do we really support this mode?
 
 		config->mac_capabilities = MAC_10000FD | MAC_2500FD | MAC_1000 | MAC_100 | MAC_10 |
-                                    MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
+				    MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
 	} else {
 		__set_bit(PHY_INTERFACE_MODE_INTERNAL, config->supported_interfaces);
 		config->mac_capabilities = MAC_2500FD | MAC_1000 | MAC_100 | MAC_10 |
-                                    MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
+				    MAC_SYM_PAUSE | MAC_ASYM_PAUSE;
 	}
 }
 
@@ -1008,10 +1021,11 @@ static void rtl8372n_phylink_mac_config(struct phylink_config *config, unsigned 
 {
 	struct dsa_port *dp = dsa_phylink_to_port(config);
 	struct rtl837x_priv *priv = dp->ds->priv;
+
 	if (!IS_SERDES_PORT(dp->index))
 		return;
 	dev_dbg(priv->dev, "[%s]: port:%d interface:%s speed:%s duplex:%s advertising:%*pb pause:0x%x\n", __func__,
-			   dp->index, phy_modes(state->interface), phy_speed_to_str(state->speed), 
+			   dp->index, phy_modes(state->interface), phy_speed_to_str(state->speed),
 			   phy_duplex_to_str(state->duplex), __ETHTOOL_LINK_MODE_MASK_NBITS, state->advertising, state->pause);
 }
 
@@ -1038,9 +1052,9 @@ static void rtl8372n_phylink_mac_link_up(struct phylink_config *config,
 
 	if (!IS_SERDES_PORT(dp->index))
 		return;
-	dev_dbg(priv->dev, 
+	dev_dbg(priv->dev,
 			   "[%s]: port:%d mode:%s speed:%s duplex:%s tx_pause:%d rx_pause:%d\n", __func__,
-			   dp->index, phy_modes(interface), phy_speed_to_str(speed), 
+			   dp->index, phy_modes(interface), phy_speed_to_str(speed),
 			   phy_duplex_to_str(duplex), tx_pause, rx_pause
 			);
 }
@@ -1054,31 +1068,31 @@ static const struct phylink_mac_ops rtl8372n_phylink_mac_ops = {
 
 /*
  * I still don't understand how the chip GPIO register and LED configuration
- * register work, so we use additional initialization values to configure 
+ * register work, so we use additional initialization values to configure
  * the chip LED and GPIO matrix or other things
-*/
+ */
 static int of_extra_init(struct dsa_switch *ds)
 {
-    struct rtl837x_priv *priv = ds->priv;
+	struct rtl837x_priv *priv = ds->priv;
 	struct device_node *np = ds->dev->of_node;
 	const __be32 *list;
 	int size, data_len;
 	u32 reg, mask, val;
 
 	list = of_get_property(np, "extra-init", &size);
-	if (!list || !size) return 0;
+	if (!list || !size)
+		return 0;
 
 	data_len = size / (3*sizeof(__be32));
-	for (int i=0; i<data_len; i++)
-	{
+	for (int i = 0; i < data_len; i++) {
 		reg = be32_to_cpu(*list);
 		list++;
 		mask = be32_to_cpu(*list);
 		list++;
 		val = be32_to_cpu(*list);
 		list++;
-		dev_dbg(ds->dev, "of_extra_init: reg:0x%04X mask:0x%08X val:0x%08X\n", 
-							reg, mask, val);
+		dev_dbg(ds->dev, "[%s] reg:0x%04X mask:0x%08X val:0x%08X\n",
+			__func__, reg, mask, val);
 		rtl837x_reg_bits_write(priv, reg, mask, val);
 	}
 	return 0;
@@ -1087,11 +1101,11 @@ static int of_extra_init(struct dsa_switch *ds)
 static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 {
 	int ret;
-    struct rtl837x_priv *priv = ds->priv;
+	struct rtl837x_priv *priv = ds->priv;
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *dp, *cpu_dp = NULL;
 	struct net_device *master_dev = NULL;
-	dev_dbg(priv->dev, "[%s]\n", __func__);
+
 
 	// Only support one CPU port
 	dsa_switch_for_each_cpu_port(dp, ds) {
@@ -1102,25 +1116,24 @@ static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 	if (cpu_dp == NULL)
 		return -ENODEV;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6,12,44)
+#if KERNEL_VERSION(6, 12, 44) >= LINUX_VERSION_CODE
 	master_dev = cpu_dp->master;
 #else
 	master_dev = cpu_dp->conduit;
 #endif
 
-	if (!master_dev)
-	{
+	if (!master_dev) {
 		dev_err(priv->dev, "Cannot get master netdev from cpu port\n");
 		return -ENODEV;
 	}
 
 	// Set external CPU DSA tag insert mode
 	/*
-     *	CPU_INSERT_TO_ALL = 0,
-     *	CPU_INSERT_TO_TRAPPING,
-     *	CPU_INSERT_TO_NONE,
-     *	CPU_INSERT_END
-	*/
+	 *	CPU_INSERT_TO_ALL = 0,
+	 *	CPU_INSERT_TO_TRAPPING,
+	 *	CPU_INSERT_TO_NONE,
+	 *	CPU_INSERT_END
+	 */
 	ret = rtl837x_reg_bits_write(priv, RTL8373_CPU_TAG_CTRL_ADDR,
 			  RTL8373_CPU_TAG_CTRL_EXT_CPUTAG_INSERTMOD_MASK, 0
 			);
@@ -1149,20 +1162,20 @@ static int rtl8372n_set_tag_rtl(struct dsa_switch *ds)
 	chip_data->csum_feature_backup = (master_dev->wanted_features & (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM));
 	chip_data->csum_feature_backup |= (master_dev->wanted_features & NETIF_F_HW_CSUM);
 
-    master_dev->wanted_features &= ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
-    master_dev->wanted_features &= ~NETIF_F_HW_CSUM;
-    netdev_update_features(master_dev);
+	master_dev->wanted_features &= ~(NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM);
+	master_dev->wanted_features &= ~NETIF_F_HW_CSUM;
+	netdev_update_features(master_dev);
 
 	return 0;
 }
 
 static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 {
-    struct rtl837x_priv *priv = ds->priv;
+	struct rtl837x_priv *priv = ds->priv;
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *dp, *cpu_dp = NULL;
 	struct net_device *master_dev = NULL;
-	dev_dbg(priv->dev, "[%s]\n", __func__);
+
 
 	// Only support one CPU port
 	dsa_switch_for_each_cpu_port(dp, ds) {
@@ -1173,25 +1186,24 @@ static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 	if (cpu_dp == NULL)
 		return -ENODEV;
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6,12,44)
+#if KERNEL_VERSION(6, 12, 44) >= LINUX_VERSION_CODE
 	master_dev = cpu_dp->master;
 #else
 	master_dev = cpu_dp->conduit;
 #endif
 
-	if (!master_dev)
-	{
+	if (!master_dev) {
 		dev_err(priv->dev, "Cannot get master netdev from cpu port\n");
 		return -ENODEV;
 	}
 
 	// Set external CPU DSA tag insert mode
 	/*
-     *	CPU_INSERT_TO_ALL = 0,
-     *	CPU_INSERT_TO_TRAPPING,
-     *	CPU_INSERT_TO_NONE,
-     *	CPU_INSERT_END
-	*/
+	 *	CPU_INSERT_TO_ALL = 0,
+	 *	CPU_INSERT_TO_TRAPPING,
+	 *	CPU_INSERT_TO_NONE,
+	 *	CPU_INSERT_END
+	 */
 	rtl837x_reg_bits_write(priv, RTL8373_CPU_TAG_CTRL_ADDR,
 			  RTL8373_CPU_TAG_CTRL_EXT_CPUTAG_INSERTMOD_MASK, 2
 			);
@@ -1206,10 +1218,10 @@ static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 		rtl837x_reg_bits_write(priv, RTL8373_CPU_TAG_AWARE_CTRL_ADDR, BIT(dp->index), 0);
 	}
 
-    master_dev->wanted_features |= chip_data->csum_feature_backup;
-    netdev_update_features(master_dev);
+	master_dev->wanted_features |= chip_data->csum_feature_backup;
+	netdev_update_features(master_dev);
 
-	rtl837x_reg_bits_write(priv, RTL8373_L2_TBL_FLUSH_ALL_ADDR, 
+	rtl837x_reg_bits_write(priv, RTL8373_L2_TBL_FLUSH_ALL_ADDR,
 			  RTL8373_L2_TBL_FLUSH_ALL_FLUSH_ALL_MASK, 1
 			);
 
@@ -1219,8 +1231,7 @@ static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 {
 	int ret;
-    struct rtl837x_priv *priv = ds->priv;
-	dev_dbg(priv->dev, "[%s]\n", __func__);
+	struct rtl837x_priv *priv = ds->priv;
 
 	//  bit0: internal cpu; bit1: external cpu
 	ret = rtl837x_reg_bits_write(priv, RTL8373_SVLAN_TRAP_CTRL_ADDR,
@@ -1231,12 +1242,12 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 
 	// Set S-VLAN upstream priority reference setting.
 	/*
-     *	REF_INTERNAL_PRI = 0,
-     *	REF_CTAG_PRI,
-     *	REF_SVLAN_PRI,
-     *	REF_PB_PRI,
-     *	REF_PRI_END
-	*/
+	 *	REF_INTERNAL_PRI = 0,
+	 *	REF_CTAG_PRI,
+	 *	REF_SVLAN_PRI,
+	 *	REF_PB_PRI,
+	 *	REF_PRI_END
+	 */
 	ret = rtl837x_reg_bits_write(priv, RTL8373_VS_CTRL_ADDR,
 			  RTL8373_VS_CTRL_SPRISEL_MASK, 1
 			);
@@ -1245,11 +1256,11 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 
 	// Drop packets received from the CPU port without an S-tag
 	/*
-     *	UNTAG_DROP = 0,
-     *	UNTAG_TRAP,
-     *	UNTAG_ASSIGN,
-     *	UNTAG_END
-	*/
+	 *	UNTAG_DROP = 0,
+	 *	UNTAG_TRAP,
+	 *	UNTAG_ASSIGN,
+	 *	UNTAG_END
+	 */
 	ret = rtl837x_reg_bits_write(priv, RTL8373_VS_CTRL_ADDR,
 			  RTL8373_VS_CTRL_UNTAG_MASK, 0
 		);
@@ -1266,23 +1277,22 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 	if (ret)
 		return ret;
 
-	for (int idx = 0; idx <= RTL837x_C2SIDXMAX;  idx++)
-    {
-        ret = rtl837x_reg_write(priv, RTL8373_VLAN_C2S_ENTRY_ADDR(idx)+4, 0);
+	for (int idx = 0; idx <= RTL837x_C2SIDXMAX;  idx++) {
+		ret = rtl837x_reg_write(priv, RTL8373_VLAN_C2S_ENTRY_ADDR(idx)+4, 0);
 		if (ret)
 			return ret;
 
-        ret = rtl837x_reg_write(priv, RTL8373_VLAN_C2S_ENTRY_ADDR(idx), 0);
+		ret = rtl837x_reg_write(priv, RTL8373_VLAN_C2S_ENTRY_ADDR(idx), 0);
 		if (ret)
 			return ret;
-    }
+	}
 
 	// Set Port Ingress Tag Action
 	/*
 	 *	UNASSIGN_PBSVID = 0,
 	 *	UNASSIGN_TRAP,
 	 *	UNASSIGN_END
-	*/
+	 */
 	ret = rtl837x_reg_bits_write(priv, RTL8373_VS_CTRL_ADDR,
 			  RTL8373_VS_CTRL_UIFSEG_MASK, 0
 		);
@@ -1298,28 +1308,25 @@ static int rtl8372n_set_tag_8021q(struct dsa_switch *ds)
 
 static int rtl8372n_teardown_tag_8021q(struct dsa_switch *ds)
 {
-    struct rtl837x_priv *priv = ds->priv;
-    struct rtl8372n *chip_data = priv->chip_data;
+	struct rtl837x_priv *priv = ds->priv;
+	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *dp = NULL;
-	dev_dbg(priv->dev, "[%s]\n", __func__);
 
-	if (ds->tag_8021q_ctx) {
+	if (ds->tag_8021q_ctx)
 		dsa_tag_8021q_unregister(ds);
-	}
 
 	// Clean service port
 	rtl837x_reg_write(priv, RTL8373_VS_UPLINK_PORT_ADDR, 0);
 
 	struct rtl837x_vlan_4k vlan4k = {0};
+
 	vlan4k.member = 0;
 	vlan4k.untag = 0;
 	vlan4k.fid = 0;
 
 	// Remove s-tag vlan entrys
-	for (int i=0; i<=RTL8372N_VLAN_MAX; i++)
-	{
-		if (chip_data->dsa_tag_8021q_vid[i])
-		{
+	for (int i = 0; i <= RTL8372N_VLAN_MAX; i++) {
+		if (chip_data->dsa_tag_8021q_vid[i]) {
 			vlan4k.vid = i;
 			chip_data->dsa_tag_8021q_vid[i] = false;
 			priv->ops->set_vlan_4k(priv, &vlan4k);
@@ -1327,12 +1334,12 @@ static int rtl8372n_teardown_tag_8021q(struct dsa_switch *ds)
 	}
 
 	dsa_switch_for_each_user_port(dp, ds) {
-		rtl837x_reg_bits_write(priv, RTL8373_VS_PORT_DFLT_SVID_ADDR(dp->index), 
+		rtl837x_reg_bits_write(priv, RTL8373_VS_PORT_DFLT_SVID_ADDR(dp->index),
 				  RTL8373_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(dp->index), 0
 				);
 	}
 
-	rtl837x_reg_bits_write(priv, RTL8373_L2_TBL_FLUSH_ALL_ADDR, 
+	rtl837x_reg_bits_write(priv, RTL8373_L2_TBL_FLUSH_ALL_ADDR,
 			  RTL8373_L2_TBL_FLUSH_ALL_FLUSH_ALL_MASK, 1
 			);
 	return 0;
@@ -1342,25 +1349,24 @@ static int rtl8372n_tag_8021q_vlan_add(struct dsa_switch *ds, int port,
 				       u16 vid, u16 flags)
 {
 	int ret = 0;
-    struct rtl837x_priv *priv = ds->priv;
+	struct rtl837x_priv *priv = ds->priv;
 	struct rtl8372n *chip_data = priv->chip_data;
 
 	dev_dbg(priv->dev, "[%s]: port: %d, vid:%u, flags: %u\n", __func__, port, vid, flags);
 
 	// Set Port SVID
 	if (flags & BRIDGE_VLAN_INFO_PVID)
-		ret = rtl837x_reg_bits_write(priv, RTL8373_VS_PORT_DFLT_SVID_ADDR(port), 
+		ret = rtl837x_reg_bits_write(priv, RTL8373_VS_PORT_DFLT_SVID_ADDR(port),
 				  RTL8373_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(port), vid
 				);
 	if (ret)
 		return ret;
 
 	u32 member = 0, untag = 0;
+
 	member |= BIT(port);
 	if (dsa_is_user_port(ds, port))
-	{
 		untag |= BIT(port);
-	}
 
 	ret = rtl8372n_vlan_update(priv, vid, member, untag, 0);
 	if (ret)
@@ -1373,7 +1379,7 @@ fail_rollback:
 	dev_err(priv->dev, "failed to add 8021q tag for port(%d) vid: %u\n", port, vid);
 
 	if (flags & BRIDGE_VLAN_INFO_PVID)
-		rtl837x_reg_bits_write(priv, RTL8373_VS_PORT_DFLT_SVID_ADDR(port), 
+		rtl837x_reg_bits_write(priv, RTL8373_VS_PORT_DFLT_SVID_ADDR(port),
 				  RTL8373_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(port), 0
 				);
 	return ret;
@@ -1383,10 +1389,11 @@ static int rtl8372n_tag_8021q_vlan_del(struct dsa_switch *ds, int port,
 				       u16 vid)
 {
 	int ret;
-    struct rtl837x_priv *priv = ds->priv;
+	struct rtl837x_priv *priv = ds->priv;
 	struct rtl8372n *chip_data = priv->chip_data;
 
 	struct rtl837x_vlan_4k vlan4k = {0};
+
 	dev_dbg(priv->dev, "[%s]: port: %d, vid: %u\n", __func__, port, vid);
 
 	ret = priv->ops->get_vlan_4k(priv, vid, &vlan4k);
@@ -1414,7 +1421,7 @@ static int rtl8372n_tag_8021q_vlan_del(struct dsa_switch *ds, int port,
 
 	// Clean Port SVID
 	if (dsa_is_user_port(ds, port))
-		ret = rtl837x_reg_bits_write(priv, RTL8373_VS_PORT_DFLT_SVID_ADDR(port), 
+		ret = rtl837x_reg_bits_write(priv, RTL8373_VS_PORT_DFLT_SVID_ADDR(port),
 				  RTL8373_VS_PORT_DFLT_SVID_PORT_DFLT_SVID_MASK(port), 0
 				);
 	if (ret) {
@@ -1431,7 +1438,7 @@ static int rtl8372n_change_tag_protocol(struct dsa_switch *ds,
 					enum dsa_tag_protocol proto)
 {
 	int ret;
-    struct rtl837x_priv *priv = ds->priv;
+	struct rtl837x_priv *priv = ds->priv;
 
 	dev_dbg(priv->dev, "[%s]: proto: %d\n", __func__, proto);
 
@@ -1470,14 +1477,14 @@ static int rtl8372n_port_set_isolation(struct rtl837x_priv *priv, int port,
 static int rtl8372n_port_add_isolation(struct rtl837x_priv *priv, int port,
 					u32 mask)
 {
-	return rtl837x_reg_bits_write(priv, RTL8373_PORT_ISO_PORT_PMSK_ADDR(port), 
+	return rtl837x_reg_bits_write(priv, RTL8373_PORT_ISO_PORT_PMSK_ADDR(port),
 				  mask, 0xffffffff);
 }
 
 static int rtl8372n_port_remove_isolation(struct rtl837x_priv *priv, int port,
 					   u32 mask)
 {
-	return rtl837x_reg_bits_write(priv, RTL8373_PORT_ISO_PORT_PMSK_ADDR(port), 
+	return rtl837x_reg_bits_write(priv, RTL8373_PORT_ISO_PORT_PMSK_ADDR(port),
 				  mask, 0);
 }
 
@@ -1485,7 +1492,7 @@ static int rtl8372n_port_add_egr_vlan_transparent(struct rtl837x_priv *priv, int
 {
 	dev_dbg(priv->dev, "[%s]: port:%d mask:0x%08x\n", __func__,
 				port, igr_mask);
-	return rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TRANS_ADDR(port), 
+	return rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TRANS_ADDR(port),
 				  RTL8373_VLAN_PORT_EGR_TRANS_PMSK_MASK(port) & (igr_mask << RTL8373_VLAN_PORT_EGR_TRANS_PMSK_OFFSET(port)), 0xffffffff);
 }
 
@@ -1493,7 +1500,7 @@ static int rtl8372n_port_remove_egr_vlan_transparent(struct rtl837x_priv *priv, 
 {
 	dev_dbg(priv->dev, "[%s]: port:%d mask:0x%08x\n", __func__,
 			port, igr_mask);
-	return rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TRANS_ADDR(port), 
+	return rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TRANS_ADDR(port),
 				  RTL8373_VLAN_PORT_EGR_TRANS_PMSK_MASK(port) & (igr_mask << RTL8373_VLAN_PORT_EGR_TRANS_PMSK_OFFSET(port)), 0);
 }
 
@@ -1550,8 +1557,8 @@ static void rtl8372n_get_strings(struct dsa_switch *ds, int port, u32 stringset,
 
 	for (i = 0; i < priv->num_mib_counters; i++) {
 		mib = &priv->mib_counters[i];
-		strncpy(data + i * ETH_GSTRING_LEN,
-			mib->name, ETH_GSTRING_LEN);
+		strscpy_pad(data + i * ETH_GSTRING_LEN,
+			    mib->name, ETH_GSTRING_LEN);
 	}
 }
 
@@ -1678,7 +1685,7 @@ static void rtl8372n_get_ctrl_stats(struct dsa_switch *ds, int port,
 				     struct ethtool_eth_ctrl_stats *ctrl_stats)
 {
 	struct rtl837x_priv *priv = ds->priv;
-	const struct rtl837x_mib_counter *mib = 
+	const struct rtl837x_mib_counter *mib =
 		  &priv->mib_counters[RTL837X_MIB_dot3ControlInUnknownOpcodes];
 
 	mutex_lock(&priv->mib_lock);
@@ -1688,7 +1695,7 @@ static void rtl8372n_get_ctrl_stats(struct dsa_switch *ds, int port,
 }
 
 static int rtl8372n_vlan_filtering(struct dsa_switch *ds, int port,
-                                        bool vlan_filtering, struct netlink_ext_ack *extack)
+					bool vlan_filtering, struct netlink_ext_ack *extack)
 {
 	int ret;
 	u32 vlan_filter_bak;
@@ -1713,13 +1720,13 @@ static int rtl8372n_vlan_filtering(struct dsa_switch *ds, int port,
 		return ret;
 
 	/*
-	 * when a port enable vlan ingress filter and not set pvid 
+	 * when a port enable vlan ingress filter and not set pvid
 	 * drop the untagged frame, only accept tagged frame came in
 	 * else
-	 * when when a port enable vlan ingress filter and have pvid 
+	 * when a port enable vlan ingress filter and have pvid
 	 * we accept the untagged frame came in, the untagged frame
 	 * will marked the port pvid and forward
-	*/
+	 */
 	if (vlan_filtering)
 		ret = rtl8372n_port_igr_drop_untagged(priv, port, !chip_data->pvid_enabled[port]);
 	else
@@ -1727,7 +1734,7 @@ static int rtl8372n_vlan_filtering(struct dsa_switch *ds, int port,
 	if (ret)
 		goto fail_rollback;
 
- 	return 0;
+	return 0;
 
 fail_rollback:
 	{
@@ -1736,16 +1743,16 @@ fail_rollback:
 				    vlan_filter_bak
 				);
 		if (r)
-		dev_err(priv->dev,
-			"failed to restore ingress filter of port %d: %d\n",
-			port, r);
+			dev_err(priv->dev,
+				"failed to restore ingress filter of port %d: %d\n",
+				port, r);
 	}
 	return ret;
 }
 
 static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
-                            const struct switchdev_obj_port_vlan *vlan,
-                            struct netlink_ext_ack *extack)
+			    const struct switchdev_obj_port_vlan *vlan,
+			    struct netlink_ext_ack *extack)
 {
 	int ret;
 	struct rtl837x_vlan_4k vlan4k_bak = {0};
@@ -1757,14 +1764,12 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 	u32 member = 0;
 	u32 untag = 0;
 
-	if (vid > RTL8372N_VLAN_MAX)
-	{
+	if (vid > RTL8372N_VLAN_MAX) {
 		NL_SET_ERR_MSG_MOD(extack, "VLAN ID not valid");
 		return -EINVAL;
 	}
 
-	if (vid_is_dsa_8021q(vid) && is_8021q_tag(priv->tag_proto))
-	{
+	if (vid_is_dsa_8021q(vid) && is_8021q_tag(priv->tag_proto)) {
 		NL_SET_ERR_MSG_MOD(extack, "Range 3072-4095 reserved for dsa_8021q operation");
 		return -EINVAL;
 	}
@@ -1804,16 +1809,17 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 fail_rollback:
 	{
 		int r = priv->ops->set_vlan_4k(priv, &vlan4k_bak);
+
 		if (r)
-		dev_err(priv->dev,
-			"failed to restore VLAN %04x: %d\n",
-			vid, r);
+			dev_err(priv->dev,
+				"failed to restore VLAN %04x: %d\n",
+				vid, r);
 	}
 	return ret;
 }
 
 static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
-                                 const struct switchdev_obj_port_vlan *vlan)
+				 const struct switchdev_obj_port_vlan *vlan)
 {
 	int ret;
 	struct rtl837x_priv *priv = ds->priv;
@@ -1852,7 +1858,7 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 			   bool *tx_fwd_offload,
 			   struct netlink_ext_ack *extack)
 {
-    struct rtl837x_priv *priv = ds->priv;
+	struct rtl837x_priv *priv = ds->priv;
 	struct dsa_port *dp;
 	u32 port_bitmap = 0;
 	int ret;
@@ -1888,17 +1894,14 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 		goto fail_rollback;
 	}
 
-	/*
-	 * Filter and forward the frame by vlan table
-	*/
+	/* Filter and forward the frame by vlan table */
 	ret = rtl8372n_port_remove_cpu_vlan_transparent(priv, port);
 	if (ret) {
 		dev_err(priv->dev, "failed to remove port(%d)<->cpu vlan transparent err: %d\n", port, ret);
 		goto fail_rollback;
 	}
 
-	if (!dsa_is_cpu_port(ds, port))
-	{
+	if (!dsa_is_cpu_port(ds, port)) {
 		ret = rtl8372n_port_vlan_egr_tag_rewrite(priv, port, true);
 		if (ret) {
 			dev_err(priv->dev,
@@ -1959,6 +1962,7 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 	struct dsa_port *dp;
 	u32 port_bitmap = 0;
 	int ret;
+
 	dev_dbg(priv->dev, "[%s]: %d\n", __func__,
 							  port);
 
@@ -1992,7 +1996,7 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 	 * When the port is not in the bridge, in order
 	 * to allow all VLAN tags to be accepted,
 	 * VLAN transparent is set
-	*/
+	 */
 	ret = rtl8372n_port_add_cpu_vlan_transparent(priv, port);
 	if (ret)
 		dev_err(priv->dev, "failed to add port(%d)<->cpu vlan transparent err: %d\n", port, ret);
@@ -2000,14 +2004,14 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 	/*
 	 * Set the hardware do not add/remove/edit the vlan tag
 	 * The VLAN remains completely unchanged when the frame enters and exits
-	*/
+	 */
 	rtl8372n_port_vlan_egr_tag_rewrite(priv, port, false);
 }
 
 static int rtl8372n_port_enable(struct dsa_switch *ds, int port,
 			       struct phy_device *phy)
 {
-    struct rtl837x_priv *priv = ds->priv;
+	struct rtl837x_priv *priv = ds->priv;
 	int ret;
 
 	if (IS_SERDES_PORT(port))
@@ -2022,7 +2026,7 @@ static int rtl8372n_port_enable(struct dsa_switch *ds, int port,
 
 static void rtl8372n_port_disable(struct dsa_switch *ds, int port)
 {
-    struct rtl837x_priv *priv = ds->priv;
+	struct rtl837x_priv *priv = ds->priv;
 
 	if (IS_SERDES_PORT(port))
 		return;
@@ -2032,18 +2036,18 @@ static void rtl8372n_port_disable(struct dsa_switch *ds, int port)
 
 static int rtl8372n_set_mac_eee(struct dsa_switch *ds, int port, struct ethtool_keee *eee)
 {
-    struct rtl837x_priv *priv = ds->priv;
+	struct rtl837x_priv *priv = ds->priv;
 
 	dev_dbg(priv->dev, "[%s]: port(%d) eee_enable:(%s)\n", __func__,
 						  port, eee->eee_enabled ? "true" : "false");
 
 	if (eee->eee_enabled)
-		return rtl837x_reg_bits_write(priv, RTL8373_EEE_CTRL_ADDR(port), 
+		return rtl837x_reg_bits_write(priv, RTL8373_EEE_CTRL_ADDR(port),
 				  RTL8373_EEE_CTRL_EEE_PORT_TX_EN_MASK | RTL8373_EEE_CTRL_EEE_PORT_RX_EN_MASK,
 				  0xffffffff
 				);
 	else
-		return rtl837x_reg_bits_write(priv, RTL8373_EEE_CTRL_ADDR(port), 
+		return rtl837x_reg_bits_write(priv, RTL8373_EEE_CTRL_ADDR(port),
 				  RTL8373_EEE_CTRL_EEE_PORT_TX_EN_MASK | RTL8373_EEE_CTRL_EEE_PORT_RX_EN_MASK,
 				  0
 				);
@@ -2068,8 +2072,7 @@ rtl8372n_port_fdb_static_add(struct rtl837x_priv *priv, int port,
 	entry.uc.is_static = true;
 
 	ret = rtl837x_lut_set(priv, &entry);
-	if (ret == -ENOENT)
-	{
+	if (ret == -ENOENT) {
 		dev_dbg(priv->dev, "[%s]:addfailed mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d\n", __func__,
 						addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
 						port, vid);
@@ -2095,8 +2098,7 @@ rtl8372n_port_fdb_static_del(struct rtl837x_priv *priv,
 
 	// query the entry in lut table
 	ret = rtl837x_lut_query(priv, LUT_READ_METHOD_MAC, &entry);
-	if (ret == -ENOENT)
-	{
+	if (ret == -ENOENT) {
 		dev_dbg(priv->dev, "[%s]:notfound mac:%02X:%02X:%02X:%02X:%02X:%02X vid:%04d\n", __func__,
 						addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
 						vid);
@@ -2125,31 +2127,28 @@ rtl8372n_port_fdb_add(struct dsa_switch *ds, int port,
 					db.type == DSA_DB_PORT ? "DSA_DB_PORT" : "DSA_DB_BRIDGE",
 					port, vid);
 
-	if (db.type == DSA_DB_BRIDGE && is_8021q_tag(priv->tag_proto))
-	{
+	if (db.type == DSA_DB_BRIDGE && is_8021q_tag(priv->tag_proto)) {
 		/*
-		* When the DSA tag protocol is DSA_TAG_PROTO_MXL862_8021Q, the L2 VLAN
-		* learned on the CPU port is the 802.1q DSA TAG rather than the port's own
-		* VLAN ID.
-		* We need add the correct fdb entry
-		*/
-		if (vid == 0)
-		{
+		 * When the DSA tag protocol is DSA_TAG_PROTO_MXL862_8021Q, the L2 VLAN
+		 * learned on the CPU port is the 802.1q DSA TAG rather than the port's own
+		 * VLAN ID.
+		 * We need add the correct fdb entry
+		 */
+		if (vid == 0) {
 			struct dsa_port *dp;
+
 			dsa_switch_for_each_user_port(dp, ds) {
 				/* Add static fdb entry */
 				ret = rtl8372n_port_fdb_static_add(priv, port, addr, dsa_tag_8021q_standalone_vid(dp));
 				if (ret)
 					return ret;
 			}
-		} else
-		{
+		} else {
 			ret = rtl8372n_port_fdb_static_add(priv, port, addr, vid);
 			if (ret)
 				return ret;
 		}
-	} else
-	{
+	} else {
 		return rtl8372n_port_fdb_static_add(priv, port, addr, vid);
 	}
 	return 0;
@@ -2169,23 +2168,20 @@ rtl8372n_port_fdb_del(struct dsa_switch *ds, int port,
 	if (dsa_fdb_present_in_other_db(ds, port, addr, vid, db))
 		return 0;
 
-	if (db.type == DSA_DB_BRIDGE && is_8021q_tag(priv->tag_proto))
-	{
-		if (vid == 0)
-		{
+	if (db.type == DSA_DB_BRIDGE && is_8021q_tag(priv->tag_proto)) {
+		if (vid == 0) {
 			struct dsa_port *dp;
+
 			dsa_switch_for_each_user_port(dp, ds) {
 				/* Del static fdb entry */
 				ret = rtl8372n_port_fdb_static_del(priv, addr, dsa_tag_8021q_standalone_vid(dp));
 				if (ret)
 					return ret;
 			}
-		} else
-		{
+		} else {
 			return rtl8372n_port_fdb_static_del(priv, addr, vid);
 		}
-	} else
-	{
+	} else {
 		return rtl8372n_port_fdb_static_del(priv, addr, vid);
 	}
 	return 0;
@@ -2238,13 +2234,11 @@ rtl8372n_port_mdb_add(struct dsa_switch *ds, int port,
 	if (ret != -ENOENT && ret != 0)
 		return ret;
 
-	if (ret == 0)
-	{
+	if (ret == 0) {
 		dev_dbg(priv->dev, "[%s]:found mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d addr:%04d\n", __func__,
 						addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
 						port, vid, entry.addr);
-		if (entry.type != LUT_TYPE_L2_MC)
-		{
+		if (entry.type != LUT_TYPE_L2_MC) {
 			dev_err(priv->dev, "[%s]: got an unexpect entry from lut table, this should not happen\n", __func__);
 			return -EINVAL;
 		}
@@ -2252,8 +2246,7 @@ rtl8372n_port_mdb_add(struct dsa_switch *ds, int port,
 
 	entry.mc.mbr |= BIT(port);
 	ret = rtl837x_lut_set(priv, &entry);
-	if (ret == -ENOENT)
-	{
+	if (ret == -ENOENT) {
 		dev_dbg(priv->dev, "[%s]:addfailed mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d\n", __func__,
 						addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
 						port, vid);
@@ -2275,6 +2268,7 @@ rtl8372n_port_mdb_del(struct dsa_switch *ds, int port,
 	const u8 *addr = mdb->addr;
 	u16 vid = mdb->vid;
 	struct rtl837x_lut_entry entry = {0};
+
 	dev_dbg(priv->dev, "[%s]:mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d\n", __func__,
 					addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
 					port, vid);
@@ -2287,28 +2281,23 @@ rtl8372n_port_mdb_del(struct dsa_switch *ds, int port,
 	if (ret == -ENOENT)
 		return 0;
 
-	if (ret == 0)
-	{
+	if (ret == 0) {
 		dev_dbg(priv->dev, "[%s]:found mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d addr:%04d\n", __func__,
 						addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
 						port, vid, entry.addr);
-		if (entry.type != LUT_TYPE_L2_MC)
-		{
+		if (entry.type != LUT_TYPE_L2_MC) {
 			dev_err(priv->dev, "[%s]: got an unexpect entry from lut table, this should not happen\n", __func__);
 			return -EINVAL;
 		}
-	}else
+	} else
 		return ret;
 
 	entry.mc.mbr &= ~BIT(port);
 	if (!entry.mc.mbr)
-	{
 		return rtl837x_lut_del(priv, entry.addr);
-	}
 
 	ret = rtl837x_lut_set(priv, &entry);
-	if (ret == -ENOENT)
-	{
+	if (ret == -ENOENT) {
 		dev_dbg(priv->dev, "[%s]:delfailed mac:%02X:%02X:%02X:%02X:%02X:%02X port:%d vid:%04d\n", __func__,
 						addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
 						port, vid);
@@ -2320,12 +2309,11 @@ rtl8372n_port_mdb_del(struct dsa_switch *ds, int port,
 	return ret;
 }
 
-enum RTL8373_FLUSHMODE
-{
-    FLUSHMDOE_PORT = 0,
-    FLUSHMDOE_VID,
-    FLUSHMDOE_FID,
-    FLUSHMDOE_END,
+enum RTL8373_FLUSHMODE {
+	FLUSHMDOE_PORT = 0,
+	FLUSHMDOE_VID,
+	FLUSHMDOE_FID,
+	FLUSHMDOE_END,
 };
 
 static void rtl8372n_port_fast_age(struct dsa_switch *ds, int port)
@@ -2359,16 +2347,14 @@ static void rtl8372n_port_fast_age(struct dsa_switch *ds, int port)
 	regmap_read_poll_timeout(priv->map, RTL8373_L2_TBL_FLUSH_CMD_ADDR, tmp,
 		  ((tmp & RTL8373_L2_TBL_FLUSH_CMD_FLUSH_BUSY_MASK) == 0),
 		  10, 1000);
-	return;
 }
 
-enum RTL8373_MSTP_STATE
-{
-    MSTP_DISABLE = 0,
-    MSTP_BLOCKING,
-    MSTP_LEARNING,
-    MSTP_FORWARDING,
-    MSTP_END
+enum RTL8373_MSTP_STATE {
+	MSTP_DISABLE = 0,
+	MSTP_BLOCKING,
+	MSTP_LEARNING,
+	MSTP_FORWARDING,
+	MSTP_END
 };
 
 #define RTL8373_STP_STATE(port, state) \
@@ -2413,43 +2399,40 @@ static void rtl8372n_port_stp_state_set(struct dsa_switch *ds, int port, u8 stat
 
 static int rtl8372n_setup(struct dsa_switch *ds)
 {
-    int ret;
-    struct rtl837x_priv *priv = ds->priv;
+	int ret;
+	struct rtl837x_priv *priv = ds->priv;
 	struct device_node *np = priv->dev->of_node;
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *dp;
 
 
 	ret = rtl8372n_soft_reset_chip(priv);
-	if (ret)
-	{
+	if (ret) {
 		dev_err(priv->dev, "failed to reset chip: %pe\n",
 			ERR_PTR(ret));
 		return ret;
 	}
 
 	ret = rtl8372n_reset_serdes(priv);
-	if (ret)
-	{
+	if (ret) {
 		dev_err(priv->dev, "failed to reset serdes: %pe\n",
 			ERR_PTR(ret));
 		return ret;
 	}
 
 	int cpu_dp_cnt = 0;
+
 	dsa_switch_for_each_port(dp, ds) {
 		if (dsa_port_is_dsa(dp)) {
 			dev_err(priv->dev, "Cascading (DSA link) not supported\n");
 			return -EOPNOTSUPP;
 		}
 
-		if (dsa_port_is_cpu(dp))
-		{
+		if (dsa_port_is_cpu(dp)) {
 			cpu_dp_cnt++;
 			// TODO: multi CPU port support
-			if (cpu_dp_cnt > 1)
-			{
-				dev_err(priv->dev,"We only support one cpu port now\n");
+			if (cpu_dp_cnt > 1) {
+				dev_err(priv->dev, "We only support one cpu port now\n");
 				return -ENODEV;
 			}
 
@@ -2468,27 +2451,27 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	}
 
 	chip_data->pcs[3].pcs.ops = &rtl8372n_sds_pcs_ops;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6,18,0)
+#if  KERNEL_VERSION(6, 18, 0) >= LINUX_VERSION_CODE
 	chip_data->pcs[3].pcs.neg_mode = true;
 #endif
 	chip_data->pcs[3].priv = priv;
 	chip_data->pcs[3].index = 3;
 
 	chip_data->pcs[8].pcs.ops = &rtl8372n_sds_pcs_ops;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6,18,0)
+#if  KERNEL_VERSION(6, 18, 0) >= LINUX_VERSION_CODE
 	chip_data->pcs[8].pcs.neg_mode = true;
 #endif
 	chip_data->pcs[8].priv = priv;
 	chip_data->pcs[8].index = 8;
 
 	// set port 3 and port 8 as serdes port
-	rtl837x_reg_bits_write(priv, RTL8373_SMI_MAC_TYPE_CTRL_ADDR, 
+	rtl837x_reg_bits_write(priv, RTL8373_SMI_MAC_TYPE_CTRL_ADDR,
 			 RTL8373_SMI_MAC_TYPE_CTRL_MAC_PORT8_TYPE_MASK | RTL8373_SMI_MAC_TYPE_CTRL_MAC_PORT3_TYPE_MASK,
 			 0
 			);
 
 	// set port4-7 polling internal resolution reg
-	rtl837x_reg_bits_write(priv, RTL8373_SMI_PORT_POLLING_SEL_ADDR, 
+	rtl837x_reg_bits_write(priv, RTL8373_SMI_PORT_POLLING_SEL_ADDR,
 			 RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL4_MASK | RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL5_MASK |
 			  RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL6_MASK | RTL8373_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL7_MASK,
 			 0b1111
@@ -2504,32 +2487,28 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	rtl837x_phys_write_c45(priv, 0xF0, 31, 0xa610, 0x2858);
 
 	/* SerDes PN swap: page 0x00 reg 0x00 (XSG, ≤5G) + page 0x06 reg 0x02 (10GR) */
-	if (of_property_read_bool(np, "sds0-rx-swap"))
-	{
+	if (of_property_read_bool(np, "sds0-rx-swap")) {
 		rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
 				  SDS_CTRL00_REG00_XSG_RX_INV_MASK, 1); //#SDS0 RX PN swap
 		rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
 				  SDS_CTRL06_REG02_10GR_RX_INV_MASK, 1);
 	}
 
-	if (of_property_read_bool(np, "sds0-tx-swap"))
-	{
+	if (of_property_read_bool(np, "sds0-tx-swap")) {
 		rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
 				  SDS_CTRL00_REG00_XSG_TX_INV_MASK, 1); //#SDS0 TX PN swap
 		rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
 				  SDS_CTRL06_REG02_10GR_TX_INV_MASK, 1);
 	}
 
-	if (of_property_read_bool(np, "sds1-rx-swap"))
-	{
+	if (of_property_read_bool(np, "sds1-rx-swap")) {
 		rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
 				  SDS_CTRL00_REG00_XSG_RX_INV_MASK, 1); //#SDS1 RX PN swap
 		rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
 				  SDS_CTRL06_REG02_10GR_RX_INV_MASK, 1);
 	}
 
-	if (of_property_read_bool(np, "sds1-tx-swap"))
-	{
+	if (of_property_read_bool(np, "sds1-tx-swap")) {
 		rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
 				  SDS_CTRL00_REG00_XSG_TX_INV_MASK, 1); //#SDS1 TX PN swap
 		rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
@@ -2537,38 +2516,38 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	}
 
 	/*
-	  What The Fuck Is This??????? 
-	  I can't understand this register design.
+	 * What The Fuck Is This???????
+	 * I can't understand this register design.
+	 *
+	 * We have two PCB routing
+	 *
+	 * RJ45 port pin mapping:
+	 *  white Orange ->  0+
+	 *        Orange ->  0-
+	 *  white Green  ->  1+
+	 *        Blue   ->  2+
+	 *  white Blue   ->  2-
+	 *        Green  ->  1-
+	 *  white Brown  ->  3+
+	 *        Brown  ->  3-
+	 * Chip side:
+	 *    A+ A- B+ B- C+ C- D+ D-
+	 *
+	 * Case 1: No phy-mdi-reverse and no phy-tx-polarity-swap (normal connection)
+	 *   A+ → 0+   A- → 0-   (Pair A → RJ45 Pair 0)
+	 *   B+ → 1+   B- → 1-   (Pair B → RJ45 Pair 1)
+	 *   C+ → 2+   C- → 2-   (Pair C → RJ45 Pair 2)
+	 *   D+ → 3+   D- → 3-   (Pair D → RJ45 Pair 3)
+	 * Case 2: With phy-mdi-reverse and phy-tx-polarity-swap
+	 *   A+ → 3+   A- → 3-   (Pair A → RJ45 Pair 3)
+	 *   B+ → 2+   B- → 2-   (Pair B → RJ45 Pair 2)
+	 *   C+ → 1-   C- → 1+   (Pair C → RJ45 Pair 1, with polarity REVERSED)
+	 *   D+ → 0-   D- → 0+   (Pair D → RJ45 Pair 0, with polarity REVERSED)
+	 */
 
-	  We have two PCB routing
-
-	  RJ45 port pin mapping:
-	    white Orange ->  0+
-	          Orange ->  0-
-	    white Green  ->  1+
-	          Blue   ->  2+
-	    white Blue   ->  2-
-	          Green  ->  1-
-	    white Brown  ->  3+
-	          Brown  ->  3-
-	  Chip side:
-	  	A+ A- B+ B- C+ C- D+ D-
-
-	  Case 1: No phy-mdi-reverse and no phy-tx-polarity-swap (normal connection)
-	    A+ → 0+   A- → 0-   (Pair A → RJ45 Pair 0)
-	    B+ → 1+   B- → 1-   (Pair B → RJ45 Pair 1)
-	    C+ → 2+   C- → 2-   (Pair C → RJ45 Pair 2)
-	    D+ → 3+   D- → 3-   (Pair D → RJ45 Pair 3)
-	  Case 2: With phy-mdi-reverse and phy-tx-polarity-swap
-	    A+ → 3+   A- → 3-   (Pair A → RJ45 Pair 3)
-	    B+ → 2+   B- → 2-   (Pair B → RJ45 Pair 2)
-	    C+ → 1-   C- → 1+   (Pair C → RJ45 Pair 1, with polarity REVERSED)
-	    D+ → 0-   D- → 0+   (Pair D → RJ45 Pair 0, with polarity REVERSED)
-	*/
-
-    // ##MDI reverse configuration for Demo Tap UP RJ45, RTL8366U/RTL8373N/RTL8372N
+	// ##MDI reverse configuration for Demo Tap UP RJ45, RTL8366U/RTL8373N/RTL8372N
 	if (of_property_read_bool(np, "phy-mdi-reverse"))
-		rtl837x_reg_bits_write(priv, RTL8373_CFG_PHY_MDI_REVERSE_ADDR, 
+		rtl837x_reg_bits_write(priv, RTL8373_CFG_PHY_MDI_REVERSE_ADDR,
 				  RTL8373_CFG_PHY_MDI_REVERSE_P0_MDI_REVERSE_MASK | RTL8373_CFG_PHY_MDI_REVERSE_P1_MDI_REVERSE_MASK |
 				   RTL8373_CFG_PHY_MDI_REVERSE_P2_MDI_REVERSE_MASK | RTL8373_CFG_PHY_MDI_REVERSE_P3_MDI_REVERSE_MASK,
 				  0xC
@@ -2588,7 +2567,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 			);
 
 	// #RS_LINK_FAULT_INDI_OFF=1 disable link fault flag, resolve port4-port7 linkdown dsc expand issue
-    rtl837x_reg_bits_write(priv, RTL8373_RS_LAYER_CONFIG_ADDR,
+	rtl837x_reg_bits_write(priv, RTL8373_RS_LAYER_CONFIG_ADDR,
 		 RTL8373_RS_LAYER_CONFIG_RS_LINK_FAULT_INDI_OFF_MASK, 1
 		);
 
@@ -2597,39 +2576,38 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 			);
 
 #if defined(RTL837X_PHY_PATCH)
-	if (priv->chip_ver == 2)
-	{
+	if (priv->chip_ver == 2) {
 		patch_phys_v008(priv, 0xf0);
 		patch_phys_v008_rls_lockmain(priv, 0xf0);
 	}
 #endif
 
-    //RTL8372/RTL8372N/RTL8366U set polling mask 0x1f8, port 3/8 from serdes need config bit8=1
-    rtl837x_reg_bits_write(priv, RTL8373_SMI_GLB_CTRL_ADDR,
+	//RTL8372/RTL8372N/RTL8366U set polling mask 0x1f8, port 3/8 from serdes need config bit8=1
+	rtl837x_reg_bits_write(priv, RTL8373_SMI_GLB_CTRL_ADDR,
 		 RTL8373_SMI_GLB_CTRL_SMI_POLLING_MASK_MASK, 0x1f8
 		);
-	msleep(5);
+	msleep(20);
 
 
 	/*
 	 * Clear certain register configurations during the startup.
 	 * In some cases, a hardware reset of the chip fails to clear and reset all registers.
 	 * Therefore, clearing is required during startup.
-	*/
+	 */
 	dsa_switch_for_each_port(dp, ds) {
 		ret = rtl8372n_port_remove_egr_vlan_transparent(priv, dp->index, 0xffffffff);
-		if(ret)
+		if (ret)
 			return ret;
 
 		ret = rtl8372n_port_remove_egr_vlan_keep(priv, dp->index, 0xffffffff);
-		if(ret)
+		if (ret)
 			return ret;
 	}
 
 	of_extra_init(ds);
 
-    ret = rtl8372n_setup_mdio(priv);
-	if(ret){
+	ret = rtl8372n_setup_mdio(priv);
+	if (ret) {
 		dev_err(priv->dev, "rtl8372n_setup_mdio Fail, error:%d\n", ret);
 		return ret;
 	}
@@ -2642,7 +2620,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	dsa_switch_for_each_port(dp, ds) {
 		int port = dp->index;
 
-        ret = rtl837x_reg_write(priv, RTL8373_FC_PORT_ACT_CTRL_ADDR(port), 0x1050);
+	ret = rtl837x_reg_write(priv, RTL8373_FC_PORT_ACT_CTRL_ADDR(port), 0x1050);
 		if (ret)
 			return ret;
 
@@ -2666,7 +2644,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 			return ret;
 
 		// Disable port EEE feature by default
-		ret = rtl837x_reg_bits_write(priv, RTL8373_EEE_CTRL_ADDR(port), 
+		ret = rtl837x_reg_bits_write(priv, RTL8373_EEE_CTRL_ADDR(port),
 				  RTL8373_EEE_CTRL_EEE_PORT_TX_EN_MASK | RTL8373_EEE_CTRL_EEE_PORT_RX_EN_MASK,
 				  0
 				);
@@ -2707,7 +2685,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		/*
 		 * We set VLAN transparent to enable ports to forward
 		 * without being restricted by VLAN tables
-		*/
+		 */
 		ret = rtl8372n_port_add_cpu_vlan_transparent(priv, port);
 		if (ret)
 			return ret;
@@ -2727,9 +2705,9 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	}
 
 	/*
-	 * Warning! 
+	 * Warning!
 	 * The following understanding may be incorrect
-	*/
+	 */
 
 	/*
 	 * If a frame send from CPU (CPU->switch) whithout cvid only with a DSA TAG
@@ -2739,15 +2717,15 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	 *  |DMAC|SMAC|DSA TAG(SVLAN)|...| -------------> |DMAC|SMAC|...| ----..
 	 *              remove dsa tag (maybe? or remove the tag before the frame sent out?)
 	 *                              mark destination port
-	 *                                  
-	 * --------------------------------------------------------------------------------         
-	 *       CVLAN process                            Send to dest port       
+	 *
+	 * --------------------------------------------------------------------------------
+	 *       CVLAN process                            Send to dest port
 	 * ..---------------------> |DMAC|SMAC|CVLAN|...| -----------------> |DMAC|SMAC|...|
 	 *  frame with out CVLAN tag                We set vlan keep on all user ports
 	 *  mark the cpuport pvid(1)               so the origin frame will be send out(without DSA TAG)
 	 * --------------------------------------------------------------------------------
 	 * ================================================================================
-	 * 
+	 *
 	 * If a frame send from CPU (CPU->switch) whith DSA tag(SVLAN) and CVLAN
 	 * ================================================================================
 	 * --------------------------------------------------------------------------------
@@ -2755,53 +2733,53 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	 *  |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN|...| -------------> |DMAC|SMAC|CVLAN|...| ----..
 	 *                                       remove dsa tag
 	 *                                    mark destination port
-	 * --------------------------------------------------------------------------------         
-	 *       CVLAN process                            Send to dest port       
+	 * --------------------------------------------------------------------------------
+	 *       CVLAN process                            Send to dest port
 	 * ..---------------------> |DMAC|SMAC|CVLAN|...| -----------------> |DMAC|SMAC|CVLAN(may not exist)|...|
 	 *  frame already with CVLAN tag             remove or keep the CVLAN tag
-	 * 
+	 *
 	 * --------------------------------------------------------------------------------
 	 * ================================================================================
-	 * 
+	 *
 	 * If a frame send to CPU (switch->CPU) whithout vlan tag
 	 * ================================================================================
 	 * --------------------------------------------------------------------------------
 	 *                  Port based vlan tag
 	 *  |DMAC|SMAC|...| -------------------> |DMAC|SMAC|CVLAN|...| ----...
 	 *               add the port based vlan id
-	 * 
-	 * --------------------------------------------------------------------------------         
+	 *
+	 * --------------------------------------------------------------------------------
 	 *   SVLAN process                                        (CPU Port) Port Egress Tag Mode
 	 *  ..-----------------> |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN|...|..-----------------> |DMAC|SMAC|DSA TAG(SVLAN)|...
 	 * mark the src port svid                                         Keep Format
 	 *                                                             remove the vlan tag
 	 * --------------------------------------------------------------------------------
 	 * ================================================================================
-	 * 
+	 *
 	 * If a frame send to CPU (switch->CPU) whit vlan tag
 	 * ================================================================================
 	 * --------------------------------------------------------------------------------
 	 *                        Port Ingerss check
 	 *  |DMAC|SMAC|CVLAN|...| -------------------> |DMAC|SMAC|CVLAN|...| ----...
 	 *                         drop or forward
-	 * 
-	 * --------------------------------------------------------------------------------         
+	 *
+	 * --------------------------------------------------------------------------------
 	 *   SVLAN process
 	 *  ..-----------------> |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN|...|
 	 * mark the src port svid
-	 * 
+	 *
 	 * --------------------------------------------------------------------------------
 	 * ================================================================================
-	*/
+	 */
 
 	/*
 	 * So when a port is not in the bridge
 	 * what will happens
-	 * 
+	 *
 	 * when the port is not in the bridge, it will enable vlan transparent on it
 	 * This way, the port will not be restricted by the VLAN table
 	 * the frame will only add/remove the DSA TAG(SVLAN), and there will be no changes to CVLAN
-	 * 
+	 *
 	 * If a frame send to CPU (switch->CPU)
 	 * ================================================================================
 	 * --------------------------------------------------------------------------------
@@ -2809,14 +2787,14 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	 *  |DMAC|SMAC|CVLAN(or not)|...| -------------------> |DMAC|SMAC|CVLAN(or not)|...| ----...
 	 *                                 check is disabled
 	 *                               all frames can came in
-	 * --------------------------------------------------------------------------------         
+	 * --------------------------------------------------------------------------------
 	 *   SVLAN process
 	 *  ..-----------------> |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN(or not)|...|
 	 * mark the src port svid
-	 * 
+	 *
 	 * --------------------------------------------------------------------------------
 	 * ================================================================================
-	 * 
+	 *
 	 * If a frame send from CPU (CPU->switch)
 	 * ================================================================================
 	 * --------------------------------------------------------------------------------
@@ -2824,13 +2802,13 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	 *  |DMAC|SMAC|DSA TAG(SVLAN)|CVLAN(or not)|...| -------------> |DMAC|SMAC|CVLAN(or not)|...| ----..
 	 *                                              remove dsa tag
 	 *                                           mark destination port
-	 * --------------------------------------------------------------------------------         
-	 *       CVLAN process                                    Send to dest port       
+	 * --------------------------------------------------------------------------------
+	 *       CVLAN process                                    Send to dest port
 	 * ..---------------------> |DMAC|SMAC|CVLAN(or not)|...| -----------------> |DMAC|SMAC|CVLAN((or not))|...|
 	 *        do nothing
 	 * --------------------------------------------------------------------------------
 	 * ================================================================================
-	*/
+	 */
 
 	ret = rtl837x_reg_bits_write(priv, RTL8373_L2_TBL_FLUSH_ALL_ADDR,
 				  RTL8373_L2_TBL_FLUSH_ALL_FLUSH_ALL_MASK, 1);
@@ -2884,7 +2862,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	if (ret)
 		return ret;
 
-    return 0;
+	return 0;
 }
 
 static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
@@ -2915,7 +2893,7 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.port_fdb_dump = rtl8372n_port_fdb_dump,
 	.port_mdb_add  = rtl8372n_port_mdb_add,
 	.port_mdb_del  = rtl8372n_port_mdb_del,
-    .port_fast_age = rtl8372n_port_fast_age,
+	.port_fast_age = rtl8372n_port_fast_age,
 
 	.tag_8021q_vlan_add = rtl8372n_tag_8021q_vlan_add,
 	.tag_8021q_vlan_del = rtl8372n_tag_8021q_vlan_del,
@@ -2923,7 +2901,7 @@ static const struct dsa_switch_ops rtl8372n_switch_ops_mdio = {
 	.port_enable = rtl8372n_port_enable,
 	.port_disable = rtl8372n_port_disable,
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,44)
+#if  KERNEL_VERSION(6, 12, 44) <= LINUX_VERSION_CODE
 	.support_eee		= dsa_supports_eee,
 #endif
 	.set_mac_eee		= rtl8372n_set_mac_eee,
@@ -2937,8 +2915,8 @@ static const struct rtl837x_ops rtl8372n_ops = {
 
 	.phy_read_c22   = rtl837x_phy_read_c22,
 	.phy_write_c22  = rtl837x_phy_write_c22,
-    .phy_read_c45   = rtl837x_phy_read_c45,
-    .phy_write_c45  = rtl837x_phy_write_c45,
+	.phy_read_c45   = rtl837x_phy_read_c45,
+	.phy_write_c45  = rtl837x_phy_write_c45,
 };
 
 const struct rtl837x_variant rtl8372n_variant = {
