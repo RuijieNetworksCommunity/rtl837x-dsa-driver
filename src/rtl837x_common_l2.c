@@ -226,14 +226,14 @@ int rtl837x_lut_query(struct rtl837x_priv *priv,
 	mutex_lock(&priv->ita_lock);
 
 	// check busy
-	ret = regmap_read_poll_timeout(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp,
-		  ((tmp & RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
+	ret = regmap_read_poll_timeout(priv->map, RTL837X_ITA_CTRL0_ADDR, tmp,
+		  ((tmp & RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
 		  10, 10000);
 	if (ret)
 		goto out;
 
-	ret = rtl837x_reg_bits_write(priv, RTL8373_ITA_L2_CTRL_ADDR,
-					  RTL8373_ITA_L2_CTRL_READ_MTHD_MASK, method);
+	ret = rtl837x_reg_bits_write(priv, RTL837X_ITA_L2_CTRL_ADDR,
+					  RTL837X_ITA_L2_CTRL_READ_MTHD_MASK, method);
 	if (ret)
 		goto out;
 
@@ -244,35 +244,35 @@ int rtl837x_lut_query(struct rtl837x_priv *priv,
 	case LUT_READ_METHOD_NEXT_L2MC:
 	case LUT_READ_METHOD_NEXT_L3MC:
 	case LUT_READ_METHOD_NEXT_L2L3MC:
-		cmd = FIELD_PREP(RTL8373_ITA_CTRL0_TBL_ADDR_MASK, entry->addr) |
-			  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_L2) |
-			  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_ACT_MASK, TB_OP_READ) |
-			  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
+		cmd = FIELD_PREP(RTL837X_ITA_CTRL0_TBL_ADDR_MASK, entry->addr) |
+			  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_L2) |
+			  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_ACT_MASK, TB_OP_READ) |
+			  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
 		break;
 	case LUT_READ_METHOD_MAC:
 		rtl837x_l2_uc_to_data(&entry->uc, tb_data);
 		for (int i = 0; i < RTL837X_LUT_TABLE_SIZE; i++) {
-			ret = rtl837x_reg_write(priv, RTL8373_ITA_WRITE_DATA0_ADDR(i), tb_data[i]);
+			ret = rtl837x_reg_write(priv, RTL837X_ITA_WRITE_DATA0_ADDR(i), tb_data[i]);
 			if (ret)
 				goto out;
 		}
-		cmd = FIELD_PREP(RTL8373_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_L2) |
-			  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_ACT_MASK, TB_OP_READ) |
-			  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
+		cmd = FIELD_PREP(RTL837X_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_L2) |
+			  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_ACT_MASK, TB_OP_READ) |
+			  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
 		break;
 	case LUT_READ_METHOD_NEXT_L2UCSPA:
-		ret = rtl837x_reg_bits_write(priv, RTL8373_ITA_CTRL0_ADDR,
-					  RTL8373_ITA_CTRL0_TBL_ADDR_MASK, entry->addr);
+		ret = rtl837x_reg_bits_write(priv, RTL837X_ITA_CTRL0_ADDR,
+					  RTL837X_ITA_CTRL0_TBL_ADDR_MASK, entry->addr);
 		if (ret)
 			goto out;
-		ret = rtl837x_reg_bits_write(priv, RTL8373_ITA_L2_CTRL_ADDR,
-					  RTL8373_ITA_L2_CTRL_PORT_NUM_MASK, entry->uc.port);
+		ret = rtl837x_reg_bits_write(priv, RTL837X_ITA_L2_CTRL_ADDR,
+					  RTL837X_ITA_L2_CTRL_PORT_NUM_MASK, entry->uc.port);
 		if (ret)
 			goto out;
-		cmd = FIELD_PREP(RTL8373_ITA_CTRL0_TBL_ADDR_MASK, entry->addr) |
-			  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_L2) |
-			  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_ACT_MASK, TB_OP_READ) |
-			  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
+		cmd = FIELD_PREP(RTL837X_ITA_CTRL0_TBL_ADDR_MASK, entry->addr) |
+			  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_L2) |
+			  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_ACT_MASK, TB_OP_READ) |
+			  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
 		break;
 	default:
 		ret = -EINVAL;
@@ -280,20 +280,20 @@ int rtl837x_lut_query(struct rtl837x_priv *priv,
 	}
 
 	// execute the table cmd
-	ret = rtl837x_reg_write(priv, RTL8373_ITA_CTRL0_ADDR, cmd);
+	ret = rtl837x_reg_write(priv, RTL837X_ITA_CTRL0_ADDR, cmd);
 	if (ret)
 		goto out;
 
 	// wait busy flag
-	ret = regmap_read_poll_timeout(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp,
-		  ((tmp & RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
+	ret = regmap_read_poll_timeout(priv->map, RTL837X_ITA_CTRL0_ADDR, tmp,
+		  ((tmp & RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
 		  10, 10000);
 	if (ret)
 		goto out;
 
 	// check did the query hit a entry
-	ret = rtl837x_reg_bits_read(priv, RTL8373_ITA_L2_CTRL_ADDR,
-				  RTL8373_ITA_L2_CTRL_ACT_STS_MASK, &tmp);
+	ret = rtl837x_reg_bits_read(priv, RTL837X_ITA_L2_CTRL_ADDR,
+				  RTL837X_ITA_L2_CTRL_ACT_STS_MASK, &tmp);
 	if (ret)
 		goto out;
 	if (!tmp) {
@@ -301,15 +301,15 @@ int rtl837x_lut_query(struct rtl837x_priv *priv,
 		goto out;
 	}
 
-	ret = rtl837x_reg_bits_read(priv, RTL8373_ITA_L2_CTRL_ADDR,
-				  RTL8373_ITA_L2_CTRL_TBL_ADDR_MASK, &tmp);
+	ret = rtl837x_reg_bits_read(priv, RTL837X_ITA_L2_CTRL_ADDR,
+				  RTL837X_ITA_L2_CTRL_TBL_ADDR_MASK, &tmp);
 	if (ret)
 		goto out;
 	entry->addr = tmp;
 
 	// read the table data
 	for (int i = 0; i < RTL837X_LUT_TABLE_SIZE; i++) {
-		ret = rtl837x_reg_read(priv, RTL8373_ITA_READ_DATA0_ADDR(i), &tb_data[i]);
+		ret = rtl837x_reg_read(priv, RTL837X_ITA_READ_DATA0_ADDR(i), &tb_data[i]);
 		if (ret)
 			goto out;
 	}
@@ -356,8 +356,8 @@ int rtl837x_lut_set(struct rtl837x_priv *priv,
 	mutex_lock(&priv->ita_lock);
 
 	// check busy
-	ret = regmap_read_poll_timeout(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp,
-		  ((tmp & RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
+	ret = regmap_read_poll_timeout(priv->map, RTL837X_ITA_CTRL0_ADDR, tmp,
+		  ((tmp & RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
 		  10, 10000);
 	if (ret)
 		goto out;
@@ -378,30 +378,30 @@ int rtl837x_lut_set(struct rtl837x_priv *priv,
 	}
 
 	for (int i = 0; i < RTL837X_LUT_TABLE_SIZE; i++) {
-		ret = rtl837x_reg_write(priv, RTL8373_ITA_WRITE_DATA0_ADDR(i), tb_data[i]);
+		ret = rtl837x_reg_write(priv, RTL837X_ITA_WRITE_DATA0_ADDR(i), tb_data[i]);
 		if (ret)
 			goto out;
 	}
 
-	cmd = FIELD_PREP(RTL8373_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_L2) |
-		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_ACT_MASK, TB_OP_WRITE) |
-		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
+	cmd = FIELD_PREP(RTL837X_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_L2) |
+		  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_ACT_MASK, TB_OP_WRITE) |
+		  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
 
 	// execute the table cmd
-	ret = rtl837x_reg_write(priv, RTL8373_ITA_CTRL0_ADDR, cmd);
+	ret = rtl837x_reg_write(priv, RTL837X_ITA_CTRL0_ADDR, cmd);
 	if (ret)
 		goto out;
 
 	// wait busy flag
-	ret = regmap_read_poll_timeout(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp,
-		  ((tmp & RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
+	ret = regmap_read_poll_timeout(priv->map, RTL837X_ITA_CTRL0_ADDR, tmp,
+		  ((tmp & RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
 		  10, 10000);
 	if (ret)
 		goto out;
 
 	// check did the query hit a entry
-	ret = rtl837x_reg_bits_read(priv, RTL8373_ITA_L2_CTRL_ADDR,
-				  RTL8373_ITA_L2_CTRL_ACT_STS_MASK, &tmp);
+	ret = rtl837x_reg_bits_read(priv, RTL837X_ITA_L2_CTRL_ADDR,
+				  RTL837X_ITA_L2_CTRL_ACT_STS_MASK, &tmp);
 	if (ret)
 		goto out;
 	if (!tmp) {
@@ -409,8 +409,8 @@ int rtl837x_lut_set(struct rtl837x_priv *priv,
 		goto out;
 	}
 
-	ret = rtl837x_reg_bits_read(priv, RTL8373_ITA_L2_CTRL_ADDR,
-				  RTL8373_ITA_L2_CTRL_TBL_ADDR_MASK, &tmp);
+	ret = rtl837x_reg_bits_read(priv, RTL837X_ITA_L2_CTRL_ADDR,
+				  RTL837X_ITA_L2_CTRL_TBL_ADDR_MASK, &tmp);
 	if (ret)
 		goto out;
 	entry->addr = tmp;
@@ -430,36 +430,36 @@ int rtl837x_lut_del(struct rtl837x_priv *priv,
 	mutex_lock(&priv->ita_lock);
 
 	// check busy
-	ret = regmap_read_poll_timeout(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp,
-		  ((tmp & RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
+	ret = regmap_read_poll_timeout(priv->map, RTL837X_ITA_CTRL0_ADDR, tmp,
+		  ((tmp & RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
 		  10, 10000);
 	if (ret)
 		goto out;
 
-	ret = rtl837x_reg_bits_write(priv, RTL8373_ITA_L2_CTRL_ADDR,
-						  RTL8373_ITA_L2_CTRL_ENTRY_CLR_MASK, 1);
+	ret = rtl837x_reg_bits_write(priv, RTL837X_ITA_L2_CTRL_ADDR,
+						  RTL837X_ITA_L2_CTRL_ENTRY_CLR_MASK, 1);
 	if (ret)
 		goto out;
 
-	cmd = FIELD_PREP(RTL8373_ITA_CTRL0_TBL_ADDR_MASK, addr) |
-		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_L2) |
-		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_ACT_MASK, TB_OP_WRITE) |
-		  FIELD_PREP(RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
+	cmd = FIELD_PREP(RTL837X_ITA_CTRL0_TBL_ADDR_MASK, addr) |
+		  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_L2) |
+		  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_ACT_MASK, TB_OP_WRITE) |
+		  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
 
 	// execute the table cmd
-	ret = rtl837x_reg_write(priv, RTL8373_ITA_CTRL0_ADDR, cmd);
+	ret = rtl837x_reg_write(priv, RTL837X_ITA_CTRL0_ADDR, cmd);
 	if (ret)
 		goto out;
 
 	// wait busy flag
-	ret = regmap_read_poll_timeout(priv->map, RTL8373_ITA_CTRL0_ADDR, tmp,
-		  ((tmp & RTL8373_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
+	ret = regmap_read_poll_timeout(priv->map, RTL837X_ITA_CTRL0_ADDR, tmp,
+		  ((tmp & RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK) == 0),
 		  10, 10000);
 	if (ret)
 		goto out;
 
-	ret = rtl837x_reg_bits_write(priv, RTL8373_ITA_L2_CTRL_ADDR,
-						  RTL8373_ITA_L2_CTRL_ENTRY_CLR_MASK, 0);
+	ret = rtl837x_reg_bits_write(priv, RTL837X_ITA_L2_CTRL_ADDR,
+						  RTL837X_ITA_L2_CTRL_ENTRY_CLR_MASK, 0);
 
 out:
 	mutex_unlock(&priv->ita_lock);

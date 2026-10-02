@@ -148,8 +148,8 @@ ssize_t MAKE_WRITE_FUNCNAME(pvid)(struct file *filep, const char __user *ubuf,
 			kfree(buf);
 			return -EFAULT;
 		}
-		rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_PB_VLAN_ADDR(port),
-				  RTL8373_VLAN_PORT_PB_VLAN_PVID_MASK(port), pvid);
+		rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_PB_VLAN_ADDR(port),
+				  RTL837X_VLAN_PORT_PB_VLAN_PVID_MASK(port), pvid);
 	} else if (buf[0] == 'r') {
 		if (sscanf(buf, "r %d", &port) != 1) {
 			kfree(buf);
@@ -159,8 +159,8 @@ ssize_t MAKE_WRITE_FUNCNAME(pvid)(struct file *filep, const char __user *ubuf,
 			kfree(buf);
 			return -EFAULT;
 		}
-		ret = rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_PB_VLAN_ADDR(port),
-				  RTL8373_VLAN_PORT_PB_VLAN_PVID_MASK(port), &pvid);
+		ret = rtl837x_reg_bits_read(priv, RTL837X_VLAN_PORT_PB_VLAN_ADDR(port),
+				  RTL837X_VLAN_PORT_PB_VLAN_PVID_MASK(port), &pvid);
 		if (ret) {
 			kfree(buf);
 			return -EIO;
@@ -513,8 +513,8 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_trans)(struct file *filep, const char __user *u
 			return -EFAULT;
 		}
 
-		rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_EGR_TRANS_ADDR(port),
-			  RTL8373_VLAN_PORT_EGR_TRANS_PMSK_MASK(port), &mbr);
+		rtl837x_reg_bits_read(priv, RTL837X_VLAN_PORT_EGR_TRANS_ADDR(port),
+			  RTL837X_VLAN_PORT_EGR_TRANS_PMSK_MASK(port), &mbr);
 		BUF_PRINTF(vlan_trans, "port: %d, mbr: 0x%04X\n",
 			  port, mbr);
 	} else if (buf[0] == 'w') {
@@ -523,8 +523,8 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_trans)(struct file *filep, const char __user *u
 			return -EFAULT;
 		}
 
-		rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TRANS_ADDR(port),
-			  RTL8373_VLAN_PORT_EGR_TRANS_PMSK_MASK(port), mbr);
+		rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_EGR_TRANS_ADDR(port),
+			  RTL837X_VLAN_PORT_EGR_TRANS_PMSK_MASK(port), mbr);
 		BUF_PRINTF(vlan_trans, "port: %d, mbr: 0x%04X\n",
 			  port, mbr);
 	} else {
@@ -556,8 +556,8 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_keep)(struct file *filep, const char __user *ub
 			return -EFAULT;
 		}
 
-		rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_EGR_KEEP_ADDR(port),
-			  RTL8373_VLAN_PORT_EGR_KEEP_PMSK_MASK(port), &mbr);
+		rtl837x_reg_bits_read(priv, RTL837X_VLAN_PORT_EGR_KEEP_ADDR(port),
+			  RTL837X_VLAN_PORT_EGR_KEEP_PMSK_MASK(port), &mbr);
 		BUF_PRINTF(vlan_keep, "port: %d, mbr: 0x%04X\n",
 			  port, mbr);
 	} else if (buf[0] == 'w') {
@@ -566,8 +566,8 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_keep)(struct file *filep, const char __user *ub
 			return -EFAULT;
 		}
 
-		rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_KEEP_ADDR(port),
-			  RTL8373_VLAN_PORT_EGR_KEEP_PMSK_MASK(port), mbr);
+		rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_EGR_KEEP_ADDR(port),
+			  RTL837X_VLAN_PORT_EGR_KEEP_PMSK_MASK(port), mbr);
 		BUF_PRINTF(vlan_keep, "port: %d, mbr: 0x%04X\n",
 			  port, mbr);
 	} else {
@@ -601,8 +601,8 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __u
 			return -EFAULT;
 		}
 
-		rtl837x_reg_bits_read(priv, RTL8373_VLAN_PORT_EGR_TAG_ADDR(port),
-			  RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port), &tmp);
+		rtl837x_reg_bits_read(priv, RTL837X_VLAN_PORT_EGR_TAG_ADDR(port),
+			  RTL837X_VLAN_PORT_EGR_TAG_MODE_MASK(port), &tmp);
 
 		switch (tmp) {
 		case 0:
@@ -628,8 +628,8 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __u
 			return -EFAULT;
 		}
 
-		rtl837x_reg_bits_write(priv, RTL8373_VLAN_PORT_EGR_TAG_ADDR(port),
-			  RTL8373_VLAN_PORT_EGR_TAG_MODE_MASK(port), tmp);
+		rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_EGR_TAG_ADDR(port),
+			  RTL837X_VLAN_PORT_EGR_TAG_MODE_MASK(port), tmp);
 	} else {
 		BUF_PRINTF(vlan_tag_rewrite, "echo \"r/w <Dport> [<Xval>]\" > vlan_tag_rewrite\n");
 	}
@@ -666,7 +666,7 @@ static ssize_t _sds_page_dump_read(struct file *filep, char __user *ubuf,
 		} \
 	} while (0)
 
-	rtl837x_reg_read(priv, RTL8373_SDS_MODE_SEL_ADDR, &tmp32);
+	rtl837x_reg_read(priv, RTL837X_SDS_MODE_SEL_ADDR, &tmp32);
 	SDS_DUMP_APPEND("reg 0x7b20: %#08x\n", tmp32);
 	rtl837x_sds_reg_read(priv, 0, 0x21, 0x10, &tmp16);
 	SDS_DUMP_APPEND("sds page 0x21  reg 0x10; data = 0x%04x\n", tmp16);
@@ -874,31 +874,28 @@ static ssize_t _port_eee_status_dump_read(struct file *filep, char __user *ubuf,
 		return -ENOMEM;
 
 	/* Global EEE LPI delay / FIFO water-level setting */
-	ret = rtl837x_reg_read(priv, RTL8373_EEE_LPI_DLY_CYCLE_ADDR, &reg);
+	ret = rtl837x_reg_read(priv, RTL837X_EEE_LPI_DLY_CYCLE_ADDR, &reg);
 	if (!ret)
 		len += scnprintf(buf + len, PAGE_SIZE - len,
 			"lpi_dly_cycle: 0x%08x tx_dly_cycle:%lu rx_dly_cycle:%lu water_level_st:0x%02lx\n",
 			reg,
-			(unsigned long)((reg & RTL8373_EEE_LPI_DLY_CYCLE_TX_LPI_DLY_CYCLE_MASK) >>
-				RTL8373_EEE_LPI_DLY_CYCLE_TX_LPI_DLY_CYCLE_OFFSET),
-			(unsigned long)((reg & RTL8373_EEE_LPI_DLY_CYCLE_RX_LPI_DLY_CYCLE_MASK) >>
-				RTL8373_EEE_LPI_DLY_CYCLE_RX_LPI_DLY_CYCLE_OFFSET),
-			(unsigned long)((reg & RTL8373_EEE_LPI_DLY_CYCLE_CFG_WATER_LEVEL_ST_MASK) >>
-				RTL8373_EEE_LPI_DLY_CYCLE_CFG_WATER_LEVEL_ST_OFFSET));
+			(unsigned long)FIELD_GET(RTL837X_EEE_LPI_DLY_CYCLE_TX_LPI_DLY_CYCLE_MASK, reg),
+			(unsigned long)FIELD_GET(RTL837X_EEE_LPI_DLY_CYCLE_RX_LPI_DLY_CYCLE_MASK, reg),
+			(unsigned long)FIELD_GET(RTL837X_EEE_LPI_DLY_CYCLE_CFG_WATER_LEVEL_ST_MASK, reg));
 
 	/* Per-port EEE control (TX/RX enable + TX/RX status) */
 	for (port = 0; port < priv->num_ports; port++) {
-		ret = rtl837x_reg_read(priv, RTL8373_EEE_CTRL_ADDR(port), &reg);
+		ret = rtl837x_reg_read(priv, RTL837X_EEE_CTRL_ADDR(port), &reg);
 		if (ret)
 			continue;
 
 		len += scnprintf(buf + len, PAGE_SIZE - len,
 			"port:%u tx_en:%d rx_en:%d tx_sts:%d rx_sts:%d\n",
 			port,
-			!!(reg & RTL8373_EEE_CTRL_EEE_PORT_TX_EN_MASK),
-			!!(reg & RTL8373_EEE_CTRL_EEE_PORT_RX_EN_MASK),
-			!!(reg & RTL8373_EEE_CTRL_EEE_TX_STS_MASK),
-			!!(reg & RTL8373_EEE_CTRL_EEE_RX_STS_MASK));
+			!!(reg & RTL837X_EEE_CTRL_EEE_PORT_TX_EN_MASK),
+			!!(reg & RTL837X_EEE_CTRL_EEE_PORT_RX_EN_MASK),
+			!!(reg & RTL837X_EEE_CTRL_EEE_TX_STS_MASK),
+			!!(reg & RTL837X_EEE_CTRL_EEE_RX_STS_MASK));
 
 		if (len >= PAGE_SIZE - 64)
 			break;
