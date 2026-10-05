@@ -1,0 +1,615 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Copyright (C) 2025 StarField Xu <air_jinkela@163.com>
+ */
+#include <linux/version.h>
+
+#include "rtl837x.h"
+
+#define RTL837X_LED_GLB_IO_EN_ADDR    0x65DC
+#define RTL837X_LED_GLB_MUX_ADDR(_led_pin) \
+	    (0x65E0+((_led_pin/5)*4))
+#define   RTL837X_LED_GLB_MUX_LEDx_MUX_MASK(_led_pin) \
+	    (0x3F<<((_led_pin%5)*6))
+
+#define RTL837X_LED_ACTIVE_LOW_ADDR   0x65D8
+#define    RTL837X_LED_ACTIVE_LOW_MASK(_led_pin) BIT(_led_pin)
+
+#define RTL837X_PORT_LED_SET_SEL_ADDR        0x654C
+#define   RTL837X_PORT_LED_SET_SEL_MASK(_p)  (0x3<<(_p<<1))
+
+#define RTL837X_LED_SETx_SEL0_LEDx_ADDR(_led_set, _led_id) \
+	    (0x652C+(((3-_led_set)*8)+((1-(_led_id/2))*4)))
+#define RTL837X_LED_SETx_SEL0_LEDx_MASK(_led_id) \
+	    (0xFFFF << (_led_id&1)*16)
+
+#define RTL837X_LED_SETx_SEL1_LEDx_ADDR(_led_set) \
+	    (0x6524+((1-(_led_set/2))*4))
+#define RTL837X_LED_SETx_SEL1_LEDx_MASK(_led_set, _led_id) \
+	    (0xF << (((_led_set&1)*16)+(_led_id*4)))
+
+/*
+ * Highest LED pad number this driver is willing to drive. Pads 0..27 are the
+ * plain LED/GPIO pads; pads 28 and 29 double as SYS_LED_EN and
+ * GLB_RLDP_LED_EN inside IO_MUX_SEL_0, so they are not usable as ordinary
+ * LEDs here.
+ */
+#define RTL837X_LED_PIN_MAX  28
+
+// SELx_0
+#define RTL837X_LED_LINK_2500M_EN_MASK        BIT(0)
+#define RTL837X_LED_LINK_2PAIR_1000M_EN_MASK  BIT(1)
+#define RTL837X_LED_LINK_1000M_EN_MASK        BIT(2)
+#define RTL837X_LED_LINK_500M_EN_MASK         BIT(3)
+#define RTL837X_LED_LINK_100M_EN_MASK         BIT(4)
+#define RTL837X_LED_LINK_10M_EN_MASK          BIT(5)
+#define RTL837X_LED_LINK_LINK_EN_MASK         BIT(6)
+#define RTL837X_LED_LINK_LINK_FLASH_EN_MASK   BIT(7)
+#define RTL837X_LED_LINK_ACT_EN_MASK          BIT(8)
+#define RTL837X_LED_LINK_RX_EN_MASK           BIT(9)
+#define RTL837X_LED_LINK_TX_EN_MASK           BIT(10)
+#define RTL837X_LED_LINK_COL_EN_MASK          BIT(11)
+#define RTL837X_LED_LINK_DUPLEX_EN_MASK       BIT(12)
+#define RTL837X_LED_LINK_TRAINING_EN_MASK     BIT(13)
+#define RTL837X_LED_LINK_MASTER_EN_MASK       BIT(14)
+
+// SELx_1
+#define RTL837X_LED_LINK_5000M_EN_MASK        (BIT(2)<<16)
+#define RTL837X_LED_LINK_10000M_EN_MASK       (BIT(0)<<16)
+#define RTL837X_LED_LINK_2PAIR_2500M_EN_MASK  (BIT(3)<<16)
+#define RTL837X_LED_LINK_2PAIR_5000M_EN_MASK  (BIT(1)<<16)
+
+#define RTL837X_LED_PORT_INDEX(_p, _l) \
+		    ((_p*RTL837X_PORT_LED_COUNT)+_l)
+
+#define RTL837X_LED_LINK_MASK \
+	    (RTL837X_LED_LINK_10M_EN_MASK | \
+	     RTL837X_LED_LINK_100M_EN_MASK | \
+		 RTL837X_LED_LINK_500M_EN_MASK | \
+	     RTL837X_LED_LINK_1000M_EN_MASK | \
+	     RTL837X_LED_LINK_2500M_EN_MASK | \
+	     RTL837X_LED_LINK_5000M_EN_MASK | \
+	     RTL837X_LED_LINK_10000M_EN_MASK | \
+		 RTL837X_LED_LINK_2PAIR_1000M_EN_MASK |\
+		 RTL837X_LED_LINK_2PAIR_5000M_EN_MASK |\
+		 RTL837X_LED_LINK_2PAIR_2500M_EN_MASK \
+		)
+
+static inline void led_set_refinc(struct rtl837x_led_set *led_set)
+{
+	atomic_inc(&led_set->refcnt);
+}
+
+static inline void led_set_refdec(struct rtl837x_led_set *led_set)
+{
+	if (atomic_dec_and_test(&led_set->refcnt))
+		memset(led_set->led_cfg_mask, 0, sizeof(led_set->led_cfg_mask));
+}
+
+static inline int led_set_refread(struct rtl837x_led_set *led_set)
+{
+	return atomic_read(&led_set->refcnt);
+}
+
+static struct rtl837x_led_set *rtl837x_port_get_led_set(struct rtl837x_priv *priv,
+							u8 port_num)
+{
+	for (int i = 0; i < RTL837X_PORT_LED_COUNT; i++) {
+		struct rtl837x_led *port_led =
+			&priv->ports_led[RTL837X_LED_PORT_INDEX(port_num, i)];
+
+		if (port_led->led_set)
+			return port_led->led_set;
+	}
+
+	return NULL;
+}
+
+static void rtl837x_port_bind_led_set(struct rtl837x_priv *priv, u8 port_num,
+				      struct rtl837x_led_set *led_set)
+{
+	for (int i = 0; i < RTL837X_PORT_LED_COUNT; i++) {
+		struct rtl837x_led *port_led =
+			&priv->ports_led[RTL837X_LED_PORT_INDEX(port_num, i)];
+
+		if (port_led->priv)
+			port_led->led_set = led_set;
+	}
+}
+
+static void rtl837x_port_release_led_set(struct rtl837x_priv *priv, u8 port_num,
+					 struct rtl837x_led *port_led)
+{
+	for (int i = 0; i < RTL837X_PORT_LED_COUNT; i++) {
+		struct rtl837x_led *pl =
+			&priv->ports_led[RTL837X_LED_PORT_INDEX(port_num, i)];
+
+		if (pl != port_led && pl->led_set && pl->is_hw_offload)
+			return;
+	}
+
+	if (port_led->led_set)
+		led_set_refdec(port_led->led_set);
+
+	rtl837x_port_bind_led_set(priv, port_num, NULL);
+}
+
+static struct rtl837x_led_set *rtl837x_find_led_set(struct rtl837x_priv *priv,
+						    const u32 *led_cfg_mask)
+{
+	for (int i = 0; i < RTL837X_LED_SET_COUNT; i++) {
+		struct rtl837x_led_set *led_set = &priv->led_set[i];
+
+		if (led_set_refread(led_set) == 0)
+			continue;
+		if (!memcmp(led_set->led_cfg_mask, led_cfg_mask,
+			    sizeof(led_set->led_cfg_mask)))
+			return led_set;
+	}
+
+	return NULL;
+}
+
+static struct rtl837x_led_set *rtl837x_get_free_led_set(struct rtl837x_priv *priv)
+{
+	for (int i = 0; i < RTL837X_LED_SET_COUNT; i++) {
+		struct rtl837x_led_set *led_set = &priv->led_set[i];
+
+		if (led_set_refread(led_set) == 0)
+			return led_set;
+	}
+
+	return NULL;
+}
+
+static int rtl837x_apply_led_set(struct rtl837x_led_set *led_set)
+{
+	int ret;
+	struct rtl837x_priv *priv = led_set->priv;
+
+	for (int i = 0; i < RTL837X_PORT_LED_COUNT; i++) {
+		ret = rtl837x_reg_bits_write(priv, RTL837X_LED_SETx_SEL0_LEDx_ADDR(led_set->idx, i),
+					RTL837X_LED_SETx_SEL0_LEDx_MASK(i),
+					led_set->led_cfg_mask[i] & 0xffff
+				);
+		if (ret)
+			return ret;
+		ret = rtl837x_reg_bits_write(priv, RTL837X_LED_SETx_SEL1_LEDx_ADDR(led_set->idx),
+					RTL837X_LED_SETx_SEL1_LEDx_MASK(led_set->idx, i),
+					(led_set->led_cfg_mask[i] >> 16) & 0xf
+				);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+static int rtl837x_apply_port_led_set(struct rtl837x_led *port_led)
+{
+	struct rtl837x_priv *priv = port_led->priv;
+
+	return rtl837x_reg_bits_write(priv, RTL837X_PORT_LED_SET_SEL_ADDR,
+			    RTL837X_PORT_LED_SET_SEL_MASK(port_led->port_num),
+			    port_led->led_set->idx
+			);
+}
+
+static int rtl837x_set_port_led_hw_offload_trigger(struct rtl837x_led *port_led,
+						   u32 offload_trigger)
+{
+	struct rtl837x_priv *priv = port_led->priv;
+	struct rtl837x_led_set *cur, *led_set;
+	u32 led_cfg_mask[RTL837X_PORT_LED_COUNT] = { };
+	int ret;
+
+	/*
+	 * LED_PORT_SET_SEL_CTRL holds one field per port, so every LED of a
+	 * port must use the same set. Build the table this port would have
+	 * with the updated LED, then point the whole port at a set matching
+	 * it (allocating a new one if needed).
+	 */
+	cur = rtl837x_port_get_led_set(priv, port_led->port_num);
+	if (cur)
+		memcpy(led_cfg_mask, cur->led_cfg_mask, sizeof(led_cfg_mask));
+	led_cfg_mask[port_led->led_id] = offload_trigger;
+
+	led_set = rtl837x_find_led_set(priv, led_cfg_mask);
+	if (led_set && cur == led_set)
+		return 0;
+
+	if (!led_set && cur && led_set_refread(cur) == 1) {
+		/* Sole user of the set: update its table in place */
+		memcpy(cur->led_cfg_mask, led_cfg_mask, sizeof(led_cfg_mask));
+		return rtl837x_apply_led_set(cur);
+	}
+
+	if (!led_set) {
+		led_set = rtl837x_get_free_led_set(priv);
+		if (!led_set)
+			return -ENOSPC;
+		memcpy(led_set->led_cfg_mask, led_cfg_mask, sizeof(led_cfg_mask));
+		ret = rtl837x_apply_led_set(led_set);
+		if (ret)
+			return ret;
+	}
+
+	led_set_refinc(led_set);
+	if (cur)
+		led_set_refdec(cur);
+
+	rtl837x_port_bind_led_set(priv, port_led->port_num, led_set);
+
+	return rtl837x_apply_port_led_set(port_led);
+}
+
+static int rtl837x_parse_netdev(unsigned long rules, u32 *offload_trigger)
+{
+	/* Parsing specific to netdev trigger */
+	if (test_bit(TRIGGER_NETDEV_LINK, &rules))
+		*offload_trigger |= RTL837X_LED_LINK_MASK;
+	if (test_bit(TRIGGER_NETDEV_LINK_10, &rules))
+		*offload_trigger |= RTL837X_LED_LINK_10M_EN_MASK;
+	if (test_bit(TRIGGER_NETDEV_LINK_100, &rules))
+		*offload_trigger |= RTL837X_LED_LINK_100M_EN_MASK;
+	if (test_bit(TRIGGER_NETDEV_LINK_1000, &rules))
+		*offload_trigger |= RTL837X_LED_LINK_1000M_EN_MASK;
+	if (test_bit(TRIGGER_NETDEV_LINK_2500, &rules))
+		*offload_trigger |= RTL837X_LED_LINK_2500M_EN_MASK;
+	if (test_bit(TRIGGER_NETDEV_LINK_5000, &rules))
+		*offload_trigger |= RTL837X_LED_LINK_5000M_EN_MASK;
+	if (test_bit(TRIGGER_NETDEV_LINK_10000, &rules))
+		*offload_trigger |= RTL837X_LED_LINK_10000M_EN_MASK;
+
+	if (*offload_trigger & RTL837X_LED_LINK_MASK)
+		*offload_trigger |= RTL837X_LED_LINK_LINK_EN_MASK;
+
+	if (test_bit(TRIGGER_NETDEV_RX, &rules) &&
+		test_bit(TRIGGER_NETDEV_TX, &rules))
+		*offload_trigger |= RTL837X_LED_LINK_ACT_EN_MASK;
+	else {
+		if (test_bit(TRIGGER_NETDEV_RX, &rules))
+			*offload_trigger |= RTL837X_LED_LINK_RX_EN_MASK;
+		if (test_bit(TRIGGER_NETDEV_TX, &rules))
+			*offload_trigger |= RTL837X_LED_LINK_TX_EN_MASK;
+	}
+
+	if (rules && !*offload_trigger)
+		return -EOPNOTSUPP;
+
+	return 0;
+}
+
+static int rtl837x_set_led_hw_offload(struct rtl837x_led *port_led, bool enable)
+{
+	int ret;
+	struct rtl837x_priv *priv = port_led->priv;
+
+	if (enable) {
+		ret = rtl837x_reg_bits_write(priv, RTL837X_IO_MUX_SEL_0_ADDR,
+			    BIT(port_led->led_pin), 0);
+		if (ret)
+			return ret;
+		ret = rtl837x_reg_bits_write(priv, RTL837X_LED_GLB_IO_EN_ADDR,
+			    BIT(port_led->led_pin), 1);
+		if (ret)
+			return ret;
+		ret = rtl837x_reg_bits_write(priv, RTL837X_LED_ACTIVE_LOW_ADDR,
+				    RTL837X_LED_ACTIVE_LOW_MASK(port_led->led_pin),
+				    !!port_led->active_low
+				);
+		if (ret)
+			return ret;
+	} else {
+		/*
+		 * Back to GPIO control: drop this port's set reference once no
+		 * LED of the port is offloaded anymore, so it can be recycled.
+		 */
+		rtl837x_port_release_led_set(priv, port_led->port_num, port_led);
+
+		ret = rtl837x_reg_bits_write(priv, RTL837X_IO_MUX_SEL_0_ADDR,
+			    BIT(port_led->led_pin), 1);
+		if (ret)
+			return ret;
+		ret = rtl837x_reg_bits_write(priv, RTL837X_LED_GLB_IO_EN_ADDR,
+			    BIT(port_led->led_pin), 0);
+		if (ret)
+			return ret;
+		ret = rtl837x_reg_bits_write(priv, RTL837X_GPIO_OE0_ADDR,
+				BIT(port_led->led_pin), 1);
+		if (ret)
+			return ret;
+	}
+
+	port_led->is_hw_offload = enable;
+	return ret;
+}
+
+static int rtl837x_led_set_brightness(struct rtl837x_led *port_led,
+			 enum led_brightness brightness)
+{
+	int ret;
+	struct rtl837x_priv *priv = port_led->priv;
+	int br_val = port_led->active_low ? 0 : 1;
+
+	ret = rtl837x_set_led_hw_offload(port_led, false);
+	if (ret)
+		return ret;
+	if (brightness)
+		ret = rtl837x_reg_bits_write(priv, RTL837X_GPIO_OUT0_ADDR,
+				BIT(port_led->led_pin), br_val);
+	else
+		ret = rtl837x_reg_bits_write(priv, RTL837X_GPIO_OUT0_ADDR,
+				BIT(port_led->led_pin), !br_val);
+	return ret;
+}
+
+static int
+rtl837x_cled_hw_control_is_supported(struct led_classdev *ldev, unsigned long rules)
+{
+	u32 offload_trigger = 0;
+
+	return rtl837x_parse_netdev(rules, &offload_trigger);
+}
+
+static int rtl837x_brightness_set_blocking(struct led_classdev *ldev,
+						  enum led_brightness brightness)
+{
+	struct rtl837x_led *port_led = container_of(ldev, struct rtl837x_led, cdev);
+
+	return rtl837x_led_set_brightness(port_led, brightness);
+}
+
+static int
+rtl837x_cled_hw_control_set(struct led_classdev *ldev, unsigned long rules)
+{
+	int ret;
+	struct rtl837x_led *port_led = container_of(ldev, struct rtl837x_led, cdev);
+	struct rtl837x_priv *priv = port_led->priv;
+	u32 offload_trigger = 0;
+
+
+	ret = rtl837x_parse_netdev(rules, &offload_trigger);
+	if (ret)
+		return ret;
+
+	ret = rtl837x_set_port_led_hw_offload_trigger(port_led, offload_trigger);
+	if (ret)
+		return ret;
+	dev_dbg(priv->dev, "[%s]: set led hardware offload: 0x%x\n", __func__,
+			  offload_trigger
+			);
+
+	return rtl837x_set_led_hw_offload(port_led, true);
+}
+
+static int
+rtl837x_cled_hw_control_get(struct led_classdev *ldev, unsigned long *rules)
+{
+	int ret;
+	struct rtl837x_led *port_led = container_of(ldev, struct rtl837x_led, cdev);
+	struct rtl837x_priv *priv = port_led->priv;
+	u32 offload_trigger = 0;
+	u32 tmp;
+
+	if (!port_led->is_hw_offload || !port_led->led_set)
+		return -EINVAL;
+
+	ret = rtl837x_reg_bits_read(priv,
+		  RTL837X_LED_SETx_SEL0_LEDx_ADDR(port_led->led_set->idx, port_led->led_id),
+		  RTL837X_LED_SETx_SEL0_LEDx_MASK(port_led->led_id),
+		  &tmp
+		);
+	if (ret)
+		return ret;
+	offload_trigger |= tmp;
+
+	ret = rtl837x_reg_bits_read(priv,
+		  RTL837X_LED_SETx_SEL1_LEDx_ADDR(port_led->led_set->idx),
+		  RTL837X_LED_SETx_SEL1_LEDx_MASK(port_led->led_set->idx, port_led->led_id),
+		  &tmp
+		);
+	if (ret)
+		return ret;
+	offload_trigger |= (0xf&tmp)<<16;
+
+	/* Parsing specific to netdev trigger */
+	if (offload_trigger & RTL837X_LED_LINK_TX_EN_MASK)
+		set_bit(TRIGGER_NETDEV_TX, rules);
+	if (offload_trigger & RTL837X_LED_LINK_RX_EN_MASK)
+		set_bit(TRIGGER_NETDEV_RX, rules);
+	if (offload_trigger & RTL837X_LED_LINK_10M_EN_MASK)
+		set_bit(TRIGGER_NETDEV_LINK_10, rules);
+	if (offload_trigger & RTL837X_LED_LINK_100M_EN_MASK)
+		set_bit(TRIGGER_NETDEV_LINK_100, rules);
+	if (offload_trigger & RTL837X_LED_LINK_1000M_EN_MASK)
+		set_bit(TRIGGER_NETDEV_LINK_1000, rules);
+	if (offload_trigger & RTL837X_LED_LINK_2500M_EN_MASK)
+		set_bit(TRIGGER_NETDEV_LINK_2500, rules);
+	if (offload_trigger & RTL837X_LED_LINK_5000M_EN_MASK)
+		set_bit(TRIGGER_NETDEV_LINK_5000, rules);
+	if (offload_trigger & RTL837X_LED_LINK_10000M_EN_MASK)
+		set_bit(TRIGGER_NETDEV_LINK_10000, rules);
+
+	if ((offload_trigger & RTL837X_LED_LINK_MASK) == RTL837X_LED_LINK_MASK)
+		set_bit(TRIGGER_NETDEV_LINK, rules);
+
+	if (offload_trigger & RTL837X_LED_LINK_ACT_EN_MASK) {
+		set_bit(TRIGGER_NETDEV_TX, rules);
+		set_bit(TRIGGER_NETDEV_RX, rules);
+	}
+	return 0;
+}
+
+static struct device *rtl837x_cled_hw_control_get_device(struct led_classdev *ldev)
+{
+	struct rtl837x_led *port_led = container_of(ldev, struct rtl837x_led, cdev);
+	struct rtl837x_priv *priv = port_led->priv;
+	struct dsa_port *dp;
+
+	dp = dsa_to_port(priv->ds, port_led->port_num);
+	if (!dp)
+		return NULL;
+
+#if KERNEL_VERSION(6, 12, 44) >= LINUX_VERSION_CODE
+	if (dp->slave)
+		return &dp->slave->dev;
+#else
+	if (dp->user)
+		return &dp->user->dev;
+#endif
+	return NULL;
+}
+
+static int rtl837x_set_led_mux(struct rtl837x_led *port_led)
+{
+	struct rtl837x_priv *priv = port_led->priv;
+
+	/*
+	 * CFG_PAD_LEDn_MUX = (port << 2) | led_id
+	 *
+	 *   port   : DSA port index, i.e. the 'reg' of the port node
+	 *   led_id : the led0..led3 slot of that port
+	 */
+	u32 tmp = FIELD_PREP(0x03, port_led->led_id) |
+			  FIELD_PREP(0x3c, port_led->port_num);
+
+	return rtl837x_reg_bits_write(priv, RTL837X_LED_GLB_MUX_ADDR(port_led->led_pin),
+			RTL837X_LED_GLB_MUX_LEDx_MUX_MASK(port_led->led_pin), tmp);
+}
+
+static int rtl837x_parse_port_leds(struct rtl837x_priv *priv, struct fwnode_handle *port, int port_num)
+{
+	struct fwnode_handle *led = NULL, *leds = NULL;
+	struct led_init_data init_data = { };
+	enum led_default_state state;
+	struct rtl837x_led *port_led;
+	u32 led_id, led_index, led_pin;
+	int ret;
+
+	leds = fwnode_get_named_child_node(port, "leds");
+	if (!leds) {
+		dev_dbg(priv->dev, "No Leds node specified in device tree for port %d!\n",
+			port_num);
+		return 0;
+	}
+
+	fwnode_for_each_child_node(leds, led) {
+		if (fwnode_property_read_u32(led, "reg", &led_id))
+			continue;
+
+		if (fwnode_property_read_u32(led, "led-pin", &led_pin)) {
+			dev_warn(priv->dev, "led-pin for port %d led %d is missing\n",
+				 port_num, led_id);
+			continue;
+		}
+
+		if (led_id >= RTL837X_PORT_LED_COUNT) {
+			dev_warn(priv->dev, "Invalid LED reg %d defined for port %d\n",
+				 led_id, port_num);
+			continue;
+		}
+
+		if (led_pin >= RTL837X_LED_PIN_MAX) {
+			dev_warn(priv->dev, "Invalid LED pin %d for port %d led %d\n",
+				 led_pin, port_num, led_id);
+			continue;
+		}
+
+		if (port_num >= RTL837X_MAX_PORT_COUNT) {
+			dev_warn(priv->dev, "Invalid port %d for LED\n", port_num);
+			continue;
+		}
+
+		led_index = RTL837X_LED_PORT_INDEX(port_num, led_id);
+
+		port_led = &priv->ports_led[led_index];
+		port_led->active_low = !!fwnode_property_read_bool(led, "active-low");
+		port_led->port_num = port_num;
+		port_led->led_id = led_id;
+		port_led->led_pin = led_pin;
+		port_led->priv = priv;
+		port_led->led_set = NULL;
+
+		ret = rtl837x_set_led_mux(port_led);
+		if (ret) {
+			dev_warn(priv->dev, "Failed to set LED pin mux for port %d led %d\n",
+				 port_num, led_id);
+			continue;
+		}
+
+		state = led_init_default_state_get(led);
+		switch (state) {
+		case LEDS_DEFSTATE_ON:
+			port_led->cdev.brightness = 1;
+			rtl837x_led_set_brightness(port_led, 1);
+			break;
+		case LEDS_DEFSTATE_KEEP:
+			port_led->cdev.brightness = 1;
+			rtl837x_led_set_brightness(port_led, 1);
+			break;
+		default:
+			port_led->cdev.brightness = 0;
+			rtl837x_led_set_brightness(port_led, 0);
+		}
+
+		port_led->cdev.max_brightness = 1;
+		port_led->cdev.brightness_set_blocking = rtl837x_brightness_set_blocking;
+		port_led->cdev.hw_control_is_supported = rtl837x_cled_hw_control_is_supported;
+		port_led->cdev.hw_control_set = rtl837x_cled_hw_control_set;
+		port_led->cdev.hw_control_get = rtl837x_cled_hw_control_get;
+		port_led->cdev.hw_control_get_device = rtl837x_cled_hw_control_get_device;
+		port_led->cdev.hw_control_trigger = "netdev";
+		init_data.default_label = ":port";
+		init_data.fwnode = led;
+		init_data.devname_mandatory = true;
+		init_data.devicename = kasprintf(GFP_KERNEL, "%s:0%d:0%d",
+						    priv->bus->id, port_num, led_id
+						);
+		if (!init_data.devicename) {
+			fwnode_handle_put(led);
+			fwnode_handle_put(leds);
+			return -ENOMEM;
+		}
+
+		ret = devm_led_classdev_register_ext(priv->dev, &port_led->cdev, &init_data);
+		if (ret)
+			dev_warn(priv->dev, "Failed to init LED %d for port %d", led_id, port_num);
+
+		kfree(init_data.devicename);
+	}
+
+	fwnode_handle_put(leds);
+	return 0;
+}
+
+int rtl837x_set_led(struct rtl837x_priv *priv)
+{
+	struct fwnode_handle *ports, *port;
+	int port_num;
+	int ret;
+
+	ports = device_get_named_child_node(priv->dev, "ports");
+	if (!ports)
+		ports = device_get_named_child_node(priv->dev, "ethernet-ports");
+
+	if (!ports) {
+		dev_info(priv->dev, "No ports node specified in device tree!");
+		return 0;
+	}
+
+	fwnode_for_each_child_node(ports, port) {
+		if (fwnode_property_read_u32(port, "reg", &port_num))
+			continue;
+
+		ret = rtl837x_parse_port_leds(priv, port, port_num);
+		if (ret) {
+			fwnode_handle_put(port);
+			fwnode_handle_put(ports);
+			return ret;
+		}
+	}
+
+	fwnode_handle_put(ports);
+	return 0;
+}
