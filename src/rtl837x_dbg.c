@@ -779,7 +779,7 @@ static ssize_t _l2uc_dump_read(struct file *filep, char __user *ubuf,
 	priv = sfile->private;
 
 	const int MK_BUFLEN(l2uc_dump) = PAGE_SIZE*64;
-	char *MK_BUFNAME(l2uc_dump) = kmalloc(MK_BUFLEN(l2uc_dump), GFP_KERNEL);
+	char *_buf_rd_l2uc_dump = kmalloc(MK_BUFLEN(l2uc_dump), GFP_KERNEL);
 
 	if (!MK_BUFNAME(l2uc_dump))
 		return -ENOMEM;
