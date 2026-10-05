@@ -139,7 +139,8 @@ sfp0: sfp {
     if there are different VLANs, packets between 
 	VLANs will leak to each other, even if the two 
 	VLANs do not contain the same port~~ ***--FIXED***
-  2. STP successfully prevented packet flooding,
+  2. ~~STP successfully prevented packet flooding,
     but STP packets were allowed to pass through and forward,
     resulting in a large number of STP packets flooding
-    the network and exhausting the resources of the switching chip
+    the network and exhausting the resources of the switching chip~~ ***--FIXED***
+  3. Sometimes, the conduit port cannot connect after startup.
