@@ -185,6 +185,11 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 		.lock_arg = priv,
 	};
 
+	mutex_init(&priv->mib_lock);
+	mutex_init(&priv->ita_lock);
+	mutex_init(&priv->phy_mmd_lock);
+	mutex_init(&priv->phy_ocp_lock);
+
 	mutex_init(&priv->map_lock);
 	priv->map = devm_regmap_init(dev, NULL, priv, &rtl837x_mdio_regmap_config);
 	if (IS_ERR(priv->map)) {
@@ -274,9 +279,6 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 			return ret;
 		dev_dbg(priv->dev, "[%s] chip ver 8224: %d\n", __func__, priv->chip_ver_8224);
 	}
-
-	mutex_init(&priv->mib_lock);
-	mutex_init(&priv->ita_lock);
 
 	priv->ds = devm_kzalloc(dev, sizeof(*priv->ds), GFP_KERNEL);
 	if (!priv->ds) {

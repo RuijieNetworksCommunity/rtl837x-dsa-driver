@@ -422,6 +422,8 @@ struct rtl837x_priv {
 	struct mutex		map_8224_lock;
 
 	struct mutex		ita_lock;
+	struct mutex		phy_mmd_lock;
+	struct mutex		phy_ocp_lock;
 
 	int			mdio_addr;
 	enum dsa_tag_protocol tag_proto;
