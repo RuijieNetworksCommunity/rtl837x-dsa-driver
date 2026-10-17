@@ -312,41 +312,6 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
 	return 0;
 }
 
-static int rtl8372n_soft_reset_chip(struct rtl837x_priv *priv)
-{
-	u32 tmp;
-
-	if (priv->write_reg_noack)
-		priv->write_reg_noack(priv, RTL837X_RST_GLB_CTRL_0_ADDR,
-			      FIELD_PREP(RTL837X_RST_GLB_CTRL_0_SW_CHIP_RST_MASK, 1));
-	msleep(250);
-	return regmap_read_poll_timeout(priv->map, RTL837X_RST_GLB_CTRL_0_ADDR, tmp,
-					!(tmp & RTL837X_RST_GLB_CTRL_0_SW_CHIP_RST_MASK),
-					20000, 1e6);
-}
-
-static int rtl8372n_reset_serdes(struct rtl837x_priv *priv)
-{
-	int ret;
-	u32 tmp;
-
-	ret = rtl837x_reg_bits_write(priv, RTL837X_RST_GLB_CTRL_0_ADDR,
-				  RTL837X_RST_GLB_CTRL_0_SDS_REG_RST_MASK,
-				  1
-				);
-	if (ret)
-		return ret;
-
-	msleep(50);
-	ret = regmap_read_poll_timeout(priv->map, RTL837X_RST_GLB_CTRL_0_ADDR, tmp,
-		  ((tmp & RTL837X_RST_GLB_CTRL_0_SDS_REG_RST_MASK) == 0),
-		  200, 5000);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
 // Set Ingress frame type
 static int rtl8372n_port_igr_drop_untagged(struct rtl837x_priv *priv, int port, bool drop)
 {
@@ -2460,21 +2425,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	struct device_node *np = priv->dev->of_node;
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *dp;
-
-
-	ret = rtl8372n_soft_reset_chip(priv);
-	if (ret) {
-		dev_err(priv->dev, "failed to reset chip: %pe\n",
-			ERR_PTR(ret));
-		return ret;
-	}
-
-	ret = rtl8372n_reset_serdes(priv);
-	if (ret) {
-		dev_err(priv->dev, "failed to reset serdes: %pe\n",
-			ERR_PTR(ret));
-		return ret;
-	}
 
 	int cpu_dp_cnt = 0;
 
