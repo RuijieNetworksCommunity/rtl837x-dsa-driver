@@ -10,6 +10,7 @@
 #include <linux/gpio/consumer.h>
 
 #include "rtl837x.h"
+#include "rtl837x_gpio.h"
 
 #define REALTEK_RTL837X_MDIO_CTRL_REG           21
 #define REALTEK_RTL837X_MDIO_ADDRESS_REG        22

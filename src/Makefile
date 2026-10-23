@@ -11,14 +11,11 @@ obj-$(CONFIG_RTL8372N_DSA) += rtl8372n_dsa.o
 
 rtl8372n_dsa-objs := rtl8372n.o
 
-ifeq ($(CONFIG_GPIOLIB),y)
-rtl8372n_dsa-objs += rtl837x_gpio.o
-endif
-
 rtl8372n_dsa-objs += rtl837x_dbg.o
 rtl8372n_dsa-objs += rtl837x_mdio.o
 rtl8372n_dsa-objs += rtl837x_common.o
 rtl8372n_dsa-objs += rtl837x_common_l2.o
+rtl8372n_dsa-objs += rtl837x_gpio.o
 rtl8372n_dsa-objs += rtl837x_led.o
 
 ifeq ($(CONFIG_RTL837X_PHY_PATCH),y)

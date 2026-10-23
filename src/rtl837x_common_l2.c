@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-/*
+/* Forwarding and multicast database interface for the rtl837x switch family
+ *
  * Copyright (C) 2025 StarField Xu <air_jinkela@163.com>
  */
 #include <linux/version.h>

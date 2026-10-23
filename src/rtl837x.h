@@ -23,33 +23,6 @@
 #define   RTL837X_CHIP_INFO_RL_VID_MASK                GENMASK(31, 28)
 #define   RTL837X_CHIP_INFO_CHIP_INFO_EN_MASK          GENMASK(19, 16)
 
-/* Global reset */
-#define RTL837X_RST_GLB_CTRL_0_ADDR                    0x24
-#define   RTL837X_RST_GLB_CTRL_0_SDS_REG_RST_MASK      BIT(6)
-#define   RTL837X_RST_GLB_CTRL_0_SW_CHIP_RST_MASK      BIT(0)
-
-/* Pin multiplexing */
-#define RTL837X_IO_MUX_SEL_0_ADDR                              0x7F8C
-#define RTL837X_IO_MUX_SEL_1_ADDR                              0x7F90
-#define   RTL837X_IO_MUX_SEL_1_GPIO_PWM_OUT_SEL_MASK           BIT(30)
-#define   RTL837X_IO_MUX_SEL_1_GPIO_SDA4_SEL_MASK              BIT(29)
-#define   RTL837X_IO_MUX_SEL_1_GPIO_MDX1_SEL_1_MASK            BIT(6)
-#define   RTL837X_IO_MUX_SEL_1_GPIO_MDX1_SEL_0_MASK            BIT(5)
-#define   RTL837X_IO_MUX_SEL_1_GPIO_MDIO0_SEL_MASK             BIT(4)
-#define   RTL837X_IO_MUX_SEL_1_PAD_UART0_SEL_1_MASK            BIT(1)
-#define   RTL837X_IO_MUX_SEL_1_PAD_UART0_SEL_0_MASK            BIT(0)
-#define RTL837X_IO_MUX_SEL_2_ADDR                              0x7F94
-#define   RTL837X_IO_MUX_SEL_2_ACL_BIT3_EN_MASK                BIT(3)
-
-/* GPIO */
-#define RTL837X_GPIO_OUT0_ADDR                  0x3C
-#define RTL837X_GPIO_OUT1_ADDR                  0x40
-#define RTL837X_GPIO_IN0_ADDR                   0x44
-#define RTL837X_GPIO_IN1_ADDR                   0x48
-#define RTL837X_GPIO_OE0_ADDR                   0x4C
-#define RTL837X_GPIO_OE1_ADDR                   0x50
-#define RTL837X_INI_MODE_ADDR                   0x58
-#define   RTL837X_INI_MODE_INI_MODE_MASK        GENMASK(1, 0)
 
 /* PHY configuration */
 #define RTL837X_CFG_PHY_MDI_REVERSE_ADDR                              0xA90
@@ -566,7 +539,6 @@ char *chipid_to_chip_name(enum switch_chip id);
 extern int rtl837x_reg_bits_read(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 *pval);
 extern int rtl837x_reg_bits_write(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 val);
 
-extern int rtl837x_gpiochip_init(struct rtl837x_priv *priv);
 extern int rtl837x_set_led(struct rtl837x_priv *priv);
 extern enum rtk_sds_mode phy_interface_to_rtk_sds_mode(phy_interface_t interface);
 
