@@ -11,6 +11,13 @@
 
 #include "rtl837x.h"
 
+#define REALTEK_RTL837X_MDIO_CTRL_REG           21
+#define REALTEK_RTL837X_MDIO_ADDRESS_REG        22
+#define REALTEK_RTL837X_MDIO_DATA_LOW           23
+#define REALTEK_RTL837X_MDIO_DATA_HIGH          24
+#define REALTEK_RTL837X_MDIO_READ_CMD           0x1B
+#define REALTEK_RTL837X_MDIO_WRITE_CMD          0x19
+
 static int rtl837x_mdio_write(void *ctx, u32 reg, u32 val)
 {
 	struct rtl837x_priv *priv = ctx;
@@ -19,20 +26,20 @@ static int rtl837x_mdio_write(void *ctx, u32 reg, u32 val)
 
 	mutex_lock(&bus->mdio_lock);
 
-	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_ADDR_REG, reg);
-	if (unlikely(ret))
+	ret = bus->write(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_ADDRESS_REG, reg);
+	if (ret)
 		goto out_unlock;
 
-	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_DATA_LOW, (val & 0xFFFF));
-	if (unlikely(ret))
+	ret = bus->write(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_DATA_LOW, (val & 0xFFFF));
+	if (ret)
 		goto out_unlock;
 
-	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_DATA_HIGH, ((val >> 16) & 0xFFFF));
-	if (unlikely(ret))
+	ret = bus->write(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_DATA_HIGH, ((val >> 16) & 0xFFFF));
+	if (ret)
 		goto out_unlock;
 
-	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG, MDC_MDIO_WRITE_CMD);
-	if (unlikely(ret))
+	ret = bus->write(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_CTRL_REG, REALTEK_RTL837X_MDIO_WRITE_CMD);
+	if (ret)
 		goto out_unlock;
 
 	ret = 0;
@@ -49,16 +56,25 @@ static int rtl837x_mdio_read(void *ctx, u32 reg, u32 *val)
 
 	mutex_lock(&bus->mdio_lock);
 
-	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_ADDR_REG, reg);
-	if (unlikely(ret))
+	ret = bus->write(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_ADDRESS_REG, reg);
+	if (ret)
 		goto out_unlock;
 
-	ret = bus->write(bus, priv->mdio_addr, MDC_MDIO_CTRL_REG, MDC_MDIO_READ_CMD);
-	if (unlikely(ret))
+	ret = bus->write(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_CTRL_REG, REALTEK_RTL837X_MDIO_READ_CMD);
+	if (ret)
 		goto out_unlock;
 
-	val_l = bus->read(bus, priv->mdio_addr, MDC_MDIO_DATA_LOW);
-	val_h = bus->read(bus, priv->mdio_addr, MDC_MDIO_DATA_HIGH);
+	val_l = bus->read(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_DATA_LOW);
+	if (val_l < 0) {
+		ret = val_l;
+		goto out_unlock;
+	}
+
+	val_h = bus->read(bus, priv->mdio_addr, REALTEK_RTL837X_MDIO_DATA_HIGH);
+	if (val_h < 0) {
+		ret = val_h;
+		goto out_unlock;
+	}
 
 	*val = val_l & 0xffff;
 	*val |= (val_h & 0xffff) << 16;
@@ -142,18 +158,14 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	int ret;
 
 	var = of_device_get_match_data(dev);
-	if (!var) {
-		ret = -EINVAL;
-		goto err;
-	}
+	if (!var)
+		return -EINVAL;
 
 	priv = devm_kzalloc(dev,
 				size_add(sizeof(*priv), var->chip_data_sz),
 				GFP_KERNEL);
-	if (!priv) {
-		ret = -ENOMEM;
-		goto err;
-	}
+	if (!priv)
+		return -ENOMEM;
 
 	const struct regmap_config rtl837x_mdio_regmap_config = {
 		.reg_bits = 16,
@@ -185,26 +197,39 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 		.lock_arg = priv,
 	};
 
-	mutex_init(&priv->mib_lock);
-	mutex_init(&priv->ita_lock);
-	mutex_init(&priv->phy_mmd_lock);
-	mutex_init(&priv->phy_ocp_lock);
+	ret = devm_mutex_init(dev, &priv->mib_lock);
+	if (ret)
+		return ret;
+	ret = devm_mutex_init(dev, &priv->ita_lock);
+	if (ret)
+		return ret;
+	ret = devm_mutex_init(dev, &priv->phy_mmd_lock);
+	if (ret)
+		return ret;
+	ret = devm_mutex_init(dev, &priv->phy_ocp_lock);
+	if (ret)
+		return ret;
 
-	mutex_init(&priv->map_lock);
+
+	ret = devm_mutex_init(dev, &priv->map_lock);
+	if (ret)
+		return ret;
 	priv->map = devm_regmap_init(dev, NULL, priv, &rtl837x_mdio_regmap_config);
 	if (IS_ERR(priv->map)) {
 		ret = PTR_ERR(priv->map);
 		dev_err(dev, "regmap init failed: %d\n", ret);
-		goto err;
+		return ret;
 	}
 
 	if (var->have_8224) {
-		mutex_init(&priv->map_8224_lock);
+		ret = devm_mutex_init(dev, &priv->map_8224_lock);
+		if (ret)
+			return ret;
 		priv->map_8224 = devm_regmap_init(dev, NULL, priv, &rtl837x_rtl8224_regmap_config);
 		if (IS_ERR(priv->map_8224)) {
 			ret = PTR_ERR(priv->map_8224);
 			dev_err(dev, "regmap 8224 init failed: %d\n", ret);
-			goto err;
+			return ret;
 		}
 	} else {
 		priv->map_8224 = NULL;
@@ -231,7 +256,7 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	if (IS_ERR(priv->reset)) {
 		dev_err(dev, "failed to get RESET GPIO\n");
 		ret = PTR_ERR(priv->reset);
-		goto err;
+		return ret;
 	}
 
 	if (priv->reset) {
@@ -247,7 +272,7 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	ret = priv->ops->detect(priv);
 	if (ret) {
 		dev_err(dev, "unable to detect switch\n");
-		goto err;
+		return ret;
 	}
 
 	ret = rtl837x_reg_bits_write(priv, RTL837X_CHIP_INFO_ADDR,
@@ -281,10 +306,8 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	}
 
 	priv->ds = devm_kzalloc(dev, sizeof(*priv->ds), GFP_KERNEL);
-	if (!priv->ds) {
-		ret =  -ENOMEM;
-		goto err;
-	}
+	if (!priv->ds)
+		return -ENOMEM;
 
 	priv->ds->dev = dev;
 	priv->ds->num_ports = priv->num_ports;
@@ -296,7 +319,7 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	ret = dsa_register_switch(priv->ds);
 	if (ret) {
 		dev_err(priv->dev, "unable to register switch ret = %d\n", ret);
-		goto err;
+		return ret;
 	}
 
 #ifdef CONFIG_GPIOLIB
@@ -312,8 +335,6 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	rtl837x_debug_proc_init(priv);
 
 	return 0;
-err:
-	return ret;
 }
 
 static void rtl837x_mdio_remove(struct mdio_device *mdiodev)

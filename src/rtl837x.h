@@ -11,13 +11,6 @@
 #include <linux/dsa/8021q.h>
 #include <net/dsa.h>
 
-#define MDC_MDIO_CTRL_REG           21
-#define MDC_MDIO_ADDR_REG           22
-#define MDC_MDIO_DATA_LOW           23
-#define MDC_MDIO_DATA_HIGH          24
-#define MDC_MDIO_READ_CMD           0x1B
-#define MDC_MDIO_WRITE_CMD          0x19
-
 #define RTL837x_C2SIDXMAX       127
 #define RTL837x_FIDMAX          15
 #define RTL837X_MAX_PORT_COUNT  9 /* 0~8 */
