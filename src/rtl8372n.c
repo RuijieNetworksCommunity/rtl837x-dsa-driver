@@ -7,6 +7,7 @@
 #include <linux/if_bridge.h>
 
 #include "rtl837x.h"
+#include "rtl837x_l2.h"
 
 #define RTL8372N_NUM_PORTS 9
 #define RTL8372N_VLAN_UNTAG_MASK 0x3FF

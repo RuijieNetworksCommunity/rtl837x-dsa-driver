@@ -2,8 +2,8 @@
 /*
  * Copyright (C) 2025 StarField Xu <air_jinkela@163.com>
  */
-#ifndef __RTL8372_COMMON_H__
-#define __RTL8372_COMMON_H__
+#ifndef _RTL8372_COMMON_H
+#define _RTL8372_COMMON_H
 
 #include <linux/of_mdio.h>
 #include <linux/regmap.h>
@@ -145,12 +145,6 @@
 #define   RTL837X_ITA_CTRL0_TLB_TYPE_MASK            GENMASK(10, 8)
 #define   RTL837X_ITA_CTRL0_TLB_ACT_MASK             BIT(1)
 #define   RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK         BIT(0)
-#define RTL837X_ITA_L2_CTRL_ADDR                     0x5CB0
-#define   RTL837X_ITA_L2_CTRL_PORT_NUM_MASK          GENMASK(22, 19)
-#define   RTL837X_ITA_L2_CTRL_ENTRY_CLR_MASK         BIT(18)
-#define   RTL837X_ITA_L2_CTRL_READ_MTHD_MASK         GENMASK(17, 14)
-#define   RTL837X_ITA_L2_CTRL_ACT_STS_MASK           BIT(12)
-#define   RTL837X_ITA_L2_CTRL_TBL_ADDR_MASK          GENMASK(11, 0)
 #define RTL837X_ITA_WRITE_DATA0_ADDR(_i)             (0x5CB8 + (((_i) << 2))) /* index: 0-4 */
 #define RTL837X_ITA_READ_DATA0_ADDR(_i)              (0x5CCC + (((_i) << 2))) /* index: 0-4 */
 
@@ -438,66 +432,6 @@ struct rtl837x_vlan_data {
 	};
 };
 
-enum rtl837x_l2_method {
-	LUT_READ_METHOD_MAC = 0,
-	LUT_READ_METHOD_ADDRESS,
-	LUT_READ_METHOD_NEXT_ADDRESS,
-	LUT_READ_METHOD_NEXT_L2UC,
-	LUT_READ_METHOD_NEXT_L2MC,
-	LUT_READ_METHOD_NEXT_L3MC,
-	LUT_READ_METHOD_NEXT_L2L3MC,
-	LUT_READ_METHOD_NEXT_L2UCSPA,
-};
-
-enum rtl837x_lut_type {
-	LUT_TYPE_L2_UC = 1,
-	LUT_TYPE_L2_MC,
-	LUT_TYPE_L3,
-};
-
-struct rtl837x_l2_key {
-	u8 mac_addr[ETH_ALEN];
-	u16 vid_fid;
-	bool ivl;
-};
-
-struct rtl837x_l2_uc {
-	struct rtl837x_l2_key key;
-	u8 port;
-	u8 age;
-
-	bool auth; // 802.1X: not used in this driver
-	bool is_static;
-};
-
-struct rtl837x_l2_mc {
-	struct rtl837x_l2_key key;
-	u16 mbr;
-
-	bool igmp_asic;
-	u8 igmp_idx;
-};
-
-struct rtl837x_l3 {
-	u32 sip;
-	u32 dip;
-
-	bool l3lookup;
-	u16 mbr;
-	bool igmp_asic;
-	u8 igmp_idx;
-};
-
-struct rtl837x_lut_entry {
-	enum rtl837x_lut_type type;
-	u16 addr;
-	union {
-		struct rtl837x_l2_uc uc;
-		struct rtl837x_l2_mc mc;
-		struct rtl837x_l3 l3;
-	};
-};
-
 struct rtl837x_variant {
 	const struct dsa_switch_ops *ds_ops_mdio;
 	const struct rtl837x_ops *ops;
@@ -571,14 +505,6 @@ extern int rtl837x_rtl8224_sds_reg_bits_write(struct rtl837x_priv *priv, u8 sds_
 
 extern int rtl837x_vlan_set(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan);
 extern int rtl837x_vlan_get(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan);
-
-extern int rtl837x_lut_query(struct rtl837x_priv *priv,
-			  enum rtl837x_l2_method method,
-			  struct rtl837x_lut_entry *entry);
-extern int rtl837x_lut_set(struct rtl837x_priv *priv,
-			  struct rtl837x_lut_entry *entry);
-extern int rtl837x_lut_del(struct rtl837x_priv *priv,
-				  u32 addr);
 
 extern int rtl837x_sds_reset_X(struct rtl837x_priv *priv, u8 sds_idx);
 extern int rtl837x_sds_reset_R(struct rtl837x_priv *priv, u8 sds_idx);

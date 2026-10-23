@@ -14,6 +14,6 @@ rtl8372n_dsa-objs := rtl8372n.o
 rtl8372n_dsa-objs += rtl837x_dbg.o
 rtl8372n_dsa-objs += rtl837x_mdio.o
 rtl8372n_dsa-objs += rtl837x_common.o
-rtl8372n_dsa-objs += rtl837x_common_l2.o
+rtl8372n_dsa-objs += rtl837x_l2.o
 rtl8372n_dsa-objs += rtl837x_gpio.o
 rtl8372n_dsa-objs += rtl837x_led.o
