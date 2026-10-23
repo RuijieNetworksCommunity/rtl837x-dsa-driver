@@ -591,13 +591,6 @@ extern int rtl837x_serdes_off(struct rtl837x_priv *priv, u8 sds_idx);
 extern int rtl837x_serdes_an_patch(struct rtl837x_priv *priv, u8 sds_idx, phy_interface_t interface);
 extern int rtl837x_serdes_mac_patch(struct rtl837x_priv *priv, u8 sds_idx);
 
-#if defined(RTL837X_PHY_PATCH)
-extern int patch_phys_v008(struct rtl837x_priv *priv, u16 phy_mask);
-extern int patch_phys_v008_rls_lockmain(struct rtl837x_priv *priv, u16 phy_mask);
-extern int patch_phys_v009(struct rtl837x_priv *priv, u16 phy_mask);
-extern int patch_phys_v009_rls_lockmain(struct rtl837x_priv *priv, u16 phy_mask);
-#endif
-
 extern const struct rtl837x_variant rtl8372n_variant;
 
 #endif

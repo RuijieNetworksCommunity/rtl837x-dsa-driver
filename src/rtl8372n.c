@@ -2581,13 +2581,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 			 RTL837X_DW8051_CFG_DW8051_READY_MASK, 1
 			);
 
-#if defined(RTL837X_PHY_PATCH)
-	if (priv->chip_ver == 2) {
-		patch_phys_v008(priv, 0xf0);
-		patch_phys_v008_rls_lockmain(priv, 0xf0);
-	}
-#endif
-
 	//RTL8372/RTL8372N/RTL8366U set polling mask 0x1f8, port 3/8 from serdes need config bit8=1
 	rtl837x_reg_bits_write(priv, RTL837X_SMI_GLB_CTRL_ADDR,
 		 RTL837X_SMI_GLB_CTRL_SMI_POLLING_MASK_MASK, 0x1f8
