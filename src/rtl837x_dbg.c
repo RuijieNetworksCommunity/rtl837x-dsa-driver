@@ -58,6 +58,7 @@ REGRWFUNC(sdsreg, 64);
 REGRWFUNC(l2uc, 256);
 REGRWFUNC(vlan_trans, 64);
 REGRWFUNC(vlan_tag_rewrite, 64);
+REGRWFUNC(vlan_ingress_filter, 64);
 REGRWFUNC(vlan_keep, 64);
 
 ssize_t MAKE_WRITE_FUNCNAME(vlan)(struct file *filep, const char __user *ubuf,
@@ -640,6 +641,46 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __u
 	return count;
 }
 
+ssize_t MAKE_WRITE_FUNCNAME(vlan_ingress_filter)(struct file *filep, const char __user *ubuf,
+				   size_t count, loff_t *offp)
+{
+	char *buf;
+	int port;
+	int tmp;
+	bool igr_flt_en;
+	struct seq_file *sfile;
+	struct rtl837x_priv *priv;
+
+	sfile = filep->private_data;
+	priv = sfile->private;
+
+	buf = memdup_user_nul(ubuf, count);
+	if (IS_ERR(buf))
+		return PTR_ERR(buf);
+
+	if (buf[0] == 'r') {
+		if (sscanf(buf, "r %d", &port) != 1) {
+			kfree(buf);
+			return -EFAULT;
+		}
+readback:
+		rtl837x_vlan_port_get_ingress_filtering(priv, port, &igr_flt_en);
+		BUF_PRINTF(vlan_ingress_filter, "port: %d, ingress_filter: %s\n",
+			  port, igr_flt_en ? "Enable" : "Disable");
+	} else if (buf[0] == 'w') {
+		if (sscanf(buf, "w %d %d", &port, &tmp) != 2) {
+			kfree(buf);
+			return -EFAULT;
+		}
+		rtl837x_vlan_port_set_ingress_filtering(priv, port, !!tmp);
+		goto readback;
+	} else {
+		BUF_PRINTF(vlan_ingress_filter, "echo \"r/w <Dport> [<Dval>]\" > vlan_ingress_filter\n");
+	}
+	kfree(buf);
+	return count;
+}
+
 static ssize_t _sds_page_dump_read(struct file *filep, char __user *ubuf,
 				size_t count, loff_t *offp)
 {
@@ -1019,6 +1060,10 @@ int rtl837x_debug_proc_init(struct rtl837x_priv *priv)
 	debugfs_create_file("vlan_tag_rewrite", 0600,
 		priv->debugfs_parent, priv,
 		&TO_FOPS(vlan_tag_rewrite));
+
+	debugfs_create_file("vlan_ingress_filter", 0600,
+		priv->debugfs_parent, priv,
+		&TO_FOPS(vlan_ingress_filter));
 
 	debugfs_create_file("l2uc", 0600,
 		priv->debugfs_parent, priv,
