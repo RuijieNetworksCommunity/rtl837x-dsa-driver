@@ -149,21 +149,11 @@
 #define RTL837X_ITA_READ_DATA0_ADDR(_i)              (0x5CCC + (((_i) << 2))) /* index: 0-4 */
 
 /* VLAN and VLAN stacking */
-#define RTL837X_VLAN_PORT_AFT_ADDR(_p)                           (0x4E10 + (((_p / 10) << 2)))
-#define   RTL837X_VLAN_PORT_AFT_CTAG_ACCEPT_TYPE_MASK(_p)        (GENMASK(1, 0) << ((_p % 0xA) << 1))
+
 #define RTL837X_VLAN_CTRL_ADDR                                   0x4E14
 #define   RTL837X_VLAN_CTRL_TABLE_RST_MASK                       BIT(3)
 #define   RTL837X_VLAN_CTRL_CVLAN_FILTER_MASK                    BIT(2)
-#define RTL837X_VLAN_PORT_IGR_FLTR_ADDR(_p)                      (0x4E18 + (((_p / 10) << 2)))
-#define   RTL837X_VLAN_PORT_IGR_FLTR_IGR_FLTR_ACT_MASK(_p)       BIT(_p % 0xA)
-#define RTL837X_VLAN_PORT_PB_VLAN_ADDR(_p)                       (0x4E1C + (((_p >> 1) << 2)))
-#define   RTL837X_VLAN_PORT_PB_VLAN_PVID_MASK(_p)                (GENMASK(11, 0) << ((_p & 0x1) * 12))
-#define RTL837X_VLAN_PORT_EGR_TRANS_ADDR(_p)                     (0x4EB8 + (((_p / 3) << 2)))
-#define   RTL837X_VLAN_PORT_EGR_TRANS_PMSK_MASK(_p)              (GENMASK(9, 0) << ((_p % 0x3) * 10))
-#define RTL837X_VLAN_PORT_EGR_KEEP_ADDR(_p)                      (0x6728 + (((_p / 3) << 2)))
-#define   RTL837X_VLAN_PORT_EGR_KEEP_PMSK_MASK(_p)               (GENMASK(9, 0) << ((_p % 0x3) * 10))
-#define RTL837X_VLAN_PORT_EGR_TAG_ADDR(_p)                       (0x6738 + (((_p / 10) << 2)))
-#define   RTL837X_VLAN_PORT_EGR_TAG_MODE_MASK(_p)                (GENMASK(1, 0) << ((_p % 0xA) << 1))
+
 #define RTL837X_VLAN_L2_LRN_DIS_ADDR(_i)                         (0x4E30 + (((_i) << 2))) /* index: 0-1 */
 #define RTL837X_VS_GLB_CTRL_ADDR                                 0x6044
 #define RTL837X_VS_UPLINK_PORT_ADDR                              0x57C0
@@ -417,21 +407,6 @@ struct rtl837x_vlan_4k {
 	u8	fid;
 };
 
-struct rtl837x_vlan_data {
-	u16 vid;
-	union {
-		struct {
-			u32 mbr  : 10;
-			u32 untag: 10;
-			u32 fid  : 4;
-			u32 svlan_chk_ivl_svl: 1;
-			u32 ivl_en: 1;
-			u32 resv : 6;
-		};
-		u32 val;
-	};
-};
-
 struct rtl837x_variant {
 	const struct dsa_switch_ops *ds_ops_mdio;
 	const struct rtl837x_ops *ops;
@@ -502,9 +477,6 @@ extern int rtl837x_rtl8224_sds_reg_read(struct rtl837x_priv *priv, u8 sds_idx, u
 extern int rtl837x_rtl8224_sds_reg_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 data);
 extern int rtl837x_rtl8224_sds_reg_bits_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 mask, u16 *pdata);
 extern int rtl837x_rtl8224_sds_reg_bits_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 mask, u16 data);
-
-extern int rtl837x_vlan_set(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan);
-extern int rtl837x_vlan_get(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan);
 
 extern int rtl837x_sds_reset_X(struct rtl837x_priv *priv, u8 sds_idx);
 extern int rtl837x_sds_reset_R(struct rtl837x_priv *priv, u8 sds_idx);

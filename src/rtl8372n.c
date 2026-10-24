@@ -8,6 +8,7 @@
 
 #include "rtl837x.h"
 #include "rtl837x_l2.h"
+#include "rtl837x_vlan.h"
 
 #define RTL8372N_NUM_PORTS 9
 #define RTL8372N_VLAN_UNTAG_MASK 0x3FF
@@ -313,21 +314,6 @@ static int rtl8372n_detect(struct rtl837x_priv *priv)
 	return 0;
 }
 
-// Set Ingress frame type
-static int rtl8372n_port_igr_drop_untagged(struct rtl837x_priv *priv, int port, bool drop)
-{
-	// ACCEPT_FRAME_TYPE_ALL = 0,             /* untagged, priority-tagged and tagged */
-	// ACCEPT_FRAME_TYPE_TAG_ONLY,         /* tagged */
-	// ACCEPT_FRAME_TYPE_UNTAG_ONLY,     /* untagged and priority-tagged */
-	// ACCEPT_FRAME_TYPE_END
-	dev_dbg(priv->dev, "[%s]: port (%d), (%s)\n", __func__, port, drop ? "drop" : "keep");
-
-	return rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_AFT_ADDR(port),
-			  RTL837X_VLAN_PORT_AFT_CTAG_ACCEPT_TYPE_MASK(port),
-			  drop ? 1 : 0
-			);
-}
-
 static int rtl8372n_get_vlan_4k(struct rtl837x_priv *priv, u32 vid,
 				 struct rtl837x_vlan_4k *vlan4k)
 {
@@ -391,27 +377,6 @@ static int rtl8372n_vlan_update(struct rtl837x_priv *priv, int vid, u32 member,
 	return ret;
 }
 
-/*
- * set the port vlan egress mode
- * If a port disable the tag rewrite
- * frame will ignore the vlan tag config, frames can be sent out as they enter
- * else
- * the tag will remove/keep by vlan config
- */
-static int rtl8372n_port_vlan_egr_tag_rewrite(struct rtl837x_priv *priv, int port,
-		     bool enable)
-{
-	/*
-	 *	VLAN_EGRESS_TAG_MODE_ORIGINAL = 0,
-	 *	VLAN_EGRESS_TAG_MODE_KEEP_FORMAT,
-	 *	VLAN_EGRESS_TAG_MODE_PRI,
-	 *	VLAN_EGRESS_TAG_MODE_REAL_KEEP,
-	 *	VLAN_EGRESS_TAG_MODE_END
-	 */
-	return rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_EGR_TAG_ADDR(port),
-		 RTL837X_VLAN_PORT_EGR_TAG_MODE_MASK(port), enable == true ? 0 : 1
-		);
-}
 
 static int rtl8372n_set_pvid(struct rtl837x_priv *priv, int port,
 		     u32 vid)
@@ -421,21 +386,16 @@ static int rtl8372n_set_pvid(struct rtl837x_priv *priv, int port,
 	struct dsa_switch *ds = priv->ds;
 	bool pvid_enabled;
 	bool pvid_enabled_bak = chip_data->pvid_enabled[port];
-	u32 pvid_bak = 0;
+	int pvid_bak = 0;
 
 	dev_dbg(priv->dev, "[%s]: port (%d), vid (%d)\n", __func__, port, vid);
 	pvid_enabled = !!vid;
 
-	ret = rtl837x_reg_bits_read(priv, RTL837X_VLAN_PORT_PB_VLAN_ADDR(port),
-			  RTL837X_VLAN_PORT_PB_VLAN_PVID_MASK(port),
-			  &pvid_bak
-			);
+	ret = rtl837x_vlan_port_get_pvid(priv, port, &pvid_bak);
 	if (ret)
 		return ret;
 
-	ret = rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_PB_VLAN_ADDR(port),
-			  RTL837X_VLAN_PORT_PB_VLAN_PVID_MASK(port), vid
-			);
+	ret = rtl837x_vlan_port_set_pvid(priv, port, vid);
 	if (ret)
 		return ret;
 
@@ -446,7 +406,9 @@ static int rtl8372n_set_pvid(struct rtl837x_priv *priv, int port,
 	 * filtering setting.
 	 */
 	if (dsa_port_is_vlan_filtering(dsa_to_port(ds, port))) {
-		ret = rtl8372n_port_igr_drop_untagged(priv, port, !pvid_enabled);
+		enum rtl837x_frame_ingress igr_mode = !pvid_enabled ?
+				    RTL837X_FRAME_TYPE_TAGGED_ONLY : RTL837X_FRAME_TYPE_ANY_FRAME;
+		ret = rtl837x_vlan_port_set_framefilter(priv, port, igr_mode);
 		if (ret)
 			goto fail_rollback;
 	}
@@ -455,10 +417,8 @@ static int rtl8372n_set_pvid(struct rtl837x_priv *priv, int port,
 
 fail_rollback:
 	{
-		int r = rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_PB_VLAN_ADDR(port),
-				RTL837X_VLAN_PORT_PB_VLAN_PVID_MASK(port),
-				pvid_bak
-				);
+		int r = rtl837x_vlan_port_set_pvid(priv, port, pvid_bak);
+
 		if (r)
 			dev_err(priv->dev,
 				"failed to restore PVID of port %d: %d\n",
@@ -1454,61 +1414,36 @@ static int rtl8372n_port_remove_isolation(struct rtl837x_priv *priv, int port,
 				  mask, 0);
 }
 
-static int rtl8372n_port_add_egr_vlan_transparent(struct rtl837x_priv *priv, int port, u32 igr_mask)
-{
-	dev_dbg(priv->dev, "[%s]: port:%d mask:0x%08x\n", __func__,
-				port, igr_mask);
-	return rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_EGR_TRANS_ADDR(port),
-				  RTL837X_VLAN_PORT_EGR_TRANS_PMSK_MASK(port) & (igr_mask << ((port % 0x3) * 10)), 0xffffffff);
-}
-
-static int rtl8372n_port_remove_egr_vlan_transparent(struct rtl837x_priv *priv, int port, u32 igr_mask)
-{
-	dev_dbg(priv->dev, "[%s]: port:%d mask:0x%08x\n", __func__,
-			port, igr_mask);
-	return rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_EGR_TRANS_ADDR(port),
-				  RTL837X_VLAN_PORT_EGR_TRANS_PMSK_MASK(port) & (igr_mask << ((port % 0x3) * 10)), 0);
-}
-
 static int rtl8372n_port_add_cpu_vlan_transparent(struct rtl837x_priv *priv, int port)
 {
+	int ret;
 	struct dsa_port *cpu_dp = NULL;
-	u32 cpu_portmask = 0;
 
 	dsa_switch_for_each_cpu_port(cpu_dp, priv->ds) {
-		cpu_portmask |= BIT(cpu_dp->index);
-		rtl8372n_port_add_egr_vlan_transparent(priv, cpu_dp->index, BIT(port));
+		ret = rtl837x_vlan_port_set_transparent(priv, port, cpu_dp->index, true);
+		if (ret)
+			return ret;
+		ret = rtl837x_vlan_port_set_transparent(priv, cpu_dp->index, port, true);
+		if (ret)
+			return ret;
 	}
-
-	return rtl8372n_port_add_egr_vlan_transparent(priv, port, cpu_portmask);
+	return 0;
 }
 
 static int rtl8372n_port_remove_cpu_vlan_transparent(struct rtl837x_priv *priv, int port)
 {
+	int ret;
 	struct dsa_port *cpu_dp = NULL;
-	u32 cpu_portmask = 0;
 
 	dsa_switch_for_each_cpu_port(cpu_dp, priv->ds) {
-		rtl8372n_port_remove_egr_vlan_transparent(priv, cpu_dp->index, BIT(port));
-		cpu_portmask |= BIT(cpu_dp->index);
+		ret = rtl837x_vlan_port_set_transparent(priv, port, cpu_dp->index, false);
+		if (ret)
+			return ret;
+		ret = rtl837x_vlan_port_set_transparent(priv, cpu_dp->index, port, false);
+		if (ret)
+			return ret;
 	}
-	return rtl8372n_port_remove_egr_vlan_transparent(priv, port, cpu_portmask);
-}
-
-static int rtl8372n_port_add_egr_vlan_keep(struct rtl837x_priv *priv, int port, u32 igr_mask)
-{
-	return rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_EGR_KEEP_ADDR(port),
-					  RTL837X_VLAN_PORT_EGR_KEEP_PMSK_MASK(port) & (igr_mask << ((port % 0x3) * 10)),
-					  0xffffffff
-					);
-}
-
-static int rtl8372n_port_remove_egr_vlan_keep(struct rtl837x_priv *priv, int port, u32 igr_mask)
-{
-	return rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_EGR_KEEP_ADDR(port),
-					  RTL837X_VLAN_PORT_EGR_KEEP_PMSK_MASK(port) & (igr_mask << ((port % 0x3) * 10)),
-					  0
-					);
+	return 0;
 }
 
 static void rtl8372n_get_strings(struct dsa_switch *ds, int port, u32 stringset,
@@ -1664,24 +1599,18 @@ static int rtl8372n_vlan_filtering(struct dsa_switch *ds, int port,
 					bool vlan_filtering, struct netlink_ext_ack *extack)
 {
 	int ret;
-	u32 vlan_filter_bak;
+	bool vlan_filter_bak;
 	struct rtl837x_priv *priv = ds->priv;
 	struct rtl8372n *chip_data = priv->chip_data;
 
 	dev_dbg(priv->dev, "[%s]: port (%d), filtering: %s\n", __func__,
 				  port, !!vlan_filtering ? "true" : "false");
 
-	ret = rtl837x_reg_bits_read(priv, RTL837X_VLAN_PORT_IGR_FLTR_ADDR(port),
-			  RTL837X_VLAN_PORT_IGR_FLTR_IGR_FLTR_ACT_MASK(port),
-			  &vlan_filter_bak
-			);
+	ret = rtl837x_vlan_port_get_ingress_filtering(priv, port, &vlan_filter_bak);
 	if (ret)
 		return ret;
 
-	ret = rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_IGR_FLTR_ADDR(port),
-			  RTL837X_VLAN_PORT_IGR_FLTR_IGR_FLTR_ACT_MASK(port),
-			  vlan_filtering ? 1 : 0
-			);
+	ret = rtl837x_vlan_port_set_ingress_filtering(priv, port, vlan_filtering);
 	if (ret)
 		return ret;
 
@@ -1693,10 +1622,13 @@ static int rtl8372n_vlan_filtering(struct dsa_switch *ds, int port,
 	 * we accept the untagged frame came in, the untagged frame
 	 * will marked the port pvid and forward
 	 */
+	enum rtl837x_frame_ingress igr_mode = RTL837X_FRAME_TYPE_ANY_FRAME;
+
 	if (vlan_filtering)
-		ret = rtl8372n_port_igr_drop_untagged(priv, port, !chip_data->pvid_enabled[port]);
-	else
-		ret = rtl8372n_port_igr_drop_untagged(priv, port, false);
+		igr_mode = !chip_data->pvid_enabled[port] ?
+				    RTL837X_FRAME_TYPE_TAGGED_ONLY : RTL837X_FRAME_TYPE_ANY_FRAME;
+
+	ret = rtl837x_vlan_port_set_framefilter(priv, port, igr_mode);
 	if (ret)
 		goto fail_rollback;
 
@@ -1704,10 +1636,8 @@ static int rtl8372n_vlan_filtering(struct dsa_switch *ds, int port,
 
 fail_rollback:
 	{
-		int r = rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_IGR_FLTR_ADDR(port),
-				    RTL837X_VLAN_PORT_IGR_FLTR_IGR_FLTR_ACT_MASK(port),
-				    vlan_filter_bak
-				);
+		int r = rtl837x_vlan_port_set_ingress_filtering(priv, port, vlan_filter_bak);
+
 		if (r)
 			dev_err(priv->dev,
 				"failed to restore ingress filter of port %d: %d\n",
@@ -1927,7 +1857,7 @@ rtl8372n_port_bridge_join(struct dsa_switch *ds, int port,
 	}
 
 	if (!dsa_is_cpu_port(ds, port)) {
-		ret = rtl8372n_port_vlan_egr_tag_rewrite(priv, port, true);
+		ret = rtl837x_vlan_port_set_vlan_egress_mode(priv, port, RTL837X_VLAN_EGRESS_MODE_ORIGINAL);
 		if (ret) {
 			dev_err(priv->dev,
 				"failed to enable egr tag rewrite on port %d: %d\n",
@@ -1943,7 +1873,7 @@ fail_rollback:
 		int r;
 
 		if (!dsa_is_cpu_port(ds, port)) {
-			r = rtl8372n_port_vlan_egr_tag_rewrite(priv, port, false);
+			r = rtl837x_vlan_port_set_vlan_egress_mode(priv, port, RTL837X_VLAN_EGRESS_MODE_KEEP);
 			if (r)
 				dev_err(priv->dev,
 					"failed to restore egr tag rewrite on port %d: %d\n",
@@ -2030,7 +1960,7 @@ rtl8372n_port_bridge_leave(struct dsa_switch *ds, int port,
 	 * Set the hardware do not add/remove/edit the vlan tag
 	 * The VLAN remains completely unchanged when the frame enters and exits
 	 */
-	rtl8372n_port_vlan_egr_tag_rewrite(priv, port, false);
+	rtl837x_vlan_port_set_vlan_egress_mode(priv, port, RTL837X_VLAN_EGRESS_MODE_KEEP);
 }
 
 static int rtl8372n_port_enable(struct dsa_switch *ds, int port,
@@ -2425,7 +2355,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	struct rtl837x_priv *priv = ds->priv;
 	struct device_node *np = priv->dev->of_node;
 	struct rtl8372n *chip_data = priv->chip_data;
-	struct dsa_port *dp;
+	struct dsa_port *dp, *dp1;
 
 	int cpu_dp_cnt = 0;
 
@@ -2595,13 +2525,14 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	 * Therefore, clearing is required during startup.
 	 */
 	dsa_switch_for_each_port(dp, ds) {
-		ret = rtl8372n_port_remove_egr_vlan_transparent(priv, dp->index, 0xffffffff);
-		if (ret)
-			return ret;
-
-		ret = rtl8372n_port_remove_egr_vlan_keep(priv, dp->index, 0xffffffff);
-		if (ret)
-			return ret;
+		dsa_switch_for_each_port(dp1, ds) {
+			ret = rtl837x_vlan_port_set_transparent(priv, dp->index, dp1->index, false);
+			if (ret)
+				return ret;
+			ret = rtl837x_vlan_port_set_egress_vlan_keep(priv, dp->index, dp1->index, false);
+			if (ret)
+				return ret;
+		}
 	}
 
 	of_extra_init(ds);
@@ -2662,7 +2593,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	dsa_switch_for_each_available_port(dp, ds) {
 		int port = dp->index;
 		// Start with all ports' egress frames keeping their original VLAN format
-		ret = rtl8372n_port_vlan_egr_tag_rewrite(priv, port, false);
+		ret = rtl837x_vlan_port_set_vlan_egress_mode(priv, port, RTL837X_VLAN_EGRESS_MODE_KEEP);
 		if (ret)
 			return ret;
 
@@ -2678,9 +2609,11 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		 * Make sure frames sent from the CPU neither get a VLAN tag added
 		 * nor have their VLAN tag rewritten, i.e. keep the original format.
 		 */
-		ret = rtl8372n_port_add_egr_vlan_keep(priv, port, dsa_cpu_ports(ds));
-		if (ret)
-			return ret;
+		dsa_switch_for_each_cpu_port(dp1, ds) {
+			ret = rtl837x_vlan_port_set_egress_vlan_keep(priv, dp1->index, dp->index, true);
+			if (ret)
+				return ret;
+		}
 
 		/*
 		 * We set VLAN transparent to enable ports to forward

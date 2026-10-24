@@ -7,6 +7,7 @@
 
 #include "rtl837x.h"
 #include "rtl837x_l2.h"
+#include "rtl837x_vlan.h"
 
 #define TO_FOPS(name) _##name##_rw_fops
 
@@ -149,8 +150,8 @@ ssize_t MAKE_WRITE_FUNCNAME(pvid)(struct file *filep, const char __user *ubuf,
 			kfree(buf);
 			return -EFAULT;
 		}
-		rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_PB_VLAN_ADDR(port),
-				  RTL837X_VLAN_PORT_PB_VLAN_PVID_MASK(port), pvid);
+		rtl837x_vlan_port_set_pvid(priv, port, pvid);
+		goto readback;
 	} else if (buf[0] == 'r') {
 		if (sscanf(buf, "r %d", &port) != 1) {
 			kfree(buf);
@@ -160,8 +161,8 @@ ssize_t MAKE_WRITE_FUNCNAME(pvid)(struct file *filep, const char __user *ubuf,
 			kfree(buf);
 			return -EFAULT;
 		}
-		ret = rtl837x_reg_bits_read(priv, RTL837X_VLAN_PORT_PB_VLAN_ADDR(port),
-				  RTL837X_VLAN_PORT_PB_VLAN_PVID_MASK(port), &pvid);
+readback:
+		ret = rtl837x_vlan_port_get_pvid(priv, port, &pvid);
 		if (ret) {
 			kfree(buf);
 			return -EIO;
@@ -496,7 +497,8 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_trans)(struct file *filep, const char __user *u
 				   size_t count, loff_t *offp)
 {
 	char *buf;
-	int port;
+	bool is_en = false;
+	int port, igr_port;
 	u32 mbr;
 	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
@@ -513,23 +515,21 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_trans)(struct file *filep, const char __user *u
 			kfree(buf);
 			return -EFAULT;
 		}
-
-		rtl837x_reg_bits_read(priv, RTL837X_VLAN_PORT_EGR_TRANS_ADDR(port),
-			  RTL837X_VLAN_PORT_EGR_TRANS_PMSK_MASK(port), &mbr);
-		BUF_PRINTF(vlan_trans, "port: %d, mbr: 0x%04X\n",
+read_back:
+		rtl837x_vlan_port_get_transparent_mbr(priv, port, &mbr);
+		BUF_PRINTF(vlan_trans, "port: %d, igr_mbr: 0x%04X\n",
 			  port, mbr);
-	} else if (buf[0] == 'w') {
-		if (sscanf(buf, "w %d %x", &port, &mbr) != 2) {
+	} else if (buf[0] == 's' || buf[0] == 'd') {
+		if (sscanf(buf+1, " %d %d", &port, &igr_port) != 2) {
 			kfree(buf);
 			return -EFAULT;
 		}
-
-		rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_EGR_TRANS_ADDR(port),
-			  RTL837X_VLAN_PORT_EGR_TRANS_PMSK_MASK(port), mbr);
-		BUF_PRINTF(vlan_trans, "port: %d, mbr: 0x%04X\n",
-			  port, mbr);
+		if (buf[0] == 's')
+			is_en = true;
+		rtl837x_vlan_port_set_transparent(priv, igr_port, port, is_en);
+		goto read_back;
 	} else {
-		BUF_PRINTF(vlan_trans, "echo \"r/w <Dport> [<Xval>]\" > vlan_trans\n");
+		BUF_PRINTF(vlan_trans, "echo \"r/s/d <Degr_port> [<Digr_port>]\" > vlan_trans\n");
 	}
 	kfree(buf);
 	return count;
@@ -539,7 +539,8 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_keep)(struct file *filep, const char __user *ub
 				   size_t count, loff_t *offp)
 {
 	char *buf;
-	int port;
+	bool is_en = false;
+	int port, igr_port;
 	u32 mbr;
 	struct seq_file *sfile;
 	struct rtl837x_priv *priv;
@@ -557,22 +558,23 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_keep)(struct file *filep, const char __user *ub
 			return -EFAULT;
 		}
 
-		rtl837x_reg_bits_read(priv, RTL837X_VLAN_PORT_EGR_KEEP_ADDR(port),
-			  RTL837X_VLAN_PORT_EGR_KEEP_PMSK_MASK(port), &mbr);
-		BUF_PRINTF(vlan_keep, "port: %d, mbr: 0x%04X\n",
+read_back:
+		rtl837x_vlan_port_get_egress_vlan_keep_mbr(priv, port, &mbr);
+		BUF_PRINTF(vlan_keep, "port: %d, igr_mbr: 0x%04X\n",
 			  port, mbr);
-	} else if (buf[0] == 'w') {
-		if (sscanf(buf, "w %d %x", &port, &mbr) != 2) {
+	} else if (buf[0] == 's' || buf[0] == 'd') {
+		if (sscanf(buf+1, " %d %d", &port, &igr_port) != 2) {
 			kfree(buf);
 			return -EFAULT;
 		}
 
-		rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_EGR_KEEP_ADDR(port),
-			  RTL837X_VLAN_PORT_EGR_KEEP_PMSK_MASK(port), mbr);
-		BUF_PRINTF(vlan_keep, "port: %d, mbr: 0x%04X\n",
-			  port, mbr);
+		if (buf[0] == 's')
+			is_en = true;
+
+		rtl837x_vlan_port_set_egress_vlan_keep(priv, igr_port, port, is_en);
+		goto read_back;
 	} else {
-		BUF_PRINTF(vlan_keep, "echo \"r/w <Dport> [<Xval>]\" > vlan_keep\n");
+		BUF_PRINTF(vlan_keep, "echo \"r/s/d <Dport> [<Digr_port>]\" > vlan_keep\n");
 	}
 	kfree(buf);
 	return count;
@@ -602,20 +604,21 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __u
 			return -EFAULT;
 		}
 
-		rtl837x_reg_bits_read(priv, RTL837X_VLAN_PORT_EGR_TAG_ADDR(port),
-			  RTL837X_VLAN_PORT_EGR_TAG_MODE_MASK(port), &tmp);
+		enum rtl837x_vlan_egress_mode mode;
 
-		switch (tmp) {
-		case 0:
+		rtl837x_vlan_port_get_vlan_egress_mode(priv, port, &mode);
+
+		switch (mode) {
+		case RTL837X_VLAN_EGRESS_MODE_ORIGINAL:
 			stmp = "ORIGINAL(0)";
 			break;
-		case 1:
+		case RTL837X_VLAN_EGRESS_MODE_KEEP:
 			stmp = "KEEP_FORMAT(1)";
 			break;
-		case 2:
+		case RTL837X_VLAN_EGRESS_MODE_PRI_TAG:
 			stmp = "PRI(2)";
 			break;
-		case 3:
+		case RTL837X_VLAN_EGRESS_MODE_REAL_KEEP:
 			stmp = "REAL_KEEP(3)";
 			break;
 		default:
@@ -629,8 +632,7 @@ ssize_t MAKE_WRITE_FUNCNAME(vlan_tag_rewrite)(struct file *filep, const char __u
 			return -EFAULT;
 		}
 
-		rtl837x_reg_bits_write(priv, RTL837X_VLAN_PORT_EGR_TAG_ADDR(port),
-			  RTL837X_VLAN_PORT_EGR_TAG_MODE_MASK(port), tmp);
+		rtl837x_vlan_port_set_vlan_egress_mode(priv, port, (enum rtl837x_vlan_egress_mode)tmp);
 	} else {
 		BUF_PRINTF(vlan_tag_rewrite, "echo \"r/w <Dport> [<Xval>]\" > vlan_tag_rewrite\n");
 	}
