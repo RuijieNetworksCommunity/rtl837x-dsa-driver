@@ -321,15 +321,13 @@ static int rtl8372n_get_vlan_4k(struct rtl837x_priv *priv, u32 vid,
 
 	struct rtl837x_vlan_data vlan;
 
-	vlan.vid = vid;
-
-	ret = rtl837x_vlan_get(priv, &vlan);
+	ret = rtl837x_vlan_get(priv, vid, &vlan);
 	if (ret) {
 		dev_dbg(priv->dev, "[%s]: failed: ret: %d\n", __func__, ret);
 		return ret;
 	}
 
-	vlan4k->vid = vlan.vid;
+	vlan4k->vid = vid;
 	vlan4k->member = vlan.mbr;
 	vlan4k->untag = vlan.untag;
 	vlan4k->fid = vlan.fid;
@@ -343,13 +341,12 @@ static int rtl8372n_set_vlan_4k(struct rtl837x_priv *priv,
 
 	struct rtl837x_vlan_data vlan = {0};
 
-	vlan.vid = vlan4k->vid;
 	vlan.mbr = vlan4k->member;
 	vlan.untag = vlan4k->untag;
 	vlan.fid = vlan4k->fid;
 	vlan.ivl_en = 1;
 
-	ret = rtl837x_vlan_set(priv, &vlan);
+	ret = rtl837x_vlan_set(priv, vlan4k->vid, &vlan);
 	if (ret) {
 		dev_dbg(priv->dev, "rtl837x_vlan_set: failed: ret: %d\n", ret);
 		return ret;
@@ -361,20 +358,21 @@ static int rtl8372n_vlan_update(struct rtl837x_priv *priv, int vid, u32 member,
 		     u32 untag, u32 fid)
 {
 	int ret;
-	struct rtl837x_vlan_4k vlan4k = {0};
 
-	ret = priv->ops->get_vlan_4k(priv, vid, &vlan4k);
+	struct rtl837x_vlan_data vlan_data;
+
+	ret = rtl837x_vlan_get(priv, vid, &vlan_data);
+
 	if (ret)
 		return ret;
 
-	vlan4k.member |= member;
-	vlan4k.untag &= ~member;
-	vlan4k.untag |= untag;
-	vlan4k.fid = fid;
-	vlan4k.vid = vid;
-	ret = priv->ops->set_vlan_4k(priv, &vlan4k);
+	vlan_data.mbr |= member;
+	vlan_data.untag &= ~member;
+	vlan_data.untag |= untag;
+	vlan_data.fid = fid;
+	vlan_data.ivl_en = 1;
 
-	return ret;
+	return rtl837x_vlan_set(priv, vid, &vlan_data);
 }
 
 
@@ -1244,18 +1242,18 @@ static int rtl8372n_teardown_tag_8021q(struct dsa_switch *ds)
 	// Clean service port
 	rtl837x_reg_write(priv, RTL837X_VS_UPLINK_PORT_ADDR, 0);
 
-	struct rtl837x_vlan_4k vlan4k = {0};
+	struct rtl837x_vlan_data vlan_data;
 
-	vlan4k.member = 0;
-	vlan4k.untag = 0;
-	vlan4k.fid = 0;
+	vlan_data.mbr = 0;
+	vlan_data.untag = 0;
+	vlan_data.fid = 0;
+	vlan_data.ivl_en = 1;
 
 	// Remove s-tag vlan entrys
 	for (int i = 0; i <= RTL8372N_VLAN_MAX; i++) {
 		if (chip_data->dsa_tag_8021q_vid[i]) {
-			vlan4k.vid = i;
 			chip_data->dsa_tag_8021q_vid[i] = false;
-			priv->ops->set_vlan_4k(priv, &vlan4k);
+			rtl837x_vlan_set(priv, i, &vlan_data);
 		}
 	}
 
@@ -1318,24 +1316,24 @@ static int rtl8372n_tag_8021q_vlan_del(struct dsa_switch *ds, int port,
 	struct rtl837x_priv *priv = ds->priv;
 	struct rtl8372n *chip_data = priv->chip_data;
 
-	struct rtl837x_vlan_4k vlan4k = {0};
+	struct rtl837x_vlan_data vlan_data;
 
 	dev_dbg(priv->dev, "[%s]: port: %d, vid: %u\n", __func__, port, vid);
 
-	ret = priv->ops->get_vlan_4k(priv, vid, &vlan4k);
+	ret = rtl837x_vlan_get(priv, vid, &vlan_data);
 	if (ret)
 		return ret;
 
-	vlan4k.member &= ~BIT(port);
-	vlan4k.untag &= ~BIT(port);
+	vlan_data.mbr &= ~BIT(port);
+	vlan_data.untag &= ~BIT(port);
+	vlan_data.ivl_en = 1;
 
-	if (!vlan4k.member) {
-		vlan4k.vid = vid;
-		vlan4k.untag = 0;
-		vlan4k.fid = 0;
+	if (!vlan_data.mbr) {
+		vlan_data.untag = 0;
+		vlan_data.fid = 0;
 	}
 
-	ret = priv->ops->set_vlan_4k(priv, &vlan4k);
+	ret = rtl837x_vlan_set(priv, vid, &vlan_data);
 	if (ret) {
 		dev_err(priv->dev,
 			"failed to remove SVLAN %u\n",
@@ -1692,7 +1690,7 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 			    struct netlink_ext_ack *extack)
 {
 	int ret;
-	struct rtl837x_vlan_4k vlan4k_bak = {0};
+	struct rtl837x_vlan_data vlan_data_bak;
 	bool untagged = !!(vlan->flags & BRIDGE_VLAN_INFO_UNTAGGED);
 	bool pvid = !!(vlan->flags & BRIDGE_VLAN_INFO_PVID);
 	struct rtl837x_priv *priv = ds->priv;
@@ -1720,7 +1718,7 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 		vlan->vid, port, untagged ? "untagged" : "tagged",
 		pvid ? "PVID" : "no PVID");
 
-	ret = priv->ops->get_vlan_4k(priv, vid, &vlan4k_bak);
+	ret = rtl837x_vlan_get(priv, vid, &vlan_data_bak);
 	if (ret)
 		return ret;
 
@@ -1753,7 +1751,7 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 
 fail_rollback:
 	{
-		int r = priv->ops->set_vlan_4k(priv, &vlan4k_bak);
+		int r = rtl837x_vlan_set(priv, vid, &vlan_data_bak);
 
 		if (r)
 			dev_err(priv->dev,
@@ -1772,22 +1770,22 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 	dev_dbg(priv->dev, "[%s]: port (%d) vid (%d)\n", __func__,
 							  port, vlan->vid);
 
-	struct rtl837x_vlan_4k vlan4k = {0};
+	struct rtl837x_vlan_data vlan_data;
 
-	ret = priv->ops->get_vlan_4k(priv, vlan->vid, &vlan4k);
+	ret = rtl837x_vlan_get(priv, vlan->vid, &vlan_data);
 	if (ret)
 		return ret;
 
-	vlan4k.member &= ~BIT(port);
-	vlan4k.untag &= ~BIT(port);
+	vlan_data.mbr &= ~BIT(port);
+	vlan_data.untag &= ~BIT(port);
+	vlan_data.ivl_en = 1;
 
-	if (!vlan4k.member) {
-		vlan4k.vid = vlan->vid;
-		vlan4k.untag = 0;
-		vlan4k.fid = 0;
+	if (!vlan_data.mbr) {
+		vlan_data.untag = 0;
+		vlan_data.fid = 0;
 	}
 
-	ret = priv->ops->set_vlan_4k(priv, &vlan4k);
+	ret = rtl837x_vlan_set(priv, vlan->vid, &vlan_data);
 	if (ret) {
 		dev_err(priv->dev,
 			"failed to remove VLAN %04x\n",
@@ -1796,7 +1794,7 @@ static int rtl8372n_vlan_del(struct dsa_switch *ds, int port,
 	}
 
 	/* The VLAN is really gone now, drop the BPDU trap rule with it */
-	if (!vlan4k.member) {
+	if (!vlan_data.mbr) {
 		ret = rtl8372n_set_bpdu_l2mc_cpu_trap(priv, vlan->vid, 0, false);
 		if (ret)
 			dev_warn(priv->dev,

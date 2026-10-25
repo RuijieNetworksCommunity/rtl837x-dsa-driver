@@ -30,7 +30,7 @@
 #define RTL837X_VLAN_PVID_REG(_p)                       (0x4E1C + (((_p >> 1) << 2)))
 #define   RTL837X_VLAN_PVID_MASK(_p)                    (GENMASK(11, 0) << ((_p & 0x1) * 12))
 
-int rtl837x_vlan_set(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan)
+int rtl837x_vlan_set(struct rtl837x_priv *priv, int vid, struct rtl837x_vlan_data *vlan)
 {
 	int ret;
 	u32 tmp;
@@ -41,7 +41,7 @@ int rtl837x_vlan_set(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan)
 	if (ret)
 		goto out;
 
-	tmp = FIELD_PREP(RTL837X_ITA_CTRL0_TBL_ADDR_MASK, vlan->vid) |
+	tmp = FIELD_PREP(RTL837X_ITA_CTRL0_TBL_ADDR_MASK, vid) |
 		  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_CVLAN) |
 		  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_ACT_MASK, TB_OP_WRITE) |
 		  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
@@ -60,7 +60,7 @@ out:
 	return ret;
 }
 
-int rtl837x_vlan_get(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan)
+int rtl837x_vlan_get(struct rtl837x_priv *priv, int vid, struct rtl837x_vlan_data *vlan)
 {
 	int ret;
 	u32 tmp;
@@ -73,7 +73,7 @@ int rtl837x_vlan_get(struct rtl837x_priv *priv, struct rtl837x_vlan_data *vlan)
 	if (ret)
 		goto out;
 
-	tmp = FIELD_PREP(RTL837X_ITA_CTRL0_TBL_ADDR_MASK, vlan->vid) |
+	tmp = FIELD_PREP(RTL837X_ITA_CTRL0_TBL_ADDR_MASK, vid) |
 		  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_TYPE_MASK, TB_TARGET_CVLAN) |
 		  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_ACT_MASK, TB_OP_READ) |
 		  FIELD_PREP(RTL837X_ITA_CTRL0_TLB_EXECUTE_MASK, TB_EXECUTE);
