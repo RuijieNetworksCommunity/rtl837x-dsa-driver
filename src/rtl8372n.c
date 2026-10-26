@@ -11,7 +11,6 @@
 #include "rtl837x_vlan.h"
 
 #define RTL8372N_NUM_PORTS 9
-#define RTL8372N_VLAN_MAX 4095
 #define RTL8372N_LUT_MAX 4160
 
 #define RTL8372N_SUPPORTED_BRIDGE_FLAGS \
@@ -238,7 +237,7 @@ struct rtl8372n {
 	struct rtl8372n_pcs pcs[RTL8372N_NUM_PORTS];
 	netdev_features_t csum_feature_backup;
 	bool pvid_enabled[RTL8372N_NUM_PORTS];
-	bool dsa_tag_8021q_vid[RTL8372N_VLAN_MAX+1];
+	bool dsa_tag_8021q_vid[4096];
 };
 
 static bool is_8021q_tag(enum dsa_tag_protocol tag_proto)
@@ -399,17 +398,10 @@ static int rtl8372n_set_pvid(struct rtl837x_priv *priv, int port,
 
 	chip_data->pvid_enabled[port] = pvid_enabled;
 
-	/* If VLAN filtering is enabled and PVID is also enabled, we must
-	 * not drop any untagged or C-tagged frames. Make sure to update the
-	 * filtering setting.
-	 */
-	if (dsa_port_is_vlan_filtering(dsa_to_port(ds, port))) {
-		enum rtl837x_frame_ingress igr_mode = pvid_enabled ?
-				    RTL837X_FRAME_TYPE_ANY_FRAME : RTL837X_FRAME_TYPE_TAGGED_ONLY;
-		ret = rtl837x_vlan_port_set_framefilter(priv, port, igr_mode);
-		if (ret)
-			goto fail_rollback;
-	}
+	/* When a port has its pvid, we can accept tagged/untagged frame came in */
+	ret = rtl837x_vlan_port_set_framefilter(priv, port, RTL837X_FRAME_TYPE_ANY_FRAME);
+	if (ret)
+		goto fail_rollback;
 
 	return 0;
 
@@ -448,6 +440,9 @@ static int rtl8372n_clean_pvid(struct rtl837x_priv *priv, int port, u16 vid)
 		return ret;
 	}
 
+	/* When a port doesn't have pvid, and it enable vlan filter,
+	 * Only accept tagged frame came in
+	 */
 	if (dsa_port_is_vlan_filtering(dsa_to_port(ds, port))) {
 		accepted_frame = RTL837X_FRAME_TYPE_TAGGED_ONLY;
 
@@ -1304,7 +1299,7 @@ static int rtl8372n_teardown_tag_8021q(struct dsa_switch *ds)
 	vlan_data.ivl_en = 1;
 
 	// Remove s-tag vlan entrys
-	for (int i = 0; i <= RTL8372N_VLAN_MAX; i++) {
+	for (int i = 0; i < 4096; i++) {
 		if (chip_data->dsa_tag_8021q_vid[i]) {
 			chip_data->dsa_tag_8021q_vid[i] = false;
 			rtl837x_vlan_set(priv, i, &vlan_data);
@@ -1770,9 +1765,9 @@ static int rtl8372n_vlan_add(struct dsa_switch *ds, int port,
 	u32 member = 0;
 	u32 untag = 0;
 
-	if (vid > RTL8372N_VLAN_MAX) {
-		NL_SET_ERR_MSG_MOD(extack, "VLAN ID not valid");
-		return -EINVAL;
+	if (vid == 0) {
+		NL_SET_ERR_MSG_MOD(extack, "VLAN 0 is reserved by this driver");
+		return -EOPNOTSUPP;
 	}
 
 	if (vid_is_dsa_8021q(vid) && is_8021q_tag(priv->tag_proto)) {
