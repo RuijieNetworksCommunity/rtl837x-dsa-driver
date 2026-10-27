@@ -9,6 +9,7 @@
 #include "rtl837x.h"
 #include "rtl837x_l2.h"
 #include "rtl837x_vlan.h"
+#include "rtl837x_serdes.h"
 
 #define RTL8372N_NUM_PORTS 9
 #define RTL8372N_LUT_MAX 4160
@@ -846,114 +847,16 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 
 	msleep(250);
 
-	// Set Auto Negotiation Pause/AsymPause
-	int adv = 0;
-
-	switch (interface) {
-	case PHY_INTERFACE_MODE_100BASEX:
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<2, 0x1);
-		if (ret)
-			return ret;
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<3, 0x1);
-		if (ret)
-			return ret;
-		if (linkmode_test_bit(ETHTOOL_LINK_MODE_Pause_BIT,
-				      advertising))
-			adv |= BIT(0);
-		if (linkmode_test_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
-				      advertising))
-			adv |= BIT(1);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
-				  SDS_CTRL02_XSG_AN_10_100_AsymmetricPause_MASK | SDS_CTRL02_XSG_AN_10_100_Pause_MASK,
-				  adv
-				);
-		if (ret)
-			return ret;
-		break;
-	case PHY_INTERFACE_MODE_1000BASEX:
-	case PHY_INTERFACE_MODE_2500BASEX:
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<2, 0x1);
-		if (ret)
-			return ret;
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, 0x1f, 5, 0x1<<3, 0x0);
-		if (ret)
-			return ret;
-		if (linkmode_test_bit(ETHTOOL_LINK_MODE_Pause_BIT,
-				      advertising))
-			adv |= BIT(0);
-		if (linkmode_test_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
-				      advertising))
-			adv |= BIT(1);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL02, SDS_REG_CTRL02_XSG_AN,
-				  SDS_CTRL02_XSG_AN_1G_AsymmetricPause_MASK | SDS_CTRL02_XSG_AN_1G_Pause_MASK,
-				  adv
-				);
-		if (ret)
-			return ret;
-		break;
-	case PHY_INTERFACE_MODE_10GBASER:
-		if (linkmode_test_bit(ETHTOOL_LINK_MODE_Pause_BIT,
-				      advertising))
-			adv |= BIT(0);
-		if (linkmode_test_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT,
-				      advertising))
-			adv |= BIT(1);
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL1F, SDS_REG_CTRL1F_10GR_AN,
-			  SDS_CTRL1F_10GR_AN_AsymmetricPause_MASK | SDS_CTRL1F_10GR_AN_Pause_MASK,
-			  adv
-			);
-		if (ret)
-			return ret;
-		break;
-	default:
-		break;
-	}
-
-	// Auto Negotiation
-	switch (interface) {
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_1000BASEX:
-	case PHY_INTERFACE_MODE_2500BASEX:
-		if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED)
-			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
-						  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN,
-						  0x3
-						);
-		else
-			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG02,
-						  SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN_EN | SDS_CTRL00_REG02_XSG_SP_SDS_FRC_AN,
-						  0x1
-						);
-		if (ret)
-			return ret;
-
-	/* set SP_CFG_EN_LINK_FIB1G for enable fiberNwayForceLink */
-		ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG04,
-			  SDS_CTRL00_REG04_SP_CFG_EN_LINK_FIB1G_MASK,
-			  0x1
-			);
-		if (ret)
-			return ret;
-		break;
-	case PHY_INTERFACE_MODE_USXGMII:
-		if (neg_mode == PHYLINK_PCS_NEG_INBAND_ENABLED)
-			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_NWAY_AN, SDS_REG_NWAY_AN,
-					  SDS_NWAY_QHSG_AN_CH0_EN_MASK | SDS_NWAY_QHSG_AN_CH1_EN_MASK |
-					  SDS_NWAY_QHSG_AN_CH2_EN_MASK | SDS_NWAY_QHSG_AN_CH3_EN_MASK,
-					  0xf
-					);
-		else
-			ret = rtl837x_sds_reg_bits_write(priv, sds_idx, SDS_PAGE_NWAY_AN, SDS_REG_NWAY_AN,
-					  SDS_NWAY_QHSG_AN_CH0_EN_MASK | SDS_NWAY_QHSG_AN_CH1_EN_MASK |
-					  SDS_NWAY_QHSG_AN_CH2_EN_MASK | SDS_NWAY_QHSG_AN_CH3_EN_MASK,
-					  0x0
-					);
-		if (ret)
-			return ret;
-		break;
-	default:
-		break;
-	}
+	ret = rtl837x_serdes_pause_frame_config(priv, sds_idx,
+	   interface,
+	   linkmode_test_bit(ETHTOOL_LINK_MODE_Pause_BIT, advertising),
+	   linkmode_test_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT, advertising)
+	);
+	if (ret)
+		return ret;
+	ret = rtl837x_serdes_an_config(priv, sds_idx, interface, neg_mode);
+	if (ret)
+		return ret;
 
 	ret = rtl837x_serdes_on(priv, sds_idx);
 	if (ret)
@@ -972,11 +875,11 @@ static int rtl8372n_sds_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mod
 	case PHY_INTERFACE_MODE_USXGMII:
 	case PHY_INTERFACE_MODE_10GBASER:
 		dev_dbg(priv->dev, "[%s]Reset Serdes RX R\n", __func__);
-		rtl837x_sds_reset_R(priv, PORT_TO_SERDES_IDX(port));
+		rtl837x_serdes_reset_10G(priv, PORT_TO_SERDES_IDX(port));
 		break;
 	default:
 		dev_dbg(priv->dev, "[%s]Reset Serdes RX X\n", __func__);
-		rtl837x_sds_reset_X(priv, PORT_TO_SERDES_IDX(port));
+		rtl837x_serdes_reset_XSG(priv, PORT_TO_SERDES_IDX(port));
 		break;
 	}
 
@@ -2440,50 +2343,33 @@ static int rtl8372n_of_setup_phy_and_serdes(struct rtl837x_priv *priv)
 	int ret;
 	struct device_node *np = priv->dev->of_node;
 
-	/* SerDes PN swap: page 0x00 reg 0x00 (XSG, ≤5G) + page 0x06 reg 0x02 (10GR) */
-	if (of_property_read_bool(np, "sds0-rx-swap")) {
-		ret = rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
-				  SDS_CTRL00_REG00_XSG_RX_INV_MASK, 1); //#SDS0 RX PN swap
-		if (ret)
-			return ret;
-		ret = rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
-				  SDS_CTRL06_REG02_10GR_RX_INV_MASK, 1);
-		if (ret)
-			return ret;
-	}
+	if (of_property_read_bool(np, "sds0-rx-swap"))
+		ret = rtl837x_serdes_pnswap_rx(priv, 0, true);
+	else
+		ret = rtl837x_serdes_pnswap_rx(priv, 0, false);
+	if (ret)
+		return ret;
 
-	if (of_property_read_bool(np, "sds0-tx-swap")) {
-		ret = rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
-				  SDS_CTRL00_REG00_XSG_TX_INV_MASK, 1); //#SDS0 TX PN swap
-		if (ret)
-			return ret;
-		ret = rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
-				  SDS_CTRL06_REG02_10GR_TX_INV_MASK, 1);
-		if (ret)
-			return ret;
-	}
+	if (of_property_read_bool(np, "sds0-tx-swap"))
+		ret = rtl837x_serdes_pnswap_tx(priv, 0, true);
+	else
+		ret = rtl837x_serdes_pnswap_tx(priv, 0, false);
+	if (ret)
+		return ret;
 
-	if (of_property_read_bool(np, "sds1-rx-swap")) {
-		ret = rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
-				  SDS_CTRL00_REG00_XSG_RX_INV_MASK, 1); //#SDS1 RX PN swap
-		if (ret)
-			return ret;
-		ret = rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
-				  SDS_CTRL06_REG02_10GR_RX_INV_MASK, 1);
-		if (ret)
-			return ret;
-	}
+	if (of_property_read_bool(np, "sds1-rx-swap"))
+		ret = rtl837x_serdes_pnswap_rx(priv, 1, true);
+	else
+		ret = rtl837x_serdes_pnswap_rx(priv, 1, false);
+	if (ret)
+		return ret;
 
-	if (of_property_read_bool(np, "sds1-tx-swap")) {
-		ret = rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
-				  SDS_CTRL00_REG00_XSG_TX_INV_MASK, 1); //#SDS1 TX PN swap
-		if (ret)
-			return ret;
-		ret = rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
-				  SDS_CTRL06_REG02_10GR_TX_INV_MASK, 1);
-		if (ret)
-			return ret;
-	}
+	if (of_property_read_bool(np, "sds1-tx-swap"))
+		ret = rtl837x_serdes_pnswap_tx(priv, 1, true);
+	else
+		ret = rtl837x_serdes_pnswap_tx(priv, 1, false);
+	if (ret)
+		return ret;
 
 	/*
 	 * What The Fuck Is This???????
