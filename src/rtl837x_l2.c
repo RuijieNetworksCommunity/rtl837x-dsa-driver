@@ -21,6 +21,24 @@
 #define RTL837X_LUT_PORT_LEARN_LIMIT_REG(port)   (0x5384 + (((port) << 2))) /* port: 0-9 */
 #define   RTL837X_LUT_PORT_LEARN_LIMIT_MASK      0x1FFF
 
+#define RTL837X_L2_FLUSH_CMD_REG            0x53D4
+#define   RTL837X_L2_FLUSH_CMD_BUSY_MASK    BIT(17)
+#define   RTL837X_L2_FLUSH_CMD_ACT_MASK     BIT(16)
+#define   RTL837X_L2_FLUSH_CMD_PMSK_MASK    GENMASK(9, 0)
+
+#define RTL837X_L2_FLUSH_CTRL_REG               0x53DC
+#define   RTL837X_L2_FLUSH_CTRL_MODE_MASK       GENMASK(1, 0)
+#define   RTL837X_L2_FLUSH_CTRL_TYPE_MASK       BIT(2)
+#define     RTL837X_L2_FLUSH_CTRL_TYPE_DYNAMIC	0
+#define     RTL837X_L2_FLUSH_CTRL_TYPE_BOTH     1
+
+#define RTL837X_L2_FLUSH_XID_REG         0x53E0
+#define   RTL837X_L2_FLUSH_XID_FID_MASK  GENMASK(19, 16)
+#define   RTL837X_L2_FLUSH_XID_VID_MASK  GENMASK(11, 0)
+
+#define RTL837X_L2_FLUSH_ALL_REG   0x53D8
+#define   RTL837X_L2_FLUSH_ALL_MASK   BIT(0)
+
 /* unicast field define */
 #define RTL837X_L2_UC_D0_MAC5_MSK		GENMASK(7, 0)
 #define RTL837X_L2_UC_D0_MAC4_MSK		GENMASK(15, 8)
@@ -490,4 +508,68 @@ int rtl837x_lut_port_set_learning(struct rtl837x_priv *priv, int port,
 	return rtl837x_reg_bits_write(priv, RTL837X_LUT_PORT_LEARN_LIMIT_REG(port),
 			    RTL837X_LUT_PORT_LEARN_LIMIT_MASK,
 			    enable ? RTL837X_LEARN_LIMIT_MAX : 0);
+}
+
+int rtl837x_lut_l2_flush(struct rtl837x_priv *priv, enum rtl837x_l2_flush_mode mode,
+		    int port, u16 vid, u16 fid)
+{
+	int ret;
+	u32 tmp;
+
+	/* wait busy flag */
+	ret = regmap_read_poll_timeout(priv->map, RTL837X_L2_FLUSH_CMD_REG, tmp,
+		  ((tmp & RTL837X_L2_FLUSH_CMD_BUSY_MASK) == 0),
+		  20, 5000);
+	if (ret)
+		return ret;
+
+	/* Configure flushing mode; only flush dynamic entries */
+	ret = rtl837x_reg_write(priv, RTL837X_L2_FLUSH_CTRL_REG,
+		   FIELD_PREP(RTL837X_L2_FLUSH_CTRL_MODE_MASK, mode) |
+		   FIELD_PREP(RTL837X_L2_FLUSH_CTRL_TYPE_MASK, RTL837X_L2_FLUSH_CTRL_TYPE_DYNAMIC)
+		);
+	if (ret)
+		return ret;
+
+	ret = rtl837x_reg_write(priv, RTL837X_L2_FLUSH_XID_REG,
+		   FIELD_PREP(RTL837X_L2_FLUSH_XID_FID_MASK, fid) |
+		   FIELD_PREP(RTL837X_L2_FLUSH_XID_VID_MASK, vid)
+		);
+	if (ret)
+		return ret;
+
+	ret = rtl837x_reg_write(priv, RTL837X_L2_FLUSH_CMD_REG,
+		   FIELD_PREP(RTL837X_L2_FLUSH_CMD_ACT_MASK, 1) |
+		   FIELD_PREP(RTL837X_L2_FLUSH_CMD_PMSK_MASK, BIT(port))
+		);
+	if (ret)
+		return ret;
+
+	// check busy
+	ret = regmap_read_poll_timeout(priv->map, RTL837X_L2_FLUSH_CMD_REG, tmp,
+		  ((tmp & RTL837X_L2_FLUSH_CMD_BUSY_MASK) == 0),
+		  10, 10000);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+int rtl837x_lut_l2_flush_all(struct rtl837x_priv *priv)
+{
+	int ret;
+	u32 tmp;
+
+	ret = rtl837x_reg_write(priv, RTL837X_L2_FLUSH_ALL_REG,
+		   FIELD_PREP(RTL837X_L2_FLUSH_ALL_MASK, 1)
+		);
+	if (ret)
+		return ret;
+
+	ret = regmap_read_poll_timeout(priv->map, RTL837X_L2_FLUSH_ALL_REG, tmp,
+		  ((tmp & RTL837X_L2_FLUSH_ALL_MASK) == 0),
+		  10, 10000);
+	if (ret)
+		return ret;
+	return 0;
 }

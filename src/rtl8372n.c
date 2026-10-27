@@ -1245,10 +1245,7 @@ static int rtl8372n_teardown_tag_rtl(struct dsa_switch *ds)
 	master_dev->wanted_features |= chip_data->csum_feature_backup;
 	netdev_update_features(master_dev);
 
-	rtl837x_reg_bits_write(priv, RTL837X_L2_TBL_FLUSH_ALL_ADDR,
-			  RTL837X_L2_TBL_FLUSH_ALL_FLUSH_ALL_MASK, 1
-			);
-
+	(void)rtl837x_lut_l2_flush_all(priv);
 	return 0;
 }
 
@@ -1363,9 +1360,7 @@ static int rtl8372n_teardown_tag_8021q(struct dsa_switch *ds)
 				);
 	}
 
-	rtl837x_reg_bits_write(priv, RTL837X_L2_TBL_FLUSH_ALL_ADDR,
-			  RTL837X_L2_TBL_FLUSH_ALL_FLUSH_ALL_MASK, 1
-			);
+	(void)rtl837x_lut_l2_flush_all(priv);
 	return 0;
 }
 
@@ -2389,44 +2384,12 @@ rtl8372n_port_mdb_del(struct dsa_switch *ds, int port,
 	return ret;
 }
 
-enum RTL837X_FLUSHMODE {
-	FLUSHMDOE_PORT = 0,
-	FLUSHMDOE_VID,
-	FLUSHMDOE_FID,
-	FLUSHMDOE_END,
-};
-
 static void rtl8372n_port_fast_age(struct dsa_switch *ds, int port)
 {
 	struct rtl837x_priv *priv = ds->priv;
-	int ret;
-	u32 tmp;
 
-	// check busy
-	ret = regmap_read_poll_timeout(priv->map, RTL837X_L2_TBL_FLUSH_CMD_ADDR, tmp,
-		  ((tmp & RTL837X_L2_TBL_FLUSH_CMD_FLUSH_BUSY_MASK) == 0),
-		  10, 1000);
-	if (ret)
-		return;
-
-	ret = rtl837x_reg_bits_write(priv, RTL837X_L2_TBL_FLUSH_MODE_ADDR,
-					  RTL837X_L2_TBL_FLUSH_MODE_FLUSH_MODE_MASK, FLUSHMDOE_PORT);
-	if (ret)
-		return;
-	ret = rtl837x_reg_bits_write(priv, RTL837X_L2_TBL_FLUSH_CMD_ADDR,
-					  RTL837X_L2_TBL_FLUSH_CMD_FLUSH_PMSK_MASK, BIT(port));
-	if (ret)
-		return;
-
-	ret = rtl837x_reg_bits_write(priv, RTL837X_L2_TBL_FLUSH_CMD_ADDR,
-					  RTL837X_L2_TBL_FLUSH_CMD_FLUSH_ACT_MASK, 1);
-	if (ret)
-		return;
-
-	// check busy
-	regmap_read_poll_timeout(priv->map, RTL837X_L2_TBL_FLUSH_CMD_ADDR, tmp,
-		  ((tmp & RTL837X_L2_TBL_FLUSH_CMD_FLUSH_BUSY_MASK) == 0),
-		  10, 1000);
+	(void)rtl837x_lut_l2_flush(priv, RTL837X_l2_FLUSH_MODE_PORT,
+			    port, 0, 0);
 }
 
 enum RTL837X_MSTP_STATE {
@@ -2436,8 +2399,6 @@ enum RTL837X_MSTP_STATE {
 	MSTP_FORWARDING,
 	MSTP_END
 };
-
-
 
 static void rtl8372n_port_stp_state_set(struct dsa_switch *ds, int port, u8 state)
 {
@@ -2668,11 +2629,6 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		 1
 		);
 
-	rtl837x_reg_bits_write(priv, RTL837X_DW8051_CFG_ADDR,
-			 RTL837X_DW8051_CFG_DW8051_READY_MASK,
-			 1
-			);
-
 	ret = rtl8372n_of_setup_phy_and_serdes(priv);
 	if (ret)
 		return ret;
@@ -2880,39 +2836,13 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	 * ================================================================================
 	 */
 
-	ret = rtl837x_reg_bits_write(priv, RTL837X_L2_TBL_FLUSH_ALL_ADDR,
-				  RTL837X_L2_TBL_FLUSH_ALL_FLUSH_ALL_MASK, 1);
-	if (ret)
-		return ret;
-
-	ret = rtl837x_reg_write(priv, RTL837X_VLAN_L2_LRN_DIS_ADDR(0), 0);
-	if (ret)
-		return ret;
-
-	ret = rtl837x_reg_write(priv, RTL837X_VLAN_L2_LRN_DIS_ADDR(1), 0);
-	if (ret)
-		return ret;
-
-	// FORWARD:0, DROP:1, TO_CPU:2
-	ret = rtl837x_reg_bits_write(priv, RTL837X_L2_LRN_PORT_CONSTRT_ACT_ADDR,
-			  RTL837X_L2_LRN_PORT_CONSTRT_ACT_LRN_ACT_MASK, 0
-			);
+	ret = rtl837x_lut_l2_flush_all(priv);
 	if (ret)
 		return ret;
 
 	// Enable vlan egrFilter
 	ret = rtl837x_reg_bits_write(priv, RTL837X_VLAN_CTRL_ADDR,
 			  RTL837X_VLAN_CTRL_CVLAN_FILTER_MASK, 1
-			);
-	if (ret)
-		return ret;
-
-	// Disable vlan leaky
-	// Disable isolate leaky
-	ret = rtl837x_reg_bits_write(priv, RTL837X_MIR_CTRL_ADDR,
-			  RTL837X_MIR_CTRL_MIR_TX_VLAN_LKY_MASK | RTL837X_MIR_CTRL_MIR_RX_VLAN_LKY_MASK |
-			  RTL837X_MIR_CTRL_MIR_TX_ISOLATE_LKY_MASK | RTL837X_MIR_CTRL_MIR_RX_ISOLATE_LKY_MASK,
-			  0
 			);
 	if (ret)
 		return ret;

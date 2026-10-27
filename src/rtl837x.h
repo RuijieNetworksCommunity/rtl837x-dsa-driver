@@ -145,7 +145,6 @@
 #define   RTL837X_VLAN_CTRL_TABLE_RST_MASK                       BIT(3)
 #define   RTL837X_VLAN_CTRL_CVLAN_FILTER_MASK                    BIT(2)
 
-#define RTL837X_VLAN_L2_LRN_DIS_ADDR(_i)                         (0x4E30 + (((_i) << 2))) /* index: 0-1 */
 #define RTL837X_VS_GLB_CTRL_ADDR                                 0x6044
 #define RTL837X_VS_UPLINK_PORT_ADDR                              0x57C0
 #define RTL837X_VS_CTRL_ADDR                                     0x57C4
@@ -165,18 +164,6 @@
 #define RTL837X_MSTP_STATE_MASK(port) \
 	RTL837X_MSTP_STATE((port), GENMASK(1, 0))
 
-/* L2 table maintenance */
-#define RTL837X_L2_LRN_PORT_CONSTRT_ACT_ADDR                   0x4F80
-#define   RTL837X_L2_LRN_PORT_CONSTRT_ACT_LRN_ACT_MASK         GENMASK(1, 0)
-#define RTL837X_L2_TBL_FLUSH_CMD_ADDR                          0x53D4
-#define   RTL837X_L2_TBL_FLUSH_CMD_FLUSH_BUSY_MASK             BIT(17)
-#define   RTL837X_L2_TBL_FLUSH_CMD_FLUSH_ACT_MASK              BIT(16)
-#define   RTL837X_L2_TBL_FLUSH_CMD_FLUSH_PMSK_MASK             GENMASK(9, 0)
-#define RTL837X_L2_TBL_FLUSH_ALL_ADDR                          0x53D8
-#define   RTL837X_L2_TBL_FLUSH_ALL_FLUSH_ALL_MASK              BIT(0)
-#define RTL837X_L2_TBL_FLUSH_MODE_ADDR                         0x53DC
-#define   RTL837X_L2_TBL_FLUSH_MODE_FLUSH_MODE_MASK            GENMASK(1, 0)
-
 /* Isolation */
 #define RTL837X_PORT_ISO_PORT_PMSK_ADDR(_p)                    (0x50C0 + (((_p) << 2)))
 #define   RTL837X_PORT_ISO_PORT_PMSK_PMSK_MASK                 GENMASK(9, 0)
@@ -192,10 +179,6 @@
 #define RTL837X_FC_PORT_ACT_CTRL_ADDR(_p)                      (0x7124 + (((_p) << 2)))
 #define   RTL837X_FC_PORT_ACT_CTRL_ACT_MASK                                                                   BIT(12)
 #define   RTL837X_FC_PORT_ACT_CTRL_ALLOW_PAGE_CNT_MASK                                                        GENMASK(11, 0)
-
-/* Internal CPU */
-#define RTL837X_DW8051_CFG_ADDR                             0x6040
-#define   RTL837X_DW8051_CFG_DW8051_READY_MASK              BIT(0)
 
 /*
  * As Realtek has not released the register manual

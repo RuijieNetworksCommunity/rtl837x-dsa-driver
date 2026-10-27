@@ -67,6 +67,12 @@ struct rtl837x_lut_entry {
 	};
 };
 
+enum rtl837x_l2_flush_mode {
+	RTL837X_l2_FLUSH_MODE_PORT = 0,
+	RTL837X_l2_FLUSH_MODE_VID,
+	RTL837X_l2_FLUSH_MODE_FID,
+};
+
 int rtl837x_lut_query(struct rtl837x_priv *priv,
 			  enum rtl837x_l2_method method,
 			  struct rtl837x_lut_entry *entry);
@@ -77,5 +83,9 @@ int rtl837x_lut_del(struct rtl837x_priv *priv,
 
 int rtl837x_lut_port_set_learning(struct rtl837x_priv *priv, int port,
 				       bool enable);
+
+int rtl837x_lut_l2_flush(struct rtl837x_priv *priv, enum rtl837x_l2_flush_mode mode,
+		    int port, u16 vid, u16 fid);
+int rtl837x_lut_l2_flush_all(struct rtl837x_priv *priv);
 
 #endif /* _RTL837X_L2_H */
