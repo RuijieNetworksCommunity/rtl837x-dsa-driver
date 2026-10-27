@@ -354,6 +354,13 @@ int rtl837x_serdes_an_patch(struct rtl837x_priv *priv, u8 sds_idx, phy_interface
 	int ret;
 	const u16 (*an_patch)[3];
 	int an_patch_len;
+	u16 chip_ver = 0;
+
+	ret = rtl837x_get_chip_ver(priv, &chip_ver);
+	if (ret) {
+		dev_err(priv->dev, "Falied to get chip ver\n");
+		return ret;
+	}
 
 	switch (interface) {
 #if KERNEL_VERSION(6, 12, 44) <= LINUX_VERSION_CODE
@@ -361,7 +368,7 @@ int rtl837x_serdes_an_patch(struct rtl837x_priv *priv, u8 sds_idx, phy_interface
 #endif
 	case PHY_INTERFACE_MODE_USXGMII:
 	case PHY_INTERFACE_MODE_10GBASER:
-		if (priv->chip_ver == 0) {
+		if (chip_ver == 0) {
 			an_patch = patch_an_10p3125g_a;
 			an_patch_len = sizeof(patch_an_10p3125g_a)/(sizeof(u16)*3);
 		} else {
@@ -371,7 +378,7 @@ int rtl837x_serdes_an_patch(struct rtl837x_priv *priv, u8 sds_idx, phy_interface
 		break;
 	//HSGMII ?
 	case PHY_INTERFACE_MODE_2500BASEX:
-		if (priv->chip_ver == 0) {
+		if (chip_ver == 0) {
 			an_patch = patch_an_3p125g_a;
 			an_patch_len = sizeof(patch_an_3p125g_a)/(sizeof(u16)*3);
 		} else {
@@ -381,7 +388,7 @@ int rtl837x_serdes_an_patch(struct rtl837x_priv *priv, u8 sds_idx, phy_interface
 		break;
 	case PHY_INTERFACE_MODE_SGMII:
 	case PHY_INTERFACE_MODE_1000BASEX:
-		if (priv->chip_ver == 0) {
+		if (chip_ver == 0) {
 			an_patch = patch_an_1p25g_a;
 			an_patch_len = sizeof(patch_an_1p25g_a)/(sizeof(u16)*3);
 		} else {
@@ -390,7 +397,7 @@ int rtl837x_serdes_an_patch(struct rtl837x_priv *priv, u8 sds_idx, phy_interface
 		}
 		break;
 	case PHY_INTERFACE_MODE_100BASEX:
-		if (priv->chip_ver == 0) {
+		if (chip_ver == 0) {
 			an_patch = patch_an_125m_a;
 			an_patch_len = sizeof(patch_an_125m_a)/(sizeof(u16)*3);
 		} else {

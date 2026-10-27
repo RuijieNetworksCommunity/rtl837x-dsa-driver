@@ -100,56 +100,6 @@ static void rtl837x_mdio_unlock(void *ctx)
 	mutex_unlock(&priv->map_lock);
 }
 
-static int rtl837x_rtl8224_write(void *ctx, u32 reg, u32 val)
-{
-	struct rtl837x_priv *priv = ctx;
-	int ret;
-	u16 vall = val & 0xffff;
-	u16 valh = (val >> 16) & 0xffff;
-
-	ret = rtl837x_phy_write_c45(priv, 0, 30, reg, vall);
-	if (ret)
-		return ret;
-
-	ret = rtl837x_phy_write_c45(priv, 0, 30, reg+1, valh);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-static int rtl837x_rtl8224_read(void *ctx, u32 reg, u32 *val)
-{
-	struct rtl837x_priv *priv = ctx;
-	int ret;
-	u16 vall, valh;
-
-	ret = rtl837x_phy_read_c45(priv, 0, 30, reg, &vall);
-	if (ret)
-		return ret;
-	ret = rtl837x_phy_read_c45(priv, 0, 30, reg+1, &valh);
-	if (ret)
-		return ret;
-	*val = (vall & 0xffff) | ((valh & 0xffff) << 16);
-
-	return 0;
-}
-
-static void rtl837x_rtl8224_lock(void *ctx)
-{
-	struct rtl837x_priv *priv = ctx;
-
-	mutex_lock(&priv->map_8224_lock);
-}
-static void rtl837x_rtl8224_unlock(void *ctx)
-{
-	struct rtl837x_priv *priv = ctx;
-
-	mutex_unlock(&priv->map_8224_lock);
-}
-
-
-
 static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 {
 	struct rtl837x_priv *priv;
@@ -183,18 +133,17 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 		.lock_arg = priv,
 	};
 
-	const struct regmap_config rtl837x_rtl8224_regmap_config = {
+	const struct regmap_config rtl837x_mdio_regmap_nolock_config = {
 		.reg_bits = 16,
 		.val_bits = 32,
 		.reg_stride = 4,
 
 		.max_register = 0xffff,
 		.reg_format_endian = REGMAP_ENDIAN_BIG,
-		.reg_read = rtl837x_rtl8224_read,
-		.reg_write = rtl837x_rtl8224_write,
+		.reg_read = rtl837x_mdio_read,
+		.reg_write = rtl837x_mdio_write,
 		.cache_type = REGCACHE_NONE,
-		.lock = rtl837x_rtl8224_lock,
-		.unlock = rtl837x_rtl8224_unlock,
+		.disable_locking = true,
 		.lock_arg = priv,
 	};
 
@@ -222,18 +171,11 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 		return ret;
 	}
 
-	if (var->have_8224) {
-		ret = devm_mutex_init(dev, &priv->map_8224_lock);
-		if (ret)
-			return ret;
-		priv->map_8224 = devm_regmap_init(dev, NULL, priv, &rtl837x_rtl8224_regmap_config);
-		if (IS_ERR(priv->map_8224)) {
-			ret = PTR_ERR(priv->map_8224);
-			dev_err(dev, "regmap 8224 init failed: %d\n", ret);
-			return ret;
-		}
-	} else {
-		priv->map_8224 = NULL;
+	priv->map_nolock = devm_regmap_init(dev, NULL, priv, &rtl837x_mdio_regmap_nolock_config);
+	if (IS_ERR(priv->map_nolock)) {
+		ret = PTR_ERR(priv->map_nolock);
+		dev_err(dev, "regmap init failed: %d\n", ret);
+		return ret;
 	}
 
 	priv->mdio_addr = mdiodev->addr;
@@ -274,36 +216,6 @@ static int rtl837x_mdio_probe(struct mdio_device *mdiodev)
 	if (ret) {
 		dev_err(dev, "unable to detect switch\n");
 		return ret;
-	}
-
-	ret = rtl837x_reg_bits_write(priv, RTL837X_CHIP_INFO_ADDR,
-			  RTL837X_CHIP_INFO_CHIP_INFO_EN_MASK, 0xa);
-	if (ret)
-		return ret;
-	ret = rtl837x_reg_bits_read(priv, RTL837X_CHIP_INFO_ADDR,
-			  RTL837X_CHIP_INFO_RL_VID_MASK, &priv->chip_ver);
-	if (ret)
-		return ret;
-	ret = rtl837x_reg_bits_write(priv, RTL837X_CHIP_INFO_ADDR,
-			  RTL837X_CHIP_INFO_CHIP_INFO_EN_MASK, 0);
-	if (ret)
-		return ret;
-	dev_dbg(priv->dev, "[%s] chip ver: %d\n", __func__, priv->chip_ver);
-
-	if (var->have_8224) {
-		ret = rtl837x_rtl8224_reg_bits_write(priv, RTL837X_CHIP_INFO_ADDR,
-				  RTL837X_CHIP_INFO_CHIP_INFO_EN_MASK, 0xa);
-		if (ret)
-			return ret;
-		ret = rtl837x_rtl8224_reg_bits_read(priv, RTL837X_CHIP_INFO_ADDR,
-				  RTL837X_CHIP_INFO_RL_VID_MASK, &priv->chip_ver_8224);
-		if (ret)
-			return ret;
-		ret = rtl837x_rtl8224_reg_bits_write(priv, RTL837X_CHIP_INFO_ADDR,
-				  RTL837X_CHIP_INFO_CHIP_INFO_EN_MASK, 0);
-		if (ret)
-			return ret;
-		dev_dbg(priv->dev, "[%s] chip ver 8224: %d\n", __func__, priv->chip_ver_8224);
 	}
 
 	priv->ds = devm_kzalloc(dev, sizeof(*priv->ds), GFP_KERNEL);

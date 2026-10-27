@@ -330,123 +330,25 @@ int rtl837x_sds_reg_bits_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_pa
 	return rtl837x_sds_reg_write(priv, sds_idx, sds_page, sds_reg, val);
 }
 
-int rtl837x_rtl8224_reg_bits_read(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 *pval)
+/** ================================================= **/
+/** --------------------Other Funcs-------------------**/
+/** ================================================= **/
+int rtl837x_get_chip_ver(struct rtl837x_priv *priv, u16 *chip_ver)
 {
 	int ret;
 	u32 tmp;
 
-	ret = rtl837x_rtl8224_reg_read(priv, reg, &tmp);
+	ret = rtl837x_reg_bits_write(priv, RTL837X_CHIP_INFO_ADDR,
+			    RTL837X_CHIP_INFO_CHIP_INFO_EN_MASK, 0xa);
 	if (ret)
 		return ret;
+	ret = rtl837x_reg_bits_read(priv, RTL837X_CHIP_INFO_ADDR,
+			    RTL837X_CHIP_INFO_RL_VID_MASK, &tmp);
+	if (ret)
+		return ret;
+	ret = rtl837x_reg_bits_write(priv, RTL837X_CHIP_INFO_ADDR,
+			    RTL837X_CHIP_INFO_CHIP_INFO_EN_MASK, 0);
 
-	*pval = (tmp & mask) >> __ffs(mask);
+	*chip_ver = tmp;
 	return 0;
-}
-
-int rtl837x_rtl8224_reg_bits_write(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 val)
-{
-	if (!priv->map_8224)
-		return -ENODEV;
-	return regmap_update_bits(priv->map_8224, reg, mask, (val << __ffs(mask)) & mask);
-}
-
-int rtl837x_rtl8224_sds_reg_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 *pdata)
-{
-	int ret;
-	u32 val, tmp;
-
-	if (!priv->map_8224)
-		return -ENODEV;
-
-	ret = regmap_read_poll_timeout(priv->map_8224, RTL837X_SDS_INDACS_CMD_ADDR, tmp,
-		  ((tmp & RTL837X_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
-		  0, 1000);
-	if (ret)
-		return ret;
-
-	tmp = FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_INDEX_MASK, sds_idx) |
-				FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_PAGE_MASK, sds_page) |
-				FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_REGAD_MASK, sds_reg) |
-				FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_RWOP_MASK, 0) |
-				FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_CMD_MASK, 1);
-
-	ret = rtl837x_rtl8224_reg_write(priv, RTL837X_SDS_INDACS_CMD_ADDR, tmp);
-	if (ret)
-		return ret;
-
-	ret = regmap_read_poll_timeout(priv->map_8224, RTL837X_SDS_INDACS_CMD_ADDR, tmp,
-		  ((tmp & RTL837X_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
-		  0, 1000);
-	if (ret)
-		return ret;
-
-	ret = rtl837x_rtl8224_reg_read(priv, RTL837X_SDS_INDACS_RD_ADDR, &val);
-	if (ret)
-		return ret;
-
-	*pdata = val & 0xFFFF;
-	return 0;
-}
-
-int rtl837x_rtl8224_sds_reg_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 data)
-{
-	int ret;
-	u32 tmp;
-
-	if (!priv->map_8224)
-		return -ENODEV;
-
-	ret = regmap_read_poll_timeout(priv->map_8224, RTL837X_SDS_INDACS_CMD_ADDR, tmp,
-			  ((tmp & RTL837X_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
-			  0, 1000);
-	if (ret)
-		return ret;
-
-	ret = rtl837x_rtl8224_reg_write(priv, RTL837X_SDS_INDACS_WD_ADDR, data);
-
-	tmp = FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_INDEX_MASK, sds_idx) |
-				FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_PAGE_MASK, sds_page) |
-				FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_REGAD_MASK, sds_reg) |
-				FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_RWOP_MASK, 1) |
-				FIELD_PREP(RTL837X_SDS_INDACS_CMD_SDS_CMD_MASK, 1);
-
-	ret = rtl837x_rtl8224_reg_write(priv, RTL837X_SDS_INDACS_CMD_ADDR, tmp);
-	if (ret)
-		return ret;
-
-	ret = regmap_read_poll_timeout(priv->map_8224, RTL837X_SDS_INDACS_CMD_ADDR, tmp,
-		  ((tmp & RTL837X_SDS_INDACS_CMD_SDS_CMD_MASK) == 0),
-		  0, 1000);
-	if (ret)
-		return ret;
-
-	return 0;
-}
-
-int rtl837x_rtl8224_sds_reg_bits_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 mask, u16 *pdata)
-{
-	int ret;
-	u16 val;
-
-	ret = rtl837x_rtl8224_sds_reg_read(priv, sds_idx, sds_page, sds_reg, &val);
-	if (ret)
-		return ret;
-
-	*pdata = (val & mask) >> __ffs(mask);
-	return 0;
-}
-
-int rtl837x_rtl8224_sds_reg_bits_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 mask, u16 data)
-{
-	int ret;
-	u16 val;
-
-	ret = rtl837x_rtl8224_sds_reg_read(priv, sds_idx, sds_page, sds_reg, &val);
-	if (ret)
-		return ret;
-
-	val &= ~mask;
-	val |= (data << __ffs(mask)) & mask;
-
-	return rtl837x_rtl8224_sds_reg_write(priv, sds_idx, sds_page, sds_reg, val);
 }

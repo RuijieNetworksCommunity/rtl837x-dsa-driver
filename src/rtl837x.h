@@ -241,9 +241,8 @@ struct rtl837x_priv {
 	struct gpio_desc	*reset;
 	struct mii_bus *bus;
 	struct regmap		*map;
+	struct regmap		*map_nolock;
 	struct mutex		map_lock;
-	struct regmap		*map_8224;
-	struct mutex		map_8224_lock;
 
 	struct mutex		ita_lock;
 	struct mutex		phy_mmd_lock;
@@ -253,9 +252,6 @@ struct rtl837x_priv {
 	enum dsa_tag_protocol tag_proto;
 
 	struct dentry *debugfs_parent;
-
-	u32 chip_ver;
-	u32 chip_ver_8224;
 
 	unsigned int num_ports;
 
@@ -323,6 +319,7 @@ extern int rtl837x_reg_bits_read(struct rtl837x_priv *priv, u32 reg, u32 mask, u
 extern int rtl837x_reg_bits_write(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 val);
 
 extern int rtl837x_set_led(struct rtl837x_priv *priv);
+extern int rtl837x_get_chip_ver(struct rtl837x_priv *priv, u16 *chip_ver);
 
 extern int rtl837x_debug_proc_init(struct rtl837x_priv *priv);
 extern int rtl837x_debug_proc_deinit(struct rtl837x_priv *priv);
@@ -341,15 +338,6 @@ extern int rtl837x_sds_reg_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_p
 extern int rtl837x_sds_reg_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 data);
 extern int rtl837x_sds_reg_bits_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 mask, u16 data);
 extern int rtl837x_sds_reg_bits_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 mask, u16 *pdata);
-
-#define rtl837x_rtl8224_reg_read(priv, reg, pval) (priv->map_8224 ? regmap_read(priv->map_8224, reg, pval) : -ENODEV)
-#define rtl837x_rtl8224_reg_write(priv, reg, val) (priv->map_8224 ? regmap_write(priv->map_8224, reg, val) : -ENODEV)
-extern int rtl837x_rtl8224_reg_bits_read(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 *pval);
-extern int rtl837x_rtl8224_reg_bits_write(struct rtl837x_priv *priv, u32 reg, u32 mask, u32 val);
-extern int rtl837x_rtl8224_sds_reg_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 *pdata);
-extern int rtl837x_rtl8224_sds_reg_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 data);
-extern int rtl837x_rtl8224_sds_reg_bits_read(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 mask, u16 *pdata);
-extern int rtl837x_rtl8224_sds_reg_bits_write(struct rtl837x_priv *priv, u8 sds_idx, u16 sds_page, u16 sds_reg, u16 mask, u16 data);
 
 extern const struct rtl837x_variant rtl8372n_variant;
 
