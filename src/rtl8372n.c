@@ -388,15 +388,24 @@ static int rtl8372n_set_pvid(struct rtl837x_priv *priv, int port,
 		     u16 vid)
 {
 	int ret;
+	struct dsa_switch *ds = priv->ds;
+	struct dsa_port *dp;
 	struct rtl8372n *chip_data = priv->chip_data;
 	bool pvid_enabled;
-	bool pvid_enabled_bak = chip_data->pvid_enabled[port];
-	u16 pvid_bak = 0;
+	bool prev_pvid_enabled = chip_data->pvid_enabled[port];
+	enum rtl837x_frame_ingress prev_accepted_frame;
+	u16 prev_pvid = 0;
+	u32 configured_ports = 0;
+
 
 	dev_dbg(priv->dev, "[%s]: port (%d), vid (%d)\n", __func__, port, vid);
 	pvid_enabled = !!vid;
 
-	ret = rtl837x_vlan_port_get_pvid(priv, port, &pvid_bak);
+	ret = rtl837x_vlan_port_get_pvid(priv, port, &prev_pvid);
+	if (ret)
+		return ret;
+
+	ret = rtl837x_vlan_port_get_framefilter(priv, port, &prev_accepted_frame);
 	if (ret)
 		return ret;
 
@@ -406,23 +415,35 @@ static int rtl8372n_set_pvid(struct rtl837x_priv *priv, int port,
 
 	chip_data->pvid_enabled[port] = pvid_enabled;
 
-	/* When a port has its pvid, we can accept tagged/untagged frame came in */
+	/* When a port have its pvid, we can accept tagged/untagged frame came in */
 	ret = rtl837x_vlan_port_set_framefilter(priv, port, RTL837X_FRAME_TYPE_ANY_FRAME);
 	if (ret)
-		goto fail_rollback;
+		goto undo_pvid;
+
+	/* When a port have its pvid, untagged frame will marked the port pvid and forward */
+	dsa_switch_for_each_available_port(dp, ds) {
+		ret = rtl837x_vlan_port_set_egress_vlan_keep(priv, port, dp->index, false);
+		if (ret)
+			goto undo_vlan_keep;
+
+		configured_ports |= BIT(dp->index);
+	}
 
 	return 0;
 
-fail_rollback:
-	{
-		int r = rtl837x_vlan_port_set_pvid(priv, port, pvid_bak);
-
-		if (r)
-			dev_err(priv->dev,
-				"failed to restore PVID of port %d: %d\n",
-				port, r);
-		chip_data->pvid_enabled[port] = pvid_enabled_bak;
+undo_vlan_keep:
+	dsa_switch_for_each_port(dp, ds) {
+		if (configured_ports & BIT(dp->index))
+			(void)rtl837x_vlan_port_set_egress_vlan_keep(priv, port, dp->index,
+						       !prev_pvid_enabled);
 	}
+
+	if (prev_accepted_frame != RTL837X_FRAME_TYPE_ANY_FRAME)
+		(void)rtl837x_vlan_port_set_framefilter(priv, port, prev_accepted_frame);
+
+undo_pvid:
+	(void)rtl837x_vlan_port_set_pvid(priv, port, prev_pvid);
+	chip_data->pvid_enabled[port] = prev_pvid_enabled;
 	return ret;
 }
 
@@ -431,8 +452,10 @@ static int rtl8372n_clean_pvid(struct rtl837x_priv *priv, int port, u16 vid)
 	int ret;
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_switch *ds = priv->ds;
+	struct dsa_port *dp;
 	enum rtl837x_frame_ingress accepted_frame, prev_accepted_frame;
 	u16 prev_pvid;
+	u32 configured_ports = 0;
 
 	ret = rtl837x_vlan_port_get_pvid(priv, port, &prev_pvid);
 	if (ret)
@@ -473,7 +496,27 @@ static int rtl8372n_clean_pvid(struct rtl837x_priv *priv, int port, u16 vid)
 
 	chip_data->pvid_enabled[port] = false;
 
+	/* When a port doesn't have pvid, the untagged frame must be
+	 * forwarded as-is and must not carry a VID 0.
+	 */
+	dsa_switch_for_each_available_port(dp, ds) {
+		ret = rtl837x_vlan_port_set_egress_vlan_keep(priv, port, dp->index, true);
+		if (ret)
+			goto undo_vlan_keep;
+
+		configured_ports |= BIT(dp->index);
+	}
+
 	return 0;
+
+undo_vlan_keep:
+	dsa_switch_for_each_port(dp, ds) {
+		if (configured_ports & BIT(dp->index))
+			(void)rtl837x_vlan_port_set_egress_vlan_keep(priv, port, dp->index,
+						       false);
+	}
+
+	(void)rtl837x_vlan_port_set_pvid(priv, port, prev_pvid);
 
 undo_set_framefilter:
 	if (prev_accepted_frame != accepted_frame)
@@ -2718,6 +2761,15 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 			dev_err(priv->dev,
 				"Failed to disable vlan filtering on port %d\n",
 				dp->index);
+			return ret;
+		}
+
+		/* The switch default pvid is 1, clean it */
+		ret = rtl8372n_clean_pvid(priv, dp->index, 1);
+		if (ret) {
+			dev_err(priv->dev,
+				"Failed to clean pvid %d on port %d\n",
+				1, dp->index);
 			return ret;
 		}
 	}
