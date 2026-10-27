@@ -16,6 +16,15 @@
 #define RTL8372N_SUPPORTED_BRIDGE_FLAGS \
 	    (BR_LEARNING)
 
+#define RTL837X_PORT_POLLING_REG             0x6334
+#define   RTL837X_PORT_POLLING_PORT_MASK(_p) BIT(_p) /* port 0~8 */
+
+#define RTL837X_SMI_MAC_TYPE_CTRL_ADDR                      0x6330
+#define   RTL837X_SMI_MAC_TYPE_CTRL_MAC_PORT_TYPE_MASK(_p)  (0x3 << (_p*2))
+
+#define RTL837X_SMI_GLB_CTRL_REG                        0x632C
+#define   RTL837X_SMI_GLB_CTRL_SMI_POLLING_MASK_MASK    GENMASK(20, 12)
+
 // TODO: this should check port is serdes mode or port mode
 #define IS_SERDES_PORT(port) (((port) == 3) || ((port) == 8))
 
@@ -380,7 +389,6 @@ static int rtl8372n_set_pvid(struct rtl837x_priv *priv, int port,
 {
 	int ret;
 	struct rtl8372n *chip_data = priv->chip_data;
-	struct dsa_switch *ds = priv->ds;
 	bool pvid_enabled;
 	bool pvid_enabled_bak = chip_data->pvid_enabled[port];
 	u16 pvid_bak = 0;
@@ -2423,11 +2431,109 @@ static void rtl8372n_port_stp_state_set(struct dsa_switch *ds, int port, u8 stat
 	}
 }
 
+static int rtl8372n_of_setup_phy_and_serdes(struct rtl837x_priv *priv)
+{
+	int ret;
+	struct device_node *np = priv->dev->of_node;
+
+	/* SerDes PN swap: page 0x00 reg 0x00 (XSG, ≤5G) + page 0x06 reg 0x02 (10GR) */
+	if (of_property_read_bool(np, "sds0-rx-swap")) {
+		ret = rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
+				  SDS_CTRL00_REG00_XSG_RX_INV_MASK, 1); //#SDS0 RX PN swap
+		if (ret)
+			return ret;
+		ret = rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
+				  SDS_CTRL06_REG02_10GR_RX_INV_MASK, 1);
+		if (ret)
+			return ret;
+	}
+
+	if (of_property_read_bool(np, "sds0-tx-swap")) {
+		ret = rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
+				  SDS_CTRL00_REG00_XSG_TX_INV_MASK, 1); //#SDS0 TX PN swap
+		if (ret)
+			return ret;
+		ret = rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
+				  SDS_CTRL06_REG02_10GR_TX_INV_MASK, 1);
+		if (ret)
+			return ret;
+	}
+
+	if (of_property_read_bool(np, "sds1-rx-swap")) {
+		ret = rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
+				  SDS_CTRL00_REG00_XSG_RX_INV_MASK, 1); //#SDS1 RX PN swap
+		if (ret)
+			return ret;
+		ret = rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
+				  SDS_CTRL06_REG02_10GR_RX_INV_MASK, 1);
+		if (ret)
+			return ret;
+	}
+
+	if (of_property_read_bool(np, "sds1-tx-swap")) {
+		ret = rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
+				  SDS_CTRL00_REG00_XSG_TX_INV_MASK, 1); //#SDS1 TX PN swap
+		if (ret)
+			return ret;
+		ret = rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
+				  SDS_CTRL06_REG02_10GR_TX_INV_MASK, 1);
+		if (ret)
+			return ret;
+	}
+
+	/*
+	 * What The Fuck Is This???????
+	 * I can't understand this register design.
+	 *
+	 * We have two PCB routing
+	 *
+	 * RJ45 port pin mapping:
+	 *  white Orange ->  0+
+	 *        Orange ->  0-
+	 *  white Green  ->  1+
+	 *        Blue   ->  2+
+	 *  white Blue   ->  2-
+	 *        Green  ->  1-
+	 *  white Brown  ->  3+
+	 *        Brown  ->  3-
+	 * Chip side:
+	 *    A+ A- B+ B- C+ C- D+ D-
+	 *
+	 * Case 1: No phy-mdi-reverse and no phy-tx-polarity-swap (normal connection)
+	 *   A+ → 0+   A- → 0-   (Pair A → RJ45 Pair 0)
+	 *   B+ → 1+   B- → 1-   (Pair B → RJ45 Pair 1)
+	 *   C+ → 2+   C- → 2-   (Pair C → RJ45 Pair 2)
+	 *   D+ → 3+   D- → 3-   (Pair D → RJ45 Pair 3)
+	 * Case 2: With phy-mdi-reverse and phy-tx-polarity-swap
+	 *   A+ → 3+   A- → 3-   (Pair A → RJ45 Pair 3)
+	 *   B+ → 2+   B- → 2-   (Pair B → RJ45 Pair 2)
+	 *   C+ → 1-   C- → 1+   (Pair C → RJ45 Pair 1, with polarity REVERSED)
+	 *   D+ → 0-   D- → 0+   (Pair D → RJ45 Pair 0, with polarity REVERSED)
+	 */
+
+	if (of_property_read_bool(np, "phy-mdi-reverse"))
+		ret = rtl837x_reg_bits_write(priv, RTL837X_CFG_PHY_MDI_REVERSE_ADDR,
+				  RTL837X_CFG_PHY_MDI_REVERSE_P0_MDI_REVERSE_MASK | RTL837X_CFG_PHY_MDI_REVERSE_P1_MDI_REVERSE_MASK |
+				   RTL837X_CFG_PHY_MDI_REVERSE_P2_MDI_REVERSE_MASK | RTL837X_CFG_PHY_MDI_REVERSE_P3_MDI_REVERSE_MASK,
+				  0xC
+				);
+	if (ret)
+		return ret;
+	if (of_property_read_bool(np, "phy-tx-polarity-swap"))
+		ret = rtl837x_reg_bits_write(priv, RTL837X_CFG_PHY_TX_POLARITY_SWAP_ADDR,
+				 RTL837X_CFG_PHY_TX_POLARITY_SWAP_P0_TX_POLARITY_SWAP_MASK | RTL837X_CFG_PHY_TX_POLARITY_SWAP_P1_TX_POLARITY_SWAP_MASK |
+				  RTL837X_CFG_PHY_TX_POLARITY_SWAP_P2_TX_POLARITY_SWAP_MASK | RTL837X_CFG_PHY_TX_POLARITY_SWAP_P3_TX_POLARITY_SWAP_MASK,
+				 0x596A
+				);
+	if (ret)
+		return ret;
+	return 0;
+}
+
 static int rtl8372n_setup(struct dsa_switch *ds)
 {
 	int ret;
 	struct rtl837x_priv *priv = ds->priv;
-	struct device_node *np = priv->dev->of_node;
 	struct rtl8372n *chip_data = priv->chip_data;
 	struct dsa_port *dp;
 
@@ -2461,6 +2567,7 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 		}
 	}
 
+	/* Configure the PCS solely for the SerDes port (port3, port8). */
 	chip_data->pcs[3].pcs.ops = &rtl8372n_sds_pcs_ops;
 #if  KERNEL_VERSION(6, 18, 0) >= LINUX_VERSION_CODE
 	chip_data->pcs[3].pcs.neg_mode = true;
@@ -2475,121 +2582,58 @@ static int rtl8372n_setup(struct dsa_switch *ds)
 	chip_data->pcs[8].priv = priv;
 	chip_data->pcs[8].index = 8;
 
-	// set port 3 and port 8 as serdes port
+	/* Configure port 3 and port 8 as serdes port */
 	rtl837x_reg_bits_write(priv, RTL837X_SMI_MAC_TYPE_CTRL_ADDR,
-			 RTL837X_SMI_MAC_TYPE_CTRL_MAC_PORT8_TYPE_MASK | RTL837X_SMI_MAC_TYPE_CTRL_MAC_PORT3_TYPE_MASK,
+			 RTL837X_SMI_MAC_TYPE_CTRL_MAC_PORT_TYPE_MASK(3) |
+			  RTL837X_SMI_MAC_TYPE_CTRL_MAC_PORT_TYPE_MASK(8),
 			 0
 			);
 
-	// set port4-7 polling internal resolution reg
-	rtl837x_reg_bits_write(priv, RTL837X_SMI_PORT_POLLING_SEL_ADDR,
-			 RTL837X_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL4_MASK | RTL837X_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL5_MASK |
-			  RTL837X_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL6_MASK | RTL837X_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL7_MASK,
-			 0b1111
+	/* Configure ports 4–7 to poll the internal status register. */
+	rtl837x_reg_bits_write(priv, RTL837X_PORT_POLLING_REG,
+			 RTL837X_PORT_POLLING_PORT_MASK(4) | RTL837X_PORT_POLLING_PORT_MASK(5) |
+			  RTL837X_PORT_POLLING_PORT_MASK(6) | RTL837X_PORT_POLLING_PORT_MASK(7),
+			 0xffffffff
 			);
+
+	/* Use the polled (PHY/Serdes) status of ports 3-8 only (port0-2 have no PHY). */
+	rtl837x_reg_bits_write(priv, RTL837X_SMI_GLB_CTRL_REG,
+		 RTL837X_SMI_GLB_CTRL_SMI_POLLING_MASK_MASK, 0x1f8
+		);
 
 	// enable SMI0/1/2 MDC clock output
 	rtl837x_reg_bits_write(priv, RTL837X_SMI_CTRL_ADDR,
-			 RTL837X_SMI_CTRL_SMI0_MDC_EN_MASK | RTL837X_SMI_CTRL_SMI1_MDC_EN_MASK | RTL837X_SMI_CTRL_SMI2_MDC_EN_MASK,
-			 0b111
+			 RTL837X_SMI_CTRL_SMI0_MDC_EN_MASK |
+			  RTL837X_SMI_CTRL_SMI1_MDC_EN_MASK |
+			  RTL837X_SMI_CTRL_SMI2_MDC_EN_MASK,
+			 0xffffffff
 			);
 
-	//  puts "Power down PHY 4~7"
+	// puts "Power down internal PHY 4~7"
 	rtl837x_phys_write_c45(priv, 0xF0, 31, 0xa610, 0x2858);
-
-	/* SerDes PN swap: page 0x00 reg 0x00 (XSG, ≤5G) + page 0x06 reg 0x02 (10GR) */
-	if (of_property_read_bool(np, "sds0-rx-swap")) {
-		rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
-				  SDS_CTRL00_REG00_XSG_RX_INV_MASK, 1); //#SDS0 RX PN swap
-		rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
-				  SDS_CTRL06_REG02_10GR_RX_INV_MASK, 1);
-	}
-
-	if (of_property_read_bool(np, "sds0-tx-swap")) {
-		rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
-				  SDS_CTRL00_REG00_XSG_TX_INV_MASK, 1); //#SDS0 TX PN swap
-		rtl837x_sds_reg_bits_write(priv, 0, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
-				  SDS_CTRL06_REG02_10GR_TX_INV_MASK, 1);
-	}
-
-	if (of_property_read_bool(np, "sds1-rx-swap")) {
-		rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
-				  SDS_CTRL00_REG00_XSG_RX_INV_MASK, 1); //#SDS1 RX PN swap
-		rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
-				  SDS_CTRL06_REG02_10GR_RX_INV_MASK, 1);
-	}
-
-	if (of_property_read_bool(np, "sds1-tx-swap")) {
-		rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL00, SDS_REG_CTRL00_REG00,
-				  SDS_CTRL00_REG00_XSG_TX_INV_MASK, 1); //#SDS1 TX PN swap
-		rtl837x_sds_reg_bits_write(priv, 1, SDS_PAGE_CTRL06, SDS_REG_CTRL06_REG02,
-				  SDS_CTRL06_REG02_10GR_TX_INV_MASK, 1);
-	}
-
-	/*
-	 * What The Fuck Is This???????
-	 * I can't understand this register design.
-	 *
-	 * We have two PCB routing
-	 *
-	 * RJ45 port pin mapping:
-	 *  white Orange ->  0+
-	 *        Orange ->  0-
-	 *  white Green  ->  1+
-	 *        Blue   ->  2+
-	 *  white Blue   ->  2-
-	 *        Green  ->  1-
-	 *  white Brown  ->  3+
-	 *        Brown  ->  3-
-	 * Chip side:
-	 *    A+ A- B+ B- C+ C- D+ D-
-	 *
-	 * Case 1: No phy-mdi-reverse and no phy-tx-polarity-swap (normal connection)
-	 *   A+ → 0+   A- → 0-   (Pair A → RJ45 Pair 0)
-	 *   B+ → 1+   B- → 1-   (Pair B → RJ45 Pair 1)
-	 *   C+ → 2+   C- → 2-   (Pair C → RJ45 Pair 2)
-	 *   D+ → 3+   D- → 3-   (Pair D → RJ45 Pair 3)
-	 * Case 2: With phy-mdi-reverse and phy-tx-polarity-swap
-	 *   A+ → 3+   A- → 3-   (Pair A → RJ45 Pair 3)
-	 *   B+ → 2+   B- → 2-   (Pair B → RJ45 Pair 2)
-	 *   C+ → 1-   C- → 1+   (Pair C → RJ45 Pair 1, with polarity REVERSED)
-	 *   D+ → 0-   D- → 0+   (Pair D → RJ45 Pair 0, with polarity REVERSED)
-	 */
-
-	// ##MDI reverse configuration for Demo Tap UP RJ45, RTL8366U/RTL8373N/RTL8372N
-	if (of_property_read_bool(np, "phy-mdi-reverse"))
-		rtl837x_reg_bits_write(priv, RTL837X_CFG_PHY_MDI_REVERSE_ADDR,
-				  RTL837X_CFG_PHY_MDI_REVERSE_P0_MDI_REVERSE_MASK | RTL837X_CFG_PHY_MDI_REVERSE_P1_MDI_REVERSE_MASK |
-				   RTL837X_CFG_PHY_MDI_REVERSE_P2_MDI_REVERSE_MASK | RTL837X_CFG_PHY_MDI_REVERSE_P3_MDI_REVERSE_MASK,
-				  0xC
-				);
-
-	if (of_property_read_bool(np, "phy-tx-polarity-swap"))
-		rtl837x_reg_bits_write(priv, RTL837X_CFG_PHY_TX_POLARITY_SWAP_ADDR,
-				 RTL837X_CFG_PHY_TX_POLARITY_SWAP_P0_TX_POLARITY_SWAP_MASK | RTL837X_CFG_PHY_TX_POLARITY_SWAP_P1_TX_POLARITY_SWAP_MASK |
-				  RTL837X_CFG_PHY_TX_POLARITY_SWAP_P2_TX_POLARITY_SWAP_MASK | RTL837X_CFG_PHY_TX_POLARITY_SWAP_P3_TX_POLARITY_SWAP_MASK,
-				 0x596A
-				); //#TX_POLARITY_SWAP
 
 	//#cfg_FWD_INVLD_MAC_CTRL_EN,cfg_FWD_UNKN_OPCODE_EN
 	rtl837x_reg_bits_write(priv, RTL837X_MAC_L2_GLOBAL_CTRL0_ADDR,
-			 RTL837X_MAC_L2_GLOBAL_CTRL0_FWD_UNKN_OPCODE_EN_MASK | RTL837X_MAC_L2_GLOBAL_CTRL0_FWD_INVLD_MAC_CTRL_EN_MASK,
+			 RTL837X_MAC_L2_GLOBAL_CTRL0_FWD_UNKN_OPCODE_EN_MASK |
+			  RTL837X_MAC_L2_GLOBAL_CTRL0_FWD_INVLD_MAC_CTRL_EN_MASK,
 			 0b11
 			);
 
 	// #RS_LINK_FAULT_INDI_OFF=1 disable link fault flag, resolve port4-port7 linkdown dsc expand issue
 	rtl837x_reg_bits_write(priv, RTL837X_RS_LAYER_CONFIG_ADDR,
-		 RTL837X_RS_LAYER_CONFIG_RS_LINK_FAULT_INDI_OFF_MASK, 1
+		 RTL837X_RS_LAYER_CONFIG_RS_LINK_FAULT_INDI_OFF_MASK,
+		 1
 		);
 
 	rtl837x_reg_bits_write(priv, RTL837X_DW8051_CFG_ADDR,
-			 RTL837X_DW8051_CFG_DW8051_READY_MASK, 1
+			 RTL837X_DW8051_CFG_DW8051_READY_MASK,
+			 1
 			);
 
-	//RTL8372/RTL8372N/RTL8366U set polling mask 0x1f8, port 3/8 from serdes need config bit8=1
-	rtl837x_reg_bits_write(priv, RTL837X_SMI_GLB_CTRL_ADDR,
-		 RTL837X_SMI_GLB_CTRL_SMI_POLLING_MASK_MASK, 0x1f8
-		);
+	ret = rtl8372n_of_setup_phy_and_serdes(priv);
+	if (ret)
+		return ret;
+
 	msleep(20);
 
 	of_extra_init(ds);

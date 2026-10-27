@@ -70,16 +70,7 @@
 /* Port MAC, link status */
 #define RTL837X_MAC_PORT_CTRL_ADDR(_p)                          (0x122C + (((_p) << 8)))
 #define   RTL837X_MAC_PORT_CTRL_BKPRES_EN_MASK                  BIT(0)
-#define RTL837X_SMI_GLB_CTRL_ADDR                               0x632C
-#define   RTL837X_SMI_GLB_CTRL_SMI_POLLING_MASK_MASK            GENMASK(20, 12)
-#define RTL837X_SMI_MAC_TYPE_CTRL_ADDR                          0x6330
-#define   RTL837X_SMI_MAC_TYPE_CTRL_MAC_PORT8_TYPE_MASK         GENMASK(17, 16)
-#define   RTL837X_SMI_MAC_TYPE_CTRL_MAC_PORT3_TYPE_MASK         GENMASK(7, 6)
-#define RTL837X_SMI_PORT_POLLING_SEL_ADDR                       0x6334
-#define   RTL837X_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL7_MASK    BIT(7)
-#define   RTL837X_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL6_MASK    BIT(6)
-#define   RTL837X_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL5_MASK    BIT(5)
-#define   RTL837X_SMI_PORT_POLLING_SEL_SMI_POLLING_SEL4_MASK    BIT(4)
+
 #define RTL837X_MAC_LINK_STS_ADDR                               0x63E8
 #define RTL837X_MAC_LINK_SPD_STS_ADDR(_p)                       (0x63F0 + (((_p >> 3) << 2)))
 #define   RTL837X_MAC_LINK_SPD_STS_SPD_STS_9_0_MASK(_p)         (GENMASK(3, 0) << ((_p & 0x7) << 2))
